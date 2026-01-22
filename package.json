@@ -1,0 +1,23 @@
+{
+	"name": "color-engine",
+	"version": "0.1.0",
+	"description": "OSRS bot color engine",
+	"license": "MIT",
+	"author": "",
+	"type": "commonjs",
+	"main": "dist/index.js",
+	"scripts": {
+		"build": "tsc",
+		"start": "node dist/index.js",
+		"dev": "ts-node src/index.ts",
+		"test": "echo \"No tests\" && exit 0"
+	},
+	"devDependencies": {
+		"@types/node": "^25.0.10",
+		"ts-node": "^10.9.2",
+		"typescript": "^5.9.3"
+	},
+	"dependencies": {
+		"@nut-tree-fork/nut-js": "^4.2.6"
+	}
+}
