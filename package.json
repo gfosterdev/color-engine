@@ -14,10 +14,12 @@
 	},
 	"devDependencies": {
 		"@types/node": "^25.0.10",
+		"@types/pngjs": "^6.0.5",
 		"ts-node": "^10.9.2",
 		"typescript": "^5.9.3"
 	},
 	"dependencies": {
-		"@nut-tree-fork/nut-js": "^4.2.6"
+		"@nut-tree-fork/nut-js": "^4.2.6",
+		"pngjs": "^7.0.0"
 	}
 }
