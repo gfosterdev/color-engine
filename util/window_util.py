@@ -8,9 +8,7 @@ from typing import Optional, Dict
 import cv2
 import numpy as np
 from PIL import ImageGrab, Image
-import pytesseract
-pytesseract.pytesseract.tesseract_cmd = r'E:\dev\libraries\TesseractOCR\tesseract.exe'
-from mouse_util import MouseMover
+from .mouse_util import MouseMover
 import random
 
 
@@ -400,84 +398,7 @@ class Window:
         print(f"Mouse position: ({rel_x}, {rel_y})")
         return True
 
-    def read_text(self, region=None, debug=False, preprocess=True, psm=7, invert=False):
-        """
-        Extract text from the captured window or a specific region.
-        Optimized for OSRS text with preprocessing options.
-        
-        Args:
-            region: Optional Region object or tuple (x, y, w, h) to specify a sub-region
-            debug: If True, save intermediate processing steps to files
-            preprocess: If True, apply preprocessing for better OCR (grayscale, contrast, threshold, upscale)
-            psm: Page segmentation mode (6=block, 7=single line, 8=single word, 10=single char)
-            invert: If True, invert the image (useful for light text on dark background)
-        Returns:
-            Extracted text as a string
-        """
-        if self.screenshot is None:
-            self.capture()
-        
-        if self.screenshot is None:
-            return ""
-        
-        if region:
-            # Handle both Region objects and tuples
-            if isinstance(region, Region):
-                x, y, w, h = region.x, region.y, region.width, region.height
-            else:
-                x, y, w, h = region
-            
-            cropped = self.screenshot[y:y+h, x:x+w]
-        else:
-            cropped = self.screenshot.copy()
-        
-        if preprocess:
-            # Convert to grayscale
-            gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
-            
-            if debug:
-                cv2.imwrite('ocr_debug_1_gray.png', gray)
-            
-            # Enhance contrast using CLAHE
-            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-            enhanced = clahe.apply(gray)
-            
-            if debug:
-                cv2.imwrite('ocr_debug_2_enhanced.png', enhanced)
-            
-            # Apply binary threshold using Otsu's method
-            _, binary = cv2.threshold(enhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            
-            if debug:
-                cv2.imwrite('ocr_debug_3_binary.png', binary)
-            
-            # Invert if requested (for light text on dark background)
-            if invert:
-                binary = cv2.bitwise_not(binary)
-                if debug:
-                    cv2.imwrite('ocr_debug_4_inverted.png', binary)
-            
-            # Upscale for better recognition
-            upscaled = cv2.resize(binary, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
-            
-            if debug:
-                cv2.imwrite('ocr_debug_5_upscaled.png', upscaled)
-            
-            # Convert to PIL Image
-            img = Image.fromarray(upscaled)
-        else:
-            # Convert BGR to RGB for PIL without preprocessing
-            img = Image.fromarray(cv2.cvtColor(cropped, cv2.COLOR_BGR2RGB))
-            
-            if debug:
-                img.save('ocr_debug_original.png')
-        
-        # Configure Tesseract with page segmentation mode
-        config = f'--psm {psm}'
-        
-        return pytesseract.image_to_string(img, config=config)
-    
-    def read_text_paddle(self, region=None, debug=False):
+    def read_text(self, region=None, debug=False):
         """
         Extract text using PaddleOCR (better for game text with colored/stylized fonts).
         PaddleOCR is more robust than Tesseract for OSRS text and requires no preprocessing.

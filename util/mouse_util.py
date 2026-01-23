@@ -174,3 +174,30 @@ class MouseMover:
             self.user32.mouse_event(0x0008, 0, 0, 0, 0)  # MOUSEEVENTF_RIGHTDOWN
             time.sleep(random.uniform(0.05, 0.12))
             self.user32.mouse_event(0x0010, 0, 0, 0, 0)  # MOUSEEVENTF_RIGHTUP
+    
+    def drag_middle_mouse(self, target_x: int, target_y: int, duration: float = 0.5, 
+                          curve_intensity: float = 1.0) -> None:
+        """
+        Hold middle mouse button and drag to target position with smooth movement.
+        Useful for camera rotation in games like OSRS.
+        
+        Args:
+            target_x: Target X coordinate
+            target_y: Target Y coordinate
+            duration: Time to complete drag in seconds (default 0.5)
+            curve_intensity: How curved the path should be (0=straight, 1=moderate, 2=very curved)
+        """
+        # Press middle mouse button down
+        self.user32.mouse_event(0x0020, 0, 0, 0, 0)  # MOUSEEVENTF_MIDDLEDOWN
+        
+        # Small delay to ensure button press registers
+        time.sleep(random.uniform(0.02, 0.05))
+        
+        # Move to target while holding button
+        self.move_to(target_x, target_y, duration, curve_intensity)
+        
+        # Small delay before releasing
+        time.sleep(random.uniform(0.02, 0.05))
+        
+        # Release middle mouse button
+        self.user32.mouse_event(0x0040, 0, 0, 0, 0)  # MOUSEEVENTF_MIDDLEUP

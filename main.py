@@ -1,6 +1,7 @@
 from time import sleep
-from window_util import Window, Region
+from util import Window, Region
 import keyboard
+from client.osrs import OSRS
 
 INTERACT_TEXT_REGION = Region(12, 28, 350, 20)  # x,y,w,h
 
@@ -31,14 +32,13 @@ def extract_text():
                 break
 
 def main():
-    window = Window()
-    window.find(title="RuneLite - xJawj", exact_match=True)
-    if window.window:
-        window.capture(debug=True)
-        text = window.read_text_paddle(INTERACT_TEXT_REGION, debug=True)
-        print(f"Extracted Text: {text}")
+    osrs = OSRS()
+    if osrs.open_bank():
+        print("Bank opened successfully.")
+    else:
+        print("Failed to open bank.")
     
 
 
 if __name__ == "__main__":
-    extract_text()
+    main()
