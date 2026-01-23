@@ -7,6 +7,7 @@ if (require.main === module) {
 			"RuneLite - George GIM",
 		);
 		console.log(window);
-		await windowService.captureWindow("runeLiteWindow");
+		await windowService.moveMouseToWindowPosition(100, 100);
+		// await windowService.captureWindow("runeLiteWindow");
 	})();
 }
