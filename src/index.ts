@@ -1,5 +1,6 @@
 import mouseService from "./services/mouseService";
 import windowService from "./services/windowService";
+import runeliteService from "./services/runeliteService";
 
 async function demonstrateMouseMovement() {
 	console.log("Moving mouse to (100, 100)...");
@@ -52,10 +53,68 @@ async function demonstrateWindowIdentification() {
 	console.log("\nWindow identification demo complete!");
 }
 
-if (require.main === module) {
-	// Run window identification demo by default
-	demonstrateWindowIdentification().catch(console.error);
+async function demonstrateRuneLiteService() {
+	console.log("\n=== RuneLite Service Demo ===\n");
 
-	// Uncomment to run mouse demo instead:
+	// Find the RuneLite window
+	console.log("Finding RuneLite window...");
+	const window = await runeliteService.findWindow();
+
+	if (!window) {
+		console.log(
+			"RuneLite window not found! Make sure RuneLite is running.",
+		);
+		return;
+	}
+
+	console.log(`Found: "${window.title}"`);
+
+	// Get window info
+	const dimensions = await runeliteService.getWindowDimensions();
+	const position = await runeliteService.getWindowPosition();
+	console.log(`Position: (${position?.x}, ${position?.y})`);
+	console.log(`Size: ${dimensions?.width}x${dimensions?.height}\n`);
+
+	// Move to specific relative coordinates
+	console.log("Moving to (100, 100) relative to window...");
+	await runeliteService.moveToRelative(100, 100);
+	await new Promise((resolve) => setTimeout(resolve, 800));
+
+	// Move using percentages
+	console.log("Moving to 50%, 50% of window (center-ish)...");
+	await runeliteService.moveToPercent(50, 50);
+	await new Promise((resolve) => setTimeout(resolve, 800));
+
+	// Move to specific coordinates
+	console.log("Moving to (200, 150) relative to window...");
+	await runeliteService.moveToRelative(200, 150);
+	await new Promise((resolve) => setTimeout(resolve, 800));
+
+	// Move to another position
+	console.log("Moving to (300, 250) relative to window...");
+	await runeliteService.moveToRelative(300, 250);
+	await new Promise((resolve) => setTimeout(resolve, 800));
+
+	// Get current relative mouse position
+	const relativePos = await runeliteService.getRelativeMousePosition();
+	if (relativePos) {
+		console.log(
+			`\nCurrent relative mouse position: (${relativePos.x}, ${relativePos.y})`,
+		);
+	}
+
+	// Check if mouse is in window
+	const isInWindow = await runeliteService.isMouseInWindow();
+	console.log(`Mouse is in RuneLite window: ${isInWindow}`);
+
+	console.log("\nRuneLite service demo complete!");
+}
+
+if (require.main === module) {
+	// Run RuneLite service demo by default
+	demonstrateRuneLiteService().catch(console.error);
+
+	// Uncomment to run other demos:
+	// demonstrateWindowIdentification().catch(console.error);
 	// demonstrateMouseMovement().catch(console.error);
 }

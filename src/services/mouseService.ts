@@ -137,6 +137,13 @@ export async function doubleClick(button: Button = Button.LEFT): Promise<void> {
 }
 
 /**
+ * Right-click at current position
+ */
+export async function rightClick(): Promise<void> {
+	await mouse.click(Button.RIGHT);
+}
+
+/**
  * Press and hold mouse button
  */
 export async function pressButton(button: Button = Button.LEFT): Promise<void> {
@@ -166,6 +173,7 @@ export default {
 	click,
 	clickAt,
 	doubleClick,
+	rightClick,
 	pressButton,
 	releaseButton,
 	drag,
