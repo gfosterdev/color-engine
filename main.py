@@ -1,10 +1,12 @@
-from window_finder import find_window
+from window_util import Window
 
 def main():
-    window = find_window("RuneLite", exact_match=False)
-    if window:
-        print(f"Window found: {window}")
-        print(f"dimensions: {window['width']}x{window['height']} at ({window['x']}, {window['y']})")
+    window = Window()
+    window.find(title="RuneLite", exact_match=False)
+    window.capture(debug=True)
+    if window.window:
+        print(f"Window found: {window.window}")
+        print(f"dimensions: {window.window['width']}x{window.window['height']} at ({window.window['x']}, {window.window['y']})")
 
 
 if __name__ == "__main__":
