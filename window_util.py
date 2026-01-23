@@ -9,13 +9,14 @@ import random
 
 
 class Region:
-    """Helper class for storing and working with rectangular regions."""
+    """Helper class for storing and working with regions (can be non-rectangular shapes)."""
     
-    def __init__(self, x: int, y: int, width: int, height: int):
+    def __init__(self, x: int, y: int, width: int, height: int, mask: Optional[np.ndarray] = None):
         self.x = x
         self.y = y
         self.width = width
         self.height = height
+        self.mask = mask  # Binary mask of filled shape within bounding box
     
     @classmethod
     def from_dict(cls, data: Dict) -> 'Region':
@@ -34,25 +35,61 @@ class Region:
     def center(self) -> tuple[int, int]:
         """
         Get the center point of the region.
+        If mask exists, returns centroid of filled shape.
         
         Returns:
             Tuple of (x, y) coordinates at the center
         """
+        if self.mask is not None:
+            # Calculate centroid of the filled shape
+            moments = cv2.moments(self.mask)
+            if moments['m00'] != 0:
+                cx = int(moments['m10'] / moments['m00'])
+                cy = int(moments['m01'] / moments['m00'])
+                return (self.x + cx, self.y + cy)
+        
         return (self.x + self.width // 2, self.y + self.height // 2)
     
     def random_point(self) -> tuple[int, int]:
         """
         Get a random point within the inner 80% of the region.
+        If mask exists, ensures point is within filled shape.
         This creates a 10% margin on all sides for more natural clicking.
         
         Returns:
             Tuple of (x, y) coordinates at a random position within the inner 80%
         """
-        # Calculate 10% margin on each side
+        if self.mask is not None:
+            # Get all filled coordinates from the mask
+            valid_coords = cv2.findNonZero(self.mask)
+            
+            if valid_coords is not None and len(valid_coords) > 0:
+                # Flatten to (N, 2) array
+                valid_coords = valid_coords.reshape(-1, 2)
+                
+                # Calculate 10% margin - filter to inner 80%
+                margin_x = int(self.width * 0.1)
+                margin_y = int(self.height * 0.1)
+                
+                # Filter to inner region
+                inner_coords = valid_coords[
+                    (valid_coords[:, 0] >= margin_x) & 
+                    (valid_coords[:, 0] < self.width - margin_x) &
+                    (valid_coords[:, 1] >= margin_y) & 
+                    (valid_coords[:, 1] < self.height - margin_y)
+                ]
+                
+                # Use inner coords if available, otherwise use all valid coords
+                coords_to_use = inner_coords if len(inner_coords) > 0 else valid_coords
+                
+                # Pick random coordinate
+                idx = random.randint(0, len(coords_to_use) - 1)
+                rel_x, rel_y = coords_to_use[idx]
+                return (self.x + int(rel_x), self.y + int(rel_y))
+        
+        # Fallback to simple random point if no mask
         margin_x = int(self.width * 0.1)
         margin_y = int(self.height * 0.1)
-        
-        # Ensure we have at least 1 pixel to work with
         inner_width = max(1, self.width - 2 * margin_x)
         inner_height = max(1, self.height - 2 * margin_y)
         
@@ -63,16 +100,31 @@ class Region:
     def contains(self, x: int, y: int) -> bool:
         """
         Check if a point is within the region.
+        If mask exists, checks if point is within filled shape.
         
         Args:
             x: X coordinate to check
             y: Y coordinate to check
             
         Returns:
-            True if point is within bounds, False otherwise
+            True if point is within bounds (and filled shape if mask exists), False otherwise
         """
-        return (self.x <= x < self.x + self.width and 
-                self.y <= y < self.y + self.height)
+        # Check bounding box first
+        if not (self.x <= x < self.x + self.width and 
+                self.y <= y < self.y + self.height):
+            return False
+        
+        # If mask exists, check if point is within filled shape
+        if self.mask is not None:
+            mask_x = x - self.x
+            mask_y = y - self.y
+            
+            if (0 <= mask_x < self.mask.shape[1] and 
+                0 <= mask_y < self.mask.shape[0]):
+                return self.mask[mask_y, mask_x] > 0
+            return False
+        
+        return True
     
     def __repr__(self) -> str:
         return f"Region(x={self.x}, y={self.y}, width={self.width}, height={self.height})"
@@ -260,13 +312,24 @@ class Window:
         # Get bounding rectangle
         x, y, w, h = cv2.boundingRect(largest_contour)
         
+        # Create filled mask using fillPoly
+        filled_mask = np.zeros((h, w), dtype=np.uint8)
+        # Offset contour to bounding box coordinates
+        contour_offset = largest_contour - [x, y]
+        cv2.fillPoly(filled_mask, [contour_offset], 255)
+        
         if debug:
             debug_img = self.screenshot.copy()
             cv2.rectangle(debug_img, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            # Draw filled contour in blue with transparency
+            overlay = debug_img.copy()
+            cv2.fillPoly(overlay, [largest_contour], (255, 0, 0))
+            cv2.addWeighted(overlay, 0.3, debug_img, 0.7, 0, debug_img)
             cv2.imwrite('color_region_debug.png', debug_img)
             print(f"Found color region at ({x}, {y}) with size {w}x{h}")
+            print(f"Filled mask has {cv2.countNonZero(filled_mask)} valid pixels")
         
-        return Region(int(x), int(y), int(w), int(h))
+        return Region(int(x), int(y), int(w), int(h), filled_mask)
     
     def move_mouse_to(self, coords: tuple[int, int], duration: float = 0.5, 
                       curve_intensity: float = 1.0) -> bool:
