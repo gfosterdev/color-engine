@@ -97,3 +97,42 @@ class Window:
         if debug and self.screenshot:
             self.screenshot.save('screenshot.png')
         return self.screenshot
+    
+    def find_color(self, rgb: tuple, tolerance: int = 0) -> Optional[tuple]:
+        """
+        Find the first occurrence of an RGB color in the saved screenshot.
+        
+        Args:
+            rgb: Tuple of (R, G, B) values to search for (0-255 each)
+            tolerance: Color matching tolerance (0 = exact match, higher = more lenient)
+            
+        Returns:
+            Tuple of (x, y) coordinates relative to window if found, None otherwise
+        """
+        if not self.screenshot:
+            return None
+        
+        pixels = self.screenshot.load()
+        if not pixels:
+            return None
+            
+        width, height = self.screenshot.size
+        
+        for y in range(height):
+            for x in range(width):
+                pixel = pixels[x, y]
+                # Handle both RGB and RGBA
+                if isinstance(pixel, tuple):
+                    pixel_rgb = pixel[:3] if len(pixel) >= 3 else pixel
+                else:
+                    continue  # Skip non-tuple pixels
+                
+                # Check if color matches within tolerance
+                if tolerance == 0:
+                    if pixel_rgb == rgb:
+                        return (x, y)
+                else:
+                    if all(abs(pixel_rgb[i] - rgb[i]) <= tolerance for i in range(3)):
+                        return (x, y)
+        
+        return None
