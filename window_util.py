@@ -5,6 +5,77 @@ import cv2
 import numpy as np
 from PIL import ImageGrab
 from mouse_util import MouseMover
+import random
+
+
+class Region:
+    """Helper class for storing and working with rectangular regions."""
+    
+    def __init__(self, x: int, y: int, width: int, height: int):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+    
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'Region':
+        """Create a Region from a dictionary with x, y, width, height keys."""
+        return cls(data['x'], data['y'], data['width'], data['height'])
+    
+    def to_dict(self) -> Dict:
+        """Convert Region to dictionary."""
+        return {
+            'x': self.x,
+            'y': self.y,
+            'width': self.width,
+            'height': self.height
+        }
+    
+    def center(self) -> tuple[int, int]:
+        """
+        Get the center point of the region.
+        
+        Returns:
+            Tuple of (x, y) coordinates at the center
+        """
+        return (self.x + self.width // 2, self.y + self.height // 2)
+    
+    def random_point(self) -> tuple[int, int]:
+        """
+        Get a random point within the inner 80% of the region.
+        This creates a 10% margin on all sides for more natural clicking.
+        
+        Returns:
+            Tuple of (x, y) coordinates at a random position within the inner 80%
+        """
+        # Calculate 10% margin on each side
+        margin_x = int(self.width * 0.1)
+        margin_y = int(self.height * 0.1)
+        
+        # Ensure we have at least 1 pixel to work with
+        inner_width = max(1, self.width - 2 * margin_x)
+        inner_height = max(1, self.height - 2 * margin_y)
+        
+        rand_x = self.x + margin_x + random.randint(0, inner_width - 1)
+        rand_y = self.y + margin_y + random.randint(0, inner_height - 1)
+        return (rand_x, rand_y)
+    
+    def contains(self, x: int, y: int) -> bool:
+        """
+        Check if a point is within the region.
+        
+        Args:
+            x: X coordinate to check
+            y: Y coordinate to check
+            
+        Returns:
+            True if point is within bounds, False otherwise
+        """
+        return (self.x <= x < self.x + self.width and 
+                self.y <= y < self.y + self.height)
+    
+    def __repr__(self) -> str:
+        return f"Region(x={self.x}, y={self.y}, width={self.width}, height={self.height})"
 
 
 class Window:
@@ -150,6 +221,52 @@ class Window:
         if debug:
             print("Color not found in image")
         return None
+    
+    def find_color_region(self, rgb: tuple, tolerance: int = 0, debug: bool = False) -> Optional[Region]:
+        """
+        Find a block of color and return its bounding box as a Region.
+        
+        Args:
+            rgb: Tuple of (R, G, B) values to search for (0-255 each)
+            tolerance: Color matching tolerance (0 = exact match, higher = more lenient)
+            debug: If True, save a debug image showing the detected region
+            
+        Returns:
+            Region object with x, y, width, height of the color block, None if not found
+        """
+        if self.screenshot is None:
+            return None
+        
+        # Convert RGB to BGR for OpenCV
+        bgr = (rgb[2], rgb[1], rgb[0])
+        
+        if tolerance == 0:
+            bgr_array = np.array(bgr, dtype=np.uint8)
+            mask = cv2.inRange(self.screenshot, bgr_array, bgr_array)
+        else:
+            lower = np.array([max(0, bgr[i] - tolerance) for i in range(3)], dtype=np.uint8)
+            upper = np.array([min(255, bgr[i] + tolerance) for i in range(3)], dtype=np.uint8)
+            mask = cv2.inRange(self.screenshot, lower, upper)
+        
+        # Find contours
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        if not contours:
+            return None
+        
+        # Get the largest contour
+        largest_contour = max(contours, key=cv2.contourArea)
+        
+        # Get bounding rectangle
+        x, y, w, h = cv2.boundingRect(largest_contour)
+        
+        if debug:
+            debug_img = self.screenshot.copy()
+            cv2.rectangle(debug_img, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            cv2.imwrite('color_region_debug.png', debug_img)
+            print(f"Found color region at ({x}, {y}) with size {w}x{h}")
+        
+        return Region(int(x), int(y), int(w), int(h))
     
     def move_mouse_to(self, coords: tuple[int, int], duration: float = 0.5, 
                       curve_intensity: float = 1.0) -> bool:
