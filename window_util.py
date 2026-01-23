@@ -54,7 +54,7 @@ class Region:
         """
         Get a random point within the inner 80% of the region.
         If mask exists, ensures point is within filled shape.
-        This creates a 10% margin on all sides for more natural clicking.
+        This creates a 10% margin based on the actual shape extent for more natural clicking.
         
         Returns:
             Tuple of (x, y) coordinates at a random position within the inner 80%
@@ -67,16 +67,25 @@ class Region:
                 # Flatten to (N, 2) array
                 valid_coords = valid_coords.reshape(-1, 2)
                 
-                # Calculate 10% margin - filter to inner 80%
-                margin_x = int(self.width * 0.1)
-                margin_y = int(self.height * 0.1)
+                # Calculate actual extent of the shape (not bounding box)
+                min_x = valid_coords[:, 0].min()
+                max_x = valid_coords[:, 0].max()
+                min_y = valid_coords[:, 1].min()
+                max_y = valid_coords[:, 1].max()
                 
-                # Filter to inner region
+                shape_width = max_x - min_x
+                shape_height = max_y - min_y
+                
+                # Calculate 10% margin based on shape extent
+                margin_x = int(shape_width * 0.1)
+                margin_y = int(shape_height * 0.1)
+                
+                # Filter to inner 80% of the actual shape
                 inner_coords = valid_coords[
-                    (valid_coords[:, 0] >= margin_x) & 
-                    (valid_coords[:, 0] < self.width - margin_x) &
-                    (valid_coords[:, 1] >= margin_y) & 
-                    (valid_coords[:, 1] < self.height - margin_y)
+                    (valid_coords[:, 0] >= min_x + margin_x) & 
+                    (valid_coords[:, 0] <= max_x - margin_x) &
+                    (valid_coords[:, 1] >= min_y + margin_y) & 
+                    (valid_coords[:, 1] <= max_y - margin_y)
                 ]
                 
                 # Use inner coords if available, otherwise use all valid coords
