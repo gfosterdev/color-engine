@@ -238,51 +238,6 @@ class Window:
         
         return self.screenshot
     
-    def find_color(self, rgb: tuple, tolerance: int = 0, debug: bool = False) -> Optional[tuple]:
-        """
-        Find the first occurrence of an RGB color in the saved screenshot using OpenCV.
-        
-        Args:
-            rgb: Tuple of (R, G, B) values to search for (0-255 each)
-            tolerance: Color matching tolerance (0 = exact match, higher = more lenient)
-            debug: If True, print debug information about pixels being checked
-            
-        Returns:
-            Tuple of (x, y) coordinates relative to window if found, None otherwise
-        """
-        if self.screenshot is None:
-            return None
-        
-        height, width = self.screenshot.shape[:2]
-        
-        # Convert RGB to BGR for OpenCV
-        bgr = (rgb[2], rgb[1], rgb[0])
-        
-        if tolerance == 0:
-            # Exact match using OpenCV - convert tuple to numpy array
-            bgr_array = np.array(bgr, dtype=np.uint8)
-            mask = cv2.inRange(self.screenshot, bgr_array, bgr_array)
-        else:
-            # Match with tolerance
-            lower = np.array([max(0, bgr[i] - tolerance) for i in range(3)], dtype=np.uint8)
-            upper = np.array([min(255, bgr[i] + tolerance) for i in range(3)], dtype=np.uint8)
-            mask = cv2.inRange(self.screenshot, lower, upper)
-        
-        # Find first non-zero pixel in mask
-        coords = cv2.findNonZero(mask)
-        
-        if coords is not None and len(coords) > 0:
-            x, y = coords[0][0]
-            if debug:
-                pixel_bgr = self.screenshot[y, x]
-                pixel_rgb = (pixel_bgr[2], pixel_bgr[1], pixel_bgr[0])
-                print(f"Found match at ({x}, {y}): RGB {pixel_rgb}")
-            return (int(x), int(y))
-        
-        if debug:
-            print("Color not found in image")
-        return None
-    
     def find_color_region(self, rgb: tuple, tolerance: int = 0, debug: bool = False) -> Optional[Region]:
         """
         Find a block of color and return its bounding box as a Region.

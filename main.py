@@ -13,7 +13,7 @@ def main():
             print(f"Found color at: {found}")
             print(f"Moving mouse to: {found.center()}")
             window.move_mouse_to(found.center())
-            for i in range(25):
+            for i in range(5):
                 sleep(0.2)
                 window.move_mouse_to(found.random_point())
         else:
