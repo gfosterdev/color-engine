@@ -3,7 +3,9 @@ from ctypes import wintypes
 from typing import Optional, Dict
 import cv2
 import numpy as np
-from PIL import ImageGrab
+from PIL import ImageGrab, Image
+import pytesseract
+pytesseract.pytesseract.tesseract_cmd = r'E:\dev\libraries\TesseractOCR\tesseract.exe'
 from mouse_util import MouseMover
 import random
 
@@ -280,7 +282,7 @@ class Window:
         filled_mask = np.zeros((h, w), dtype=np.uint8)
         # Offset contour to bounding box coordinates
         contour_offset = largest_contour - [x, y]
-        cv2.fillPoly(filled_mask, [contour_offset], 255)
+        cv2.fillPoly(filled_mask, [contour_offset], (255,))
         
         if debug:
             debug_img = self.screenshot.copy()
@@ -373,3 +375,146 @@ class Window:
         
         # Convert BGR to RGB
         return (int(pixel_bgr[2]), int(pixel_bgr[1]), int(pixel_bgr[0]))
+
+    def print_mouse_position(self) -> bool:
+        """
+        Print the current mouse position relative to the window.
+        
+        Returns:
+            True if successful, False if no window found
+        """
+        if not self.window:
+            return False
+        
+        # Get current mouse position
+        mouse_x, mouse_y = self.mouse.get_position()
+        
+        # Convert screen coordinates to window-relative coordinates
+        rel_x = mouse_x - self.window['x']
+        rel_y = mouse_y - self.window['y']
+        
+        print(f"Mouse position: ({rel_x}, {rel_y})")
+        return True
+
+    def read_text(self, region=None, debug=False, preprocess=True, psm=7, invert=False):
+        """
+        Extract text from the captured window or a specific region.
+        Optimized for OSRS text with preprocessing options.
+        
+        Args:
+            region: Optional Region object or tuple (x, y, w, h) to specify a sub-region
+            debug: If True, save intermediate processing steps to files
+            preprocess: If True, apply preprocessing for better OCR (grayscale, contrast, threshold, upscale)
+            psm: Page segmentation mode (6=block, 7=single line, 8=single word, 10=single char)
+            invert: If True, invert the image (useful for light text on dark background)
+        Returns:
+            Extracted text as a string
+        """
+        if self.screenshot is None:
+            self.capture()
+        
+        if self.screenshot is None:
+            return ""
+        
+        if region:
+            # Handle both Region objects and tuples
+            if isinstance(region, Region):
+                x, y, w, h = region.x, region.y, region.width, region.height
+            else:
+                x, y, w, h = region
+            
+            cropped = self.screenshot[y:y+h, x:x+w]
+        else:
+            cropped = self.screenshot.copy()
+        
+        if preprocess:
+            # Convert to grayscale
+            gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
+            
+            if debug:
+                cv2.imwrite('ocr_debug_1_gray.png', gray)
+            
+            # Enhance contrast using CLAHE
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            enhanced = clahe.apply(gray)
+            
+            if debug:
+                cv2.imwrite('ocr_debug_2_enhanced.png', enhanced)
+            
+            # Apply binary threshold using Otsu's method
+            _, binary = cv2.threshold(enhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            
+            if debug:
+                cv2.imwrite('ocr_debug_3_binary.png', binary)
+            
+            # Invert if requested (for light text on dark background)
+            if invert:
+                binary = cv2.bitwise_not(binary)
+                if debug:
+                    cv2.imwrite('ocr_debug_4_inverted.png', binary)
+            
+            # Upscale for better recognition
+            upscaled = cv2.resize(binary, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+            
+            if debug:
+                cv2.imwrite('ocr_debug_5_upscaled.png', upscaled)
+            
+            # Convert to PIL Image
+            img = Image.fromarray(upscaled)
+        else:
+            # Convert BGR to RGB for PIL without preprocessing
+            img = Image.fromarray(cv2.cvtColor(cropped, cv2.COLOR_BGR2RGB))
+            
+            if debug:
+                img.save('ocr_debug_original.png')
+        
+        # Configure Tesseract with page segmentation mode
+        config = f'--psm {psm}'
+        
+        return pytesseract.image_to_string(img, config=config)
+    
+    def read_text_paddle(self, region=None, debug=False):
+        """
+        Extract text using PaddleOCR (better for game text with colored/stylized fonts).
+        PaddleOCR is more robust than Tesseract for OSRS text and requires no preprocessing.
+        
+        Args:
+            region: Optional Region object or tuple (x, y, w, h) to specify a sub-region
+            debug: If True, save the input image to 'paddle_debug_input.png'
+        Returns:
+            Extracted text as a string
+        """
+        if self.screenshot is None:
+            self.capture()
+        
+        if self.screenshot is None:
+            return ""
+        
+        if region:
+            # Handle both Region objects and tuples
+            if isinstance(region, Region):
+                x, y, w, h = region.x, region.y, region.width, region.height
+            else:
+                x, y, w, h = region
+            cropped = self.screenshot[y:y+h, x:x+w]
+        else:
+            cropped = self.screenshot.copy()
+        
+        # PaddleOCR works with BGR (OpenCV format) directly
+        if debug:
+            cv2.imwrite('paddle_debug_input.png', cropped)
+        
+        # Initialize PaddleOCR if not already done (lazy loading)
+        if not hasattr(self, 'paddle_ocr'):
+            from paddleocr import PaddleOCR
+            self.paddle_ocr = PaddleOCR(use_angle_cls=True, lang='en')
+        
+        # Run OCR using predict (updated API)
+        result = self.paddle_ocr.predict(cropped)
+        
+        # Extract all text
+        if result and result[0]:
+            texts = [line[1][0] for line in result[0]]
+            return ' '.join(texts)
+        
+        return ""
