@@ -5,6 +5,7 @@ import {
 	Image,
 	mouse,
 	Point,
+	saveImage,
 } from "@nut-tree-fork/nut-js";
 import * as path from "path";
 import * as mouseService from "./mouseService";
@@ -15,6 +16,17 @@ export interface WindowInfo {
 	y: number;
 	width: number;
 	height: number;
+}
+
+export interface ColorMatch {
+	x: number;
+	y: number;
+}
+
+export interface RGBColor {
+	r: number;
+	g: number;
+	b: number;
 }
 
 export class WindowService {
@@ -106,7 +118,7 @@ export class WindowService {
 	 * Captures a screenshot of the stored window and holds it in memory
 	 * @returns The captured Image object, or null if no window is stored
 	 */
-	async captureWindowToMemory(): Promise<Image | null> {
+	async captureWindowToMemory(debug: boolean = false): Promise<Image | null> {
 		if (!this.foundWindow) {
 			console.error("No window stored. Call findWindowByTitle first.");
 			return null;
@@ -121,6 +133,12 @@ export class WindowService {
 			);
 
 			this.capturedImage = await screen.grabRegion(windowRegion);
+			if (debug) {
+				const projectRoot = path.resolve(__dirname, "../..");
+				const debugPath = path.join(projectRoot, "debug-capture.png");
+				await saveImage({ image: this.capturedImage, path: debugPath });
+				console.log(`Debug screenshot saved to: ${debugPath}`);
+			}
 			console.log(
 				`Screenshot captured to memory: ${this.capturedImage.width}x${this.capturedImage.height}`,
 			);
@@ -178,6 +196,59 @@ export class WindowService {
 		} catch (error) {
 			console.error("Error moving mouse:", error);
 			return false;
+		}
+	}
+
+	/**
+	 * Finds all positions of a specific color in the stored window capture
+	 * @param targetColor - RGB color to search for
+	 * @param tolerance - Color matching tolerance (0-255, default 0 for exact match)
+	 * @returns Array of coordinates where the color was found (relative to window)
+	 */
+	findColourInCapture(
+		targetColor: RGBColor,
+		tolerance: number = 0,
+	): ColorMatch[] {
+		if (!this.capturedImage) {
+			console.error(
+				"No image captured. Call captureWindowToMemory first.",
+			);
+			return [];
+		}
+
+		try {
+			const matches: ColorMatch[] = [];
+			const { width, height, data, channels } = this.capturedImage;
+
+			// Iterate through each pixel
+			for (let y = 0; y < height; y++) {
+				for (let x = 0; x < width; x++) {
+					// Calculate pixel position in buffer
+					// Note: nutjs uses BGR format by default
+					const idx = (y * width + x) * channels;
+
+					const b = data[idx];
+					const g = data[idx + 1];
+					const r = data[idx + 2];
+
+					// Check if color matches within tolerance
+					if (
+						Math.abs(r - targetColor.r) <= tolerance &&
+						Math.abs(g - targetColor.g) <= tolerance &&
+						Math.abs(b - targetColor.b) <= tolerance
+					) {
+						matches.push({ x, y });
+					}
+				}
+			}
+
+			console.log(
+				`Found ${matches.length} matches for color RGB(${targetColor.r}, ${targetColor.g}, ${targetColor.b})`,
+			);
+			return matches;
+		} catch (error) {
+			console.error("Error detecting color in capture:", error);
+			return [];
 		}
 	}
 }

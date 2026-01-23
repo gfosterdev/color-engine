@@ -7,7 +7,17 @@ if (require.main === module) {
 			"RuneLite - George GIM",
 		);
 		console.log(window);
-		await windowService.moveMouseToWindowPosition(100, 100);
+		// await windowService.moveMouseToWindowPosition(100, 100);
+		await windowService.captureWindowToMemory(true);
+		const matches = await windowService.findColourInCapture(
+			{
+				r: 220,
+				g: 224,
+				b: 28,
+			},
+			20,
+		);
+		console.log(matches);
 		// await windowService.captureWindow("runeLiteWindow");
 	})();
 }
