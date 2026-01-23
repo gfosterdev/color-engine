@@ -1,3 +1,7 @@
+import os
+# Set environment variable before any PaddlePaddle imports to disable OneDNN
+os.environ['PADDLE_DISABLE_ONEDNN'] = '1'
+
 import ctypes
 from ctypes import wintypes
 from typing import Optional, Dict
@@ -484,8 +488,7 @@ class Window:
         Returns:
             Extracted text as a string
         """
-        if self.screenshot is None:
-            self.capture()
+        self.capture()
         
         if self.screenshot is None:
             return ""
@@ -507,10 +510,10 @@ class Window:
         # Initialize PaddleOCR if not already done (lazy loading)
         if not hasattr(self, 'paddle_ocr'):
             from paddleocr import PaddleOCR
-            self.paddle_ocr = PaddleOCR(use_angle_cls=True, lang='en')
+            self.paddle_ocr = PaddleOCR(use_angle_cls=True, lang='en', show_log=False)
         
-        # Run OCR using predict (updated API)
-        result = self.paddle_ocr.predict(cropped)
+        # Run OCR (v2.x API uses ocr method)
+        result = self.paddle_ocr.ocr(cropped, cls=True)
         
         # Extract all text
         if result and result[0]:

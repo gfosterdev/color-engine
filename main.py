@@ -16,6 +16,19 @@ def extract_region():
                 print("Exiting...")
                 break
 
+def extract_text():
+    window = Window()
+    window.find(title="RuneLite - xJawj", exact_match=True)
+    if window.window:
+        while True:
+            if keyboard.is_pressed('space'):
+                window.capture()
+                text = window.read_text_paddle(INTERACT_TEXT_REGION, debug=True)
+                print(f"Extracted Text: {text}")
+                sleep(0.2)  # Small delay to avoid multiple triggers
+            elif keyboard.is_pressed('esc'):
+                print("Exiting...")
+                break
 
 def main():
     window = Window()
@@ -28,4 +41,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    extract_text()
