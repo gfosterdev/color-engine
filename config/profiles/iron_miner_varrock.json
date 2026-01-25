@@ -1,0 +1,45 @@
+{
+	"profile_name": "iron_miner_varrock",
+	"window": {
+		"title": "RuneLite - xJawj",
+		"exact_match": true,
+		"client_mode": "fixed"
+	},
+	"mouse": {
+		"speed_min": 0.5,
+		"speed_max": 1.2,
+		"click_delay_min": 0.05,
+		"click_delay_max": 0.15,
+		"hold_time_min": 0.05,
+		"hold_time_max": 0.12,
+		"randomize_trajectory": true
+	},
+	"breaks": {
+		"enabled": true,
+		"frequency_min": 30,
+		"frequency_max": 90,
+		"duration_min": 5,
+		"duration_max": 20,
+		"randomize": true
+	},
+	"anti_ban": {
+		"enabled": true,
+		"idle_actions": true,
+		"camera_movements": true,
+		"tab_switching": true,
+		"random_misclicks": false,
+		"fatigue_simulation": true,
+		"attention_shifts": true,
+		"idle_frequency_min": 10.0,
+		"idle_frequency_max": 45.0
+	},
+	"skill_settings": {
+		"skill": "mining",
+		"ore_type": "iron_ore",
+		"banking": true,
+		"powermine": false,
+		"location": "varrock_west",
+		"rocks": ["iron_ore"],
+		"bank_location": "varrock_west_bank"
+	}
+}
