@@ -12,17 +12,27 @@ class OSRS:
         self.window.find(title="RuneLite - xJawj", exact_match=True)
     
     def open_bank(self):
+        print("Attempting to open bank...")
         if self.window.window:
             self.window.capture()
-            found = self.window.find_color_region(BANK)
+            found = self.window.find_color_region(BANK, debug=True)
             if found:
+                print("Bank color found, moving mouse to it...")
                 self.window.move_mouse_to(found.random_point())
                 if self.validate_interact_text("Bank"):
-                    print("CLICK")
+                    self.window.click()
                     return True
             else:
                 print("Bank color not found on screen.")
         return False
+
+    def find_bank(self):
+        if self.window.window:
+            self.window.capture()
+            found = self.window.search(rgb=BANK, debug=True, rotation_amount=300)
+            if found:
+                return found.random_point()
+        return None
 
     def validate_interact_text(self, expected_text):
         if self.window.window:

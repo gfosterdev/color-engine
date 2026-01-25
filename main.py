@@ -33,10 +33,11 @@ def extract_text():
 
 def main():
     osrs = OSRS()
-    if osrs.open_bank():
-        print("Bank opened successfully.")
+    if osrs.find_bank():
+        print("Bank found successfully.")
+        osrs.open_bank()
     else:
-        print("Failed to open bank.")
+        print("Failed to find bank.")
     
 
 

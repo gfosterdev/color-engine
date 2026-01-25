@@ -2,6 +2,7 @@ import os
 # Set environment variable before any PaddlePaddle imports to disable OneDNN
 os.environ['PADDLE_DISABLE_ONEDNN'] = '1'
 
+from time import sleep
 import ctypes
 from ctypes import wintypes
 from typing import Optional, Dict
@@ -10,6 +11,7 @@ import numpy as np
 from PIL import ImageGrab, Image
 from .mouse_util import MouseMover
 import random
+import math
 
 
 class Region:
@@ -145,6 +147,13 @@ class Region:
 
 class Window:
     """Find and interact with a window by title."""
+
+    # Constants
+    GAME_AREA = Region(20, 35, 500, 320)  # x,y,w,h
+    ROTATE_DURATION_MIN = 0.2
+    ROTATE_DURATION_MAX = 0.5
+    ROTATE_CURVE_INTENSITY_MIN = 0.3
+    ROTATE_CURVE_INTENSITY_MAX = 0.7
     
     def __init__(self):
         self.user32 = ctypes.windll.user32
@@ -348,6 +357,16 @@ class Window:
         self.mouse.click(screen_x, screen_y, duration, button)
         return True
     
+    def click(self) -> bool:
+        """
+        Click at the current mouse position.
+        """
+        if not self.window:
+            return False
+
+        self.mouse.click()
+        return True
+
     def get_color_at_mouse(self) -> Optional[tuple]:
         """
         Get the RGB color at the current mouse position using OpenCV.
@@ -442,3 +461,156 @@ class Window:
             return ' '.join(texts)
         
         return ""
+    
+    def search(self, rgb: tuple, tolerance: int = 0, rotation_amount: int = 100, 
+               max_attempts: int = 8, debug: bool = False) -> Optional[Region]:
+        """
+        Search for a color by rotating the camera until found.
+        Useful for finding objects in the game world when they may not be visible initially.
+        
+        Args:
+            rgb: Tuple of (R, G, B) values to search for (0-255 each)
+            tolerance: Color matching tolerance (0 = exact match, higher = more lenient)
+            rotation_amount: Minimum drag distance in pixels for camera rotation (default 100)
+            max_attempts: Maximum number of camera rotations before giving up (default 8)
+            debug: If True, save debug images for each attempt
+            
+        Returns:
+            Region object if color found, None if not found after max_attempts
+        """
+        if not self.window:
+            return None
+        
+        for attempt in range(max_attempts):
+            # Capture current screen
+            self.capture(debug=debug)
+            
+            # Try to find the color
+            found = self.find_color_region(rgb, tolerance=tolerance, debug=debug)
+            
+            if found:
+                if debug:
+                    print(f"Found color on attempt {attempt + 1}")
+                return found
+            
+            # Not found, rotate camera
+            if debug:
+                print(f"Attempt {attempt + 1}/{max_attempts}: Color not found, rotating camera...")
+            
+            # Rotate camera using rotate_camera method
+            self.rotate_camera(rotation_amount)
+            
+            # Small delay to let camera settle
+            sleep(0.1)
+        
+        if debug:
+            print(f"Color not found after {max_attempts} attempts")
+        
+        return None
+
+    def rotate_camera(self, min_drag_distance: int) -> bool:
+        """
+        Rotate camera by dragging middle mouse from a random point in any random direction.
+        The drag distance is at least min_drag_distance pixels, and the end point stays within the GAME_AREA.
+        Duration and curve_intensity are randomized within class-defined bounds for natural movement.
+        
+        Args:
+            min_drag_distance: Minimum drag distance in pixels
+            
+        Returns:
+            True if successful, False if no window found or invalid parameters
+        """
+        if not self.window:
+            return False
+        
+        if min_drag_distance <= 0:
+            return False
+        
+        # Randomize duration and curve intensity for natural movement
+        duration = random.uniform(self.ROTATE_DURATION_MIN, self.ROTATE_DURATION_MAX)
+        curve_intensity = random.uniform(self.ROTATE_CURVE_INTENSITY_MIN, self.ROTATE_CURVE_INTENSITY_MAX)
+        
+        # Use GAME_AREA bounds for camera rotation
+        game_area = self.GAME_AREA
+        min_x = game_area.x
+        min_y = game_area.y
+        max_x = game_area.x + game_area.width - 1
+        max_y = game_area.y + game_area.height - 1
+        
+        # Try to find a valid start/end point combination
+        max_tries = 100
+        for _ in range(max_tries):
+            # Pick a random starting point within GAME_AREA
+            start_x = random.randint(min_x, max_x)
+            start_y = random.randint(min_y, max_y)
+            
+            # Pick a random angle (0-360 degrees)
+            angle = random.uniform(0, 2 * math.pi)
+            
+            # Calculate end point based on angle and min distance
+            # Try with the minimum distance first
+            drag_distance = min_drag_distance
+            
+            # Calculate potential end point
+            end_x = start_x + int(drag_distance * math.cos(angle))
+            end_y = start_y + int(drag_distance * math.sin(angle))
+            
+            # Check if end point is within GAME_AREA bounds
+            if min_x <= end_x <= max_x and min_y <= end_y <= max_y:
+                # Valid combination found
+                # Convert window-relative coordinates to screen coordinates
+                screen_start_x = self.window['x'] + start_x
+                screen_start_y = self.window['y'] + start_y
+                screen_end_x = self.window['x'] + end_x
+                screen_end_y = self.window['y'] + end_y
+                
+                # Move mouse to start position first
+                self.mouse.move_to(screen_start_x, screen_start_y, duration=0.2, curve_intensity=0.5)
+                sleep(0.05)
+                
+                # Perform the drag
+                self.mouse.drag_middle_mouse(screen_end_x, screen_end_y, duration, curve_intensity)
+                
+                return True
+            else:
+                # End point is out of bounds, try to adjust distance
+                # Calculate maximum distance we can go in this direction
+                max_distance_x = (max_x - start_x) / math.cos(angle) if math.cos(angle) != 0 else float('inf')
+                max_distance_y = (max_y - start_y) / math.sin(angle) if math.sin(angle) != 0 else float('inf')
+                
+                # Handle negative directions
+                if math.cos(angle) < 0:
+                    max_distance_x = (start_x - min_x) / abs(math.cos(angle))
+                if math.sin(angle) < 0:
+                    max_distance_y = (start_y - min_y) / abs(math.sin(angle))
+                
+                # Take the minimum of the two constraints
+                max_distance = min(abs(max_distance_x), abs(max_distance_y))
+                
+                # Check if we can meet minimum distance requirement
+                if max_distance >= min_drag_distance:
+                    # Use minimum distance
+                    end_x = start_x + int(min_drag_distance * math.cos(angle))
+                    end_y = start_y + int(min_drag_distance * math.sin(angle))
+                    
+                    # Clamp to ensure we're within GAME_AREA bounds (floating point safety)
+                    end_x = max(min_x, min(max_x, end_x))
+                    end_y = max(min_y, min(max_y, end_y))
+                    
+                    # Convert to screen coordinates
+                    screen_start_x = self.window['x'] + start_x
+                    screen_start_y = self.window['y'] + start_y
+                    screen_end_x = self.window['x'] + end_x
+                    screen_end_y = self.window['y'] + end_y
+                    
+                    # Move mouse to start position first
+                    self.mouse.move_to(screen_start_x, screen_start_y, duration=0.2, curve_intensity=0.5)
+                    sleep(0.05)
+                    
+                    # Perform the drag
+                    self.mouse.drag_middle_mouse(screen_end_x, screen_end_y, duration, curve_intensity)
+                    
+                    return True
+        
+        # Couldn't find valid combination after max tries
+        return False
