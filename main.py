@@ -1,9 +1,8 @@
 from time import sleep
-from util import Window, Region
+from util import Window
+from config.regions import INTERACT_TEXT_REGION
 import keyboard
 from client.osrs import OSRS
-
-INTERACT_TEXT_REGION = Region(12, 28, 350, 20)  # x,y,w,h
 
 def extract_region():
     window = Window()

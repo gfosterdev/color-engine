@@ -1,15 +1,15 @@
-from util import Window, Region
+from util import Window
 from client.inventory import InventoryManager
 from client.interfaces import InterfaceDetector
 from client.interactions import KeyboardInput
+from config.regions import (
+    INTERACT_TEXT_REGION,
+    BANK_SEARCH_REGION,
+    BANK_DEPOSIT_INVENTORY_BUTTON,
+    BANK_DEPOSIT_EQUIPMENT_BUTTON
+)
 import time
 import random
-
-# Regions
-INTERACT_TEXT_REGION = Region(12, 28, 350, 20)  # x,y,w,h
-BANK_SEARCH_REGION = Region(85, 45, 400, 20)  # Bank search box
-BANK_DEPOSIT_INVENTORY_BUTTON = Region(437, 288, 36, 32)  # Deposit inventory button
-BANK_DEPOSIT_EQUIPMENT_BUTTON = Region(477, 288, 36, 32)  # Deposit equipment button
 
 # Color References
 BANK = (190, 25, 25)

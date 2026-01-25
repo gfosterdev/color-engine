@@ -8,45 +8,34 @@ dialogue windows, and other UI elements using fixed client mode positions.
 from typing import Optional, Tuple
 from dataclasses import dataclass
 from util import Region
+from config.regions import (
+    BANK_TITLE_REGION,
+    BANK_REARRANGE_MODE_REGION,
+    BANK_CLOSE_BUTTON_REGION,
+    DEPOSIT_BOX_TITLE_REGION,
+    SHOP_TITLE_REGION,
+    DIALOGUE_BOX_REGION,
+    DIALOGUE_CONTINUE_REGION,
+    DIALOGUE_OPTIONS_REGION,
+    LEVEL_UP_REGION,
+    HEALTH_ORB_REGION,
+    PRAYER_ORB_REGION,
+    RUN_ORB_REGION,
+    SPECIAL_ATTACK_REGION,
+    CHATBOX_REGION,
+    LOGOUT_BUTTON_REGION
+)
 import random
 
 
-# Bank interface detection
-BANK_TITLE_REGION = Region(210, 8, 280, 25)
+# Text detection constants
 BANK_TITLE_TEXT = "Bank of"  # Common text in bank title
-BANK_CLOSE_BUTTON_REGION = Region(494, 11, 16, 16)
-BANK_CLOSE_BUTTON_COLOR = (192, 30, 30)  # Red X button
-
-# Deposit box interface
-DEPOSIT_BOX_TITLE_REGION = Region(210, 8, 280, 25)
 DEPOSIT_BOX_TITLE_TEXT = "Deposit"
-
-# Shop interface
-SHOP_TITLE_REGION = Region(210, 8, 280, 25)
 SHOP_TITLE_TEXT = "Shop"
 
-# Dialogue detection
-DIALOGUE_BOX_REGION = Region(24, 352, 479, 130)
-DIALOGUE_CONTINUE_REGION = Region(240, 445, 240, 25)
-DIALOGUE_OPTIONS_REGION = Region(24, 380, 479, 100)
-
-# Level up notification
-LEVEL_UP_REGION = Region(10, 10, 500, 100)
+# Color constants
+BANK_CLOSE_BUTTON_COLOR = (192, 30, 30)  # Red X button
 LEVEL_UP_COLOR = (255, 255, 0)  # Yellow text
-
-# Combat status
-HEALTH_ORB_REGION = Region(527, 83, 28, 28)
-PRAYER_ORB_REGION = Region(527, 119, 28, 28)
-RUN_ORB_REGION = Region(555, 147, 28, 28)
-
-# Special attack bar
-SPECIAL_ATTACK_REGION = Region(590, 160, 100, 25)
-
-# Chatbox (for messages)
-CHATBOX_REGION = Region(10, 470, 500, 120)
-
-# Logout button detection
-LOGOUT_BUTTON_REGION = Region(652, 10, 100, 25)
 
 
 @dataclass
@@ -95,14 +84,12 @@ class InterfaceDetector:
         if BANK_TITLE_TEXT in text:
             return True
         
-        # Method 2: Check for red close button
-        found = self.window.find_color_region(
-            BANK_CLOSE_BUTTON_COLOR,
-            region=BANK_CLOSE_BUTTON_REGION,
-            tolerance=30
-        )
+        # Method 2: Check for "Rearrange mode" text in bank interface
+        rearrange_text = self.window.read_text(BANK_REARRANGE_MODE_REGION)
+        if rearrange_text and "rearrange" in rearrange_text.lower():
+            return True
         
-        return found is not None
+        return False
     
     def is_shop_open(self) -> bool:
         """

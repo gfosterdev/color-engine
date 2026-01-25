@@ -148,8 +148,6 @@ class Region:
 class Window:
     """Find and interact with a window by title."""
 
-    # Constants
-    GAME_AREA = Region(20, 35, 500, 320)  # x,y,w,h
     ROTATE_DURATION_MIN = 0.2
     ROTATE_DURATION_MAX = 0.5
     ROTATE_CURVE_INTENSITY_MIN = 0.3
@@ -158,8 +156,17 @@ class Window:
     def __init__(self):
         self.user32 = ctypes.windll.user32
         self.window: Optional[Dict] = None
+        self._game_area = None
         self.screenshot: Optional[np.ndarray] = None
         self.mouse = MouseMover()
+    
+    @property
+    def GAME_AREA(self) -> Region:
+        """Lazy load GAME_AREA from config to avoid circular import."""
+        if self._game_area is None:
+            from config.regions import GAME_AREA
+            self._game_area = GAME_AREA
+        return self._game_area
     
     def find(self, title: str, exact_match: bool = True) -> bool:
         """

@@ -9,6 +9,7 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 from util import Region
+from config.regions import INVENTORY_TAB_REGION
 
 
 # Fixed mode inventory constants (positions for 28 slots in fixed client mode)
@@ -19,8 +20,7 @@ SLOT_HEIGHT = 36
 SLOTS_PER_ROW = 4
 TOTAL_SLOTS = 28
 
-# Inventory tab button region (to check if inventory is open)
-INVENTORY_TAB_REGION = Region(648, 214, 30, 25)
+# Inventory tab color constant
 INVENTORY_TAB_COLOR = (127, 84, 60)  # Brown color when selected
 
 
