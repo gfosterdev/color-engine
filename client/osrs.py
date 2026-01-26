@@ -5,11 +5,13 @@ from client.interactions import KeyboardInput
 from config.regions import (
     INTERACT_TEXT_REGION,
     BANK_SEARCH_REGION,
-    BANK_DEPOSIT_INVENTORY_BUTTON,
-    BANK_DEPOSIT_EQUIPMENT_BUTTON,
+    BANK_DEPOSIT_INVENTORY_REGION,
+    BANK_DEPOSIT_WORN_ITEMS_REGION,
     LOGIN_EXISTING_USER_BUTTON,
     LOGIN_BUTTON_REGION,
-    LOGIN_CLICK_HERE_TO_PLAY_REGION
+    LOGIN_CLICK_HERE_TO_PLAY_REGION,
+    UI_LOGOUT_ICON_REGION,
+    UI_LOGOUT_BUTTON_REGION
 )
 import time
 import random
@@ -91,7 +93,7 @@ class OSRS:
             return False
         
         print("Depositing all items...")
-        self.window.move_mouse_to(BANK_DEPOSIT_INVENTORY_BUTTON.random_point())
+        self.window.move_mouse_to(BANK_DEPOSIT_INVENTORY_REGION.random_point())
         time.sleep(random.uniform(0.2, 0.4))
         self.window.click()
         time.sleep(random.uniform(0.5, 0.8))
@@ -221,6 +223,20 @@ class OSRS:
                 return False
         return False
     
+    def is_at_login_screen(self) -> bool:
+        """
+        Check if we are at the login screen.
+        
+        Returns:
+            True if at login screen ("Existing User" button visible)
+        """
+        if not self.window.window:
+            return False
+        
+        self.window.capture()
+        login_text = self.window.read_text(LOGIN_EXISTING_USER_BUTTON, debug=True)
+        return login_text and "existing" in login_text.lower()
+    
     def login(self, password: str) -> bool:
         """.
         Log into OSRS using existing user credentials.
@@ -237,6 +253,11 @@ class OSRS:
         
         if not self.window.window:
             print("Window not found")
+            return False
+        
+        # Verify we're at the login screen
+        if not self.is_at_login_screen():
+            print("Not at login screen - cannot proceed with login")
             return False
         
         # Click "Existing User" button
@@ -282,3 +303,55 @@ class OSRS:
         
         print("Login verification timed out")
         return False
+    
+    def logout(self) -> bool:
+        """
+        Log out of the account.
+        
+        Returns:
+            True if logout was successful
+        """
+        print("Starting logout process...")
+        
+        if not self.window.window:
+            print("Window not found")
+            return False
+        
+        # Close any open interfaces first (bank, shop, etc.)
+        print("Closing any open interfaces...")
+        self.interfaces.close_interface()
+        
+        # Click logout icon to open the menu
+        print("Clicking logout icon...")
+        self.window.capture()
+        self.window.move_mouse_to(UI_LOGOUT_ICON_REGION.random_point())
+        time.sleep(random.uniform(0.2, 0.4))
+        self.window.click()
+        time.sleep(random.uniform(0.5, 0.8))
+        
+        # Verify logout panel opened by checking for "Logout" text
+        print("Verifying logout panel opened...")
+        self.window.capture()
+        logout_text = self.window.read_text(UI_LOGOUT_BUTTON_REGION, debug=True)
+        
+        if not logout_text or "logout" not in logout_text.lower():
+            print(f"Logout panel did not open. Another interface may have priority. Extracted text: {logout_text}")
+            return False
+        
+        print("Logout panel confirmed open")
+        
+        # Click the logout button in the menu
+        print("Clicking logout button...")
+        self.window.move_mouse_to(UI_LOGOUT_BUTTON_REGION.random_point())
+        time.sleep(random.uniform(0.2, 0.4))
+        self.window.click()
+        time.sleep(random.uniform(1.5, 2.5))
+        
+        # Verify we're back at login screen
+        print("Verifying logout successful...")
+        if self.is_at_login_screen():
+            print("Logout complete!")
+            return True
+        else:
+            print("Logout verification failed. Not at login screen.")
+            return False

@@ -93,6 +93,27 @@ This is a Python-based automation tool for Old School RuneScape (OSRS) using the
 - **MouseMover class**: Handles realistic mouse movement
 - **Region class**: Defines areas of interest on screen (centralized in config)
 
+### Code Reuse and Architecture Guidelines
+
+**CRITICAL**: Always check for existing functionality before implementing new features:
+
+1. **Search before implementing**: Use grep or semantic search to check if similar functionality exists
+2. **Respect the class hierarchy**:
+    - Use `self.interfaces.*` methods for interface detection/interaction (e.g., `close_interface()`, `is_bank_open()`)
+    - Use `self.inventory.*` methods for inventory operations
+    - Use `self.keyboard.*` methods for keyboard input
+    - Use `self.window.*` methods for low-level window operations
+3. **Don't duplicate functionality**: If a method exists in a helper class, use it instead of reimplementing
+4. **Follow established patterns**: Look at existing methods to understand how similar features are implemented
+5. **Layer appropriately**: High-level methods in OSRS class should orchestrate calls to lower-level helper classes
+
+**Examples of proper architecture usage**:
+
+- ✅ Use `self.interfaces.close_interface()` instead of `keyboard.press_and_release('esc')`
+- ✅ Use `self.interfaces.is_bank_open()` instead of custom OCR checks for bank
+- ✅ Use `self.inventory.click_slot()` instead of calculating slot positions manually
+- ✅ Use `self.keyboard.type_text()` instead of importing keyboard library directly in OSRS class
+
 ### Error Handling
 
 - Always validate window existence before operations
@@ -143,22 +164,24 @@ def interact_with_object(self):
 
 ## When Implementing New Features
 
-1. Define color constants for new game elements
-2. Create region definitions if text recognition is needed
-3. Implement methods in OSRS class with validation
-4. Add debug flags for testing
-5. Use try-except blocks for robustness
-6. **Randomize all timing and movement parameters**:
+1. **Check for existing functionality first**: Search the codebase to see if similar features already exist
+2. Define color constants for new game elements
+3. Create region definitions if text recognition is needed
+4. Implement methods in appropriate class (OSRS, InventoryManager, InterfaceDetector, etc.)
+5. **Use existing helper class methods** instead of reimplementing functionality
+6. Add debug flags for testing
+7. Use try-except blocks for robustness
+8. **Randomize all timing and movement parameters**:
     - Use `random.uniform(min, max)` for delays instead of fixed values
     - Generate random points within regions for each interaction
     - Vary movement speeds with random multipliers
     - Add random pre/post-action delays
-7. **Always create a test in `test_manual_modular.py`**:
+9. **Always create a test in `test_manual_modular.py`**:
     - Add a new test method for the feature
     - Integrate it into the appropriate test menu category
     - If no suitable category exists, create a new one
     - Test methods should be interactive and provide clear feedback
-8. Test with the actual game client running
+10. Test with the actual game client running
 
 ## Dependencies to Install
 

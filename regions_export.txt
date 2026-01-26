@@ -1,0 +1,7 @@
+1  UI_LOGOUT_ICON = Region(642, 498, 22, 27)  # UI logout icon
+BANK_DEPOSIT_WORN_ITEMS = Region(479, 329, 26, 24)  # bank deposit warn items
+1  BANK_DEPOSIT_INVENTORY = Region(441, 326, 26, 28)  # bank deposit inventory
+BANK_TOGGLE_NOTE = Region(187, 342, 39, 13)  # bank toggled noted items
+1  BANK_TOGGLE_ITEM = Region(138, 342, 41, 14)  # bank withdraw as item
+UI_LOGOUT_BUTTON = Region(589, 449, 129, 22)  # logout button
+1  UI_WORLD_SWITCHER_BUTTON = Region(589, 402, 129, 19)  # world switcher button

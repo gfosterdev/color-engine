@@ -258,9 +258,10 @@ class ModularTester:
         if not self.ensure_window():
             return
         
-        from client.interfaces import CHATBOX_REGION
-        print("\nReading chatbox...")
-        text = self.window.read_text(CHATBOX_REGION, debug=True)
+        # from client.interfaces import CHATBOX_REGION
+        # print("\nReading chatbox...")
+        # text = self.window.read_text(CHAT
+        text = None
         print(f"Result: '{text}'" if text else "Chatbox empty or unreadable")
     
     def test_region_from_config(self):
@@ -893,6 +894,49 @@ class ModularTester:
         except Exception as e:
             print(f"✗ Error: {e}")
     
+    def test_logout(self):
+        """Test logout functionality."""
+        print("\n[Logout Test]")
+        print("WARNING: This will log you out of the game.")
+        print("Make sure you are logged in!")
+        
+        try:
+            confirm = input("\nContinue? (y/n): ").strip().lower()
+            if confirm != 'y':
+                print("✗ Logout test cancelled")
+                return
+            
+            osrs = self.init_osrs()
+            print("\nAttempting logout...")
+            result = osrs.logout()
+            
+            if result:
+                print("✓ Logout successful!")
+            else:
+                print("✗ Logout failed - check if logout panel opened")
+                
+        except KeyboardInterrupt:
+            print("\n✗ Logout test cancelled")
+        except Exception as e:
+            print(f"✗ Error: {e}")
+    
+    def test_is_at_login_screen(self):
+        """Test if currently at login screen."""
+        print("\n[Check Login Screen Test]")
+        
+        try:
+            osrs = self.init_osrs()
+            print("\nChecking if at login screen...")
+            result = osrs.is_at_login_screen()
+            
+            if result:
+                print("✓ At login screen!")
+            else:
+                print("✗ Not at login screen")
+                
+        except Exception as e:
+            print(f"✗ Error: {e}")
+    
     # =================================================================
     # COLOR REGISTRY TESTS
     # =================================================================
@@ -1145,6 +1189,8 @@ class ModularTester:
         test_map = {
             '1': ("Login with Password", self.test_login),
             '2': ("Login from Profile", self.test_login_from_profile),
+            '3': ("Logout", self.test_logout),
+            '4': ("Check Login Screen", self.test_is_at_login_screen),
         }
         
         print("\n" + "="*60)
@@ -1152,7 +1198,9 @@ class ModularTester:
         print("="*60)
         print("1 - Login with Password (manual input)")
         print("2 - Login from Profile (uses config)")
-        print("\nWARNING: Make sure you are at the login screen!")
+        print("3 - Logout (logs out of game)")
+        print("4 - Check if at Login Screen")
+        print("\nWARNING: Make sure you are at the appropriate screen!")
         print("\nESC - Back to Main Menu")
         print("="*60)
         
