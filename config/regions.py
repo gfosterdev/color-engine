@@ -99,3 +99,11 @@ LOGIN_CLICK_HERE_TO_PLAY_REGION = Region(287, 329, 210, 70)  # Click here to pla
 UI_LOGOUT_ICON_REGION = Region(642, 498, 22, 27)  # Logout icon in game [VERIFIED]
 UI_LOGOUT_BUTTON_REGION = Region(589, 449, 133, 22)  # Logout button in menu [VERIFIED]
 UI_WORLD_SWITCHER_BUTTON_REGION = Region(589, 402, 129, 19)  # World switcher button [VERIFIED]
+
+
+# ============================================================================
+# Overlay Regions
+# ===========================================================================
+
+COORD_WORLD_REGION = Region(82, 73, 89, 18)  # world coords
+COORD_SCENE_REGION = Region(124, 89, 48, 18)  # scene coords
