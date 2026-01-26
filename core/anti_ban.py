@@ -213,9 +213,33 @@ class AntiBanManager:
         
         # Perform logout
         print("Logging out...")
-        if self.osrs_client.logout():
-            print("Successfully logged out")
-            
+        logout_success = False
+        try:
+            logout_success = self.osrs_client.logout()
+            if logout_success:
+                print("Successfully logged out")
+            else:
+                print("WARNING: Logout failed")
+        except Exception as e:
+            print(f"ERROR: Logout exception: {e}")
+            # Trigger error handler for logout failure
+            try:
+                from core.error_handler import GlobalErrorHandler, ErrorContext
+                handler = GlobalErrorHandler.get_instance()
+                context = ErrorContext(
+                    error=e,
+                    error_type="LogoutFailure",
+                    bot_state="BREAK",
+                    current_task="logout_break"
+                )
+                # Note: We don't have bot_instance here, so just log the error
+                handler._log_error(context)
+                handler._print_error(context)
+            except ImportError:
+                pass
+            return
+        
+        if logout_success:
             # Wait for break duration
             break_minutes = self.next_logout_break.duration / 60
             print(f"Waiting {break_minutes:.1f} minutes before logging back in...")
@@ -225,16 +249,20 @@ class AntiBanManager:
             print("Logging back in...")
             max_login_attempts = 3
             for attempt in range(max_login_attempts):
-                if self.osrs_client.login_from_profile():
-                    print("Successfully logged back in")
-                    break
-                else:
-                    print(f"Login attempt {attempt + 1} failed, retrying...")
+                try:
+                    if self.osrs_client.login_from_profile():
+                        print("Successfully logged back in")
+                        break
+                    else:
+                        print(f"Login attempt {attempt + 1} failed, retrying...")
+                        time.sleep(random.uniform(5, 10))
+                except Exception as e:
+                    print(f"Login exception: {e}")
                     time.sleep(random.uniform(5, 10))
             else:
                 print("WARNING: Failed to log back in after multiple attempts!")
-        else:
-            print("WARNING: Failed to logout, skipping logout break")
+                # This is a critical failure - raise exception to trigger emergency shutdown
+                raise RuntimeError("Failed to log back in after logout break")
         
         print("Logout break finished, resuming bot...")
         

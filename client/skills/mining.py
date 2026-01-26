@@ -13,6 +13,7 @@ from core.state_machine import StateMachine, BotState
 from core.task_engine import Task, TaskQueue, TaskResult, TaskPriority
 from core.config import BotConfig, load_profile
 from core.anti_ban import AntiBanManager, AntiBanDecorator
+from core.bot_base import BotBase
 import time
 import random
 
@@ -126,7 +127,7 @@ class BankOreTask(Task):
         return TaskResult(success=True, message="Successfully banked items")
 
 
-class MiningBot:
+class MiningBot(BotBase):
     """
     Autonomous mining bot.
     
@@ -140,6 +141,7 @@ class MiningBot:
         Args:
             profile_name: Configuration profile to load
         """
+        super().__init__()  # Initialize BotBase
         self.config = load_profile(profile_name)
         self.osrs = OSRS()
         self.interaction = GameObjectInteraction(self.osrs.window)
@@ -168,43 +170,26 @@ class MiningBot:
         self.anti_ban = AntiBanManager(
             window=self.osrs.window,
             config=self.config.anti_ban,
-            break_config=self.config.breaks
+            break_config=self.config.breaks,
+            osrs_client=self.osrs
         )
+        
+        # Initialize anti-ban decorator for wrapping actions
+        self.anti_ban_decorator = AntiBanDecorator(self.anti_ban)
         
         # Statistics
         self.ores_mined = 0
         self.banking_trips = 0
         self.start_time = time.time()
-        self.running = False
     
-    def start(self):
-        """Start the mining bot."""
+    def _run_loop(self):
+        """Main bot loop (called by BotBase.start())."""
         print(f"Starting mining bot for {self.ore_type}...")
         print(f"Configuration: Bank={self.should_bank}, Powermine={self.powermine}")
         
-        self.running = True
         self.start_time = time.time()
         self.state_machine.transition(BotState.STARTING, "Bot started")
         
-        try:
-            self._run_loop()
-        except KeyboardInterrupt:
-            print("\nBot stopped by user")
-        except Exception as e:
-            print(f"\nBot error: {e}")
-            self.state_machine.transition(BotState.ERROR, str(e))
-        finally:
-            self.stop()
-    
-    def stop(self):
-        """Stop the mining bot."""
-        self.running = False
-        self.state_machine.transition(BotState.STOPPING, "Bot stopping")
-        self._print_statistics()
-        self.state_machine.transition(BotState.IDLE, "Bot stopped")
-    
-    def _run_loop(self):
-        """Main bot loop."""
         while self.running:
             # Check if break is needed
             if self.anti_ban.should_take_break():
@@ -270,30 +255,46 @@ class MiningBot:
     
     def _mine_ore(self):
         """Mine a single ore."""
-        task = MineOreTask(self.osrs, self.ore_object, self.interaction)
-        result = task.run()
-        
-        if result.success:
-            self.ores_mined += 1
-            print(f"Mined {self.ores_mined} ores")
-        else:
-            print(f"Mining failed: {result.message}")
+        # Wrap mining action with anti-ban behaviors
+        def mine_action():
+            task = MineOreTask(self.osrs, self.ore_object, self.interaction)
+            result = task.run()
             
-            # If can't find ore after retries, might be stuck
-            if "Could not find" in result.message:
-                self.state_machine.transition(BotState.ERROR, "Ore not found")
+            # Track task result for failure detection
+            self._track_task_result("mine_ore", result.success)
+            
+            if result.success:
+                self.ores_mined += 1
+                print(f"Mined {self.ores_mined} ores")
+            else:
+                print(f"Mining failed: {result.message}")
+                
+                # If can't find ore after retries, might be stuck
+                if "Could not find" in result.message:
+                    self.state_machine.transition(BotState.ERROR, "Ore not found")
+        
+        # Execute with anti-ban wrapper
+        self.anti_ban_decorator.wrap_action(mine_action)()
     
     def _bank_items(self):
         """Bank all items."""
-        task = BankOreTask(self.osrs)
-        result = task.run()
+        # Wrap banking action with anti-ban behaviors
+        def bank_action():
+            task = BankOreTask(self.osrs)
+            result = task.run()
+            
+            # Track task result for failure detection
+            self._track_task_result("bank_items", result.success)
+            
+            if result.success:
+                self.banking_trips += 1
+                print(f"Banking trip #{self.banking_trips} completed")
+            else:
+                print(f"Banking failed: {result.message}")
+                self.state_machine.transition(BotState.ERROR, "Banking failed")
         
-        if result.success:
-            self.banking_trips += 1
-            print(f"Banking trip #{self.banking_trips} completed")
-        else:
-            print(f"Banking failed: {result.message}")
-            self.state_machine.transition(BotState.ERROR, "Banking failed")
+        # Execute with anti-ban wrapper
+        self.anti_ban_decorator.wrap_action(bank_action)()
     
     def _drop_all_items(self):
         """Drop all items (for powermining)."""
@@ -313,6 +314,12 @@ class MiningBot:
                 # For now, just clicking
         
         time.sleep(random.uniform(0.5, 1.0))
+    
+    def _cleanup(self):
+        """Cleanup operations after bot stops (implements BotBase abstract method)."""
+        self.state_machine.transition(BotState.STOPPING, "Bot stopping")
+        self._print_statistics()
+        self.state_machine.transition(BotState.IDLE, "Bot stopped")
     
     def _print_statistics(self):
         """Print bot statistics."""

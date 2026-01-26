@@ -64,6 +64,7 @@ class Task:
         self.created_at = time.time()
         self.started_at: Optional[float] = None
         self.completed_at: Optional[float] = None
+        self.consecutive_failures = 0  # Track consecutive failures for critical error detection
     
     def validate_preconditions(self) -> TaskResult:
         """
@@ -150,9 +151,11 @@ class Task:
                 if result.success:
                     self.status = TaskStatus.COMPLETED
                     self.completed_at = time.time()
+                    self.consecutive_failures = 0  # Reset on success
                     return result
                 
                 last_result = result
+                self.consecutive_failures += 1  # Increment on failure
                 
                 # Check if retry is recommended
                 if not result.retry_recommended or attempts >= self.max_retries:
@@ -178,6 +181,22 @@ class Task:
         except Exception as e:
             self.status = TaskStatus.FAILED
             self.completed_at = time.time()
+            self.consecutive_failures += 1
+            
+            # Check if this is a critical failure that needs global handling
+            try:
+                from core.error_handler import GlobalErrorHandler
+                handler = GlobalErrorHandler.get_instance()
+                if handler.is_critical_failure(
+                    TaskResult(success=False, message=str(e), error=e),
+                    self.consecutive_failures
+                ):
+                    # Let the exception propagate for global handler
+                    raise
+            except ImportError:
+                # Error handler not available, continue normally
+                pass
+            
             return TaskResult(
                 success=False,
                 message=f"Task '{self.name}' raised exception: {str(e)}",
@@ -308,10 +327,11 @@ class TaskQueue:
         self.paused = False
     
     def stop(self) -> None:
-        """Stop task execution."""
+        """Stop task execution and cancel current task."""
         self.running = False
         if self.current_task:
             self.current_task.cancel()
+            self.current_task = None
     
     def clear(self) -> None:
         """Clear all pending tasks."""
