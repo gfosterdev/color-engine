@@ -1,5 +1,8 @@
 {
 	"profile_name": "iron_miner_varrock",
+	"credentials": {
+		"password": ""
+	},
 	"window": {
 		"title": "RuneLite - xJawj",
 		"exact_match": true,

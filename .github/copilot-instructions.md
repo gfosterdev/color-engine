@@ -16,7 +16,16 @@ This is a Python-based automation tool for Old School RuneScape (OSRS) using the
 ## Project Structure
 
 - `main.py` - Entry point with example usage and testing functions
-- `client/osrs.py` - OSRS-specific game interaction logic
+- `test_manual_modular.py` - Interactive testing interface for all features
+- `config/regions.py` - Centralized region definitions for all UI elements
+- `config/profiles/` - Bot profile configurations with credentials and settings
+- `client/osrs.py` - High-level OSRS game interaction logic
+- `client/inventory.py` - Inventory management and item detection
+- `client/interfaces.py` - Interface state detection (bank, dialogue, etc.)
+- `client/interactions.py` - Game object interaction and keyboard input
+- `client/color_registry.py` - Centralized color definitions for game objects
+- `client/skills/` - Skill-specific automation modules
+- `core/` - Core systems (anti-ban, state machine, task engine, config)
 - `util/window_util.py` - Window management, screen capture, color detection, OCR
 - `util/mouse_util.py` - Human-like mouse movement using Bezier curves
 
@@ -37,8 +46,12 @@ This is a Python-based automation tool for Old School RuneScape (OSRS) using the
 ### Region System
 
 - `Region` class defines rectangular areas with optional masks
+- **All regions centralized in `config/regions.py`** for easy management
 - Regions specify where to look for text or colors (x, y, width, height)
-- Example: `INTERACT_TEXT_REGION = Region(12, 28, 350, 20)` for hover text
+- Regions can also define clickable areas for static UI elements (buttons, tabs, etc.)
+- Import regions from `config.regions` instead of defining inline
+- Example: `from config.regions import INTERACT_TEXT_REGION, BANK_TITLE_REGION`
+- Categorized by purpose: Game Area, Bank Interface, Dialogue, Status Orbs, etc.
 
 ### Mouse Movement
 
@@ -62,24 +75,28 @@ This is a Python-based automation tool for Old School RuneScape (OSRS) using the
 ### Style Guidelines
 
 - Use descriptive variable names (e.g., `INTERACT_TEXT_REGION`, `BANK`)
-- Define color constants as RGB tuples at the top of files
+- Define color constants in `client/color_registry.py` for game objects
+- Define region constants in `config/regions.py` for UI elements
 - Use type hints for function parameters and returns
-- Keep region definitions in constants for reusability
+- Import regions from centralized config instead of defining inline
 
 ### Architecture Patterns
 
 - **OSRS class**: Main interface for game-specific actions
     - Manages Window instance
-    - Implements high-level actions (open_bank, find_bank)
+    - Implements high-level actions (open_bank, login, find_bank)
     - Validates interactions with OCR
+    - Can accept profile config for credentials
+- **InventoryManager class**: Handles inventory detection and interaction
+- **InterfaceDetector class**: Detects game interface states (bank, dialogue, etc.)
 - **Window class**: Low-level screen capture and interaction utilities
 - **MouseMover class**: Handles realistic mouse movement
-- **Region class**: Defines areas of interest on screen
+- **Region class**: Defines areas of interest on screen (centralized in config)
 
 ### Error Handling
 
 - Always validate window existence before operations
-- Check if colors/regions are found before clicking
+- Check if colors/regions are found before clicking (unless static UI element)
 - Use debug flags to visualize color detection and OCR results
 - Return boolean success indicators for validation methods
 
@@ -103,9 +120,11 @@ def interact_with_object(self):
 ### Defining New Game Elements
 
 1. Find the characteristic RGB color value
-2. Define as constant: `ELEMENT_NAME = (r, g, b)`
-3. Create method in OSRS class to interact with it
-4. Use OCR validation when possible
+2. Add to `client/color_registry.py`: `registry.register("element_name", (r, g, b), "type")`
+3. Add region to `config/regions.py` if text recognition is needed
+4. Create method in appropriate class (OSRS, InventoryManager, etc.)
+5. Use OCR validation when possible
+6. Import regions from `config.regions`
 
 ## Important Notes
 
@@ -134,7 +153,12 @@ def interact_with_object(self):
     - Generate random points within regions for each interaction
     - Vary movement speeds with random multipliers
     - Add random pre/post-action delays
-7. Test with the actual game client running
+7. **Always create a test in `test_manual_modular.py`**:
+    - Add a new test method for the feature
+    - Integrate it into the appropriate test menu category
+    - If no suitable category exists, create a new one
+    - Test methods should be interactive and provide clear feedback
+8. Test with the actual game client running
 
 ## Dependencies to Install
 
@@ -145,6 +169,8 @@ pip install opencv-python numpy pillow paddlepaddle paddleocr keyboard pywin32
 ## Development Workflow
 
 - Test color detection with `debug=True` flags
-- Use `extract_region()` and `extract_text()` functions in main.py for calibration
+- Use `test_manual_modular.py` for interactive testing of all features
+- Use region visualization test to verify region positions
+- Use OCR region test to validate text extraction
 - Validate hover text before clicking to ensure correct target
 - Always capture fresh screenshots before color detection

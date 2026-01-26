@@ -6,7 +6,10 @@ from config.regions import (
     INTERACT_TEXT_REGION,
     BANK_SEARCH_REGION,
     BANK_DEPOSIT_INVENTORY_BUTTON,
-    BANK_DEPOSIT_EQUIPMENT_BUTTON
+    BANK_DEPOSIT_EQUIPMENT_BUTTON,
+    LOGIN_EXISTING_USER_BUTTON,
+    LOGIN_BUTTON_REGION,
+    LOGIN_CLICK_HERE_TO_PLAY_REGION
 )
 import time
 import random
@@ -16,12 +19,36 @@ BANK = (190, 25, 25)
 
 
 class OSRS:
-    def __init__(self):
+    def __init__(self, profile_config=None):
         self.window = Window()
         self.window.find(title="RuneLite - xJawj", exact_match=True)
         self.inventory = InventoryManager(self.window)
         self.interfaces = InterfaceDetector(self.window)
         self.keyboard = KeyboardInput()
+        self.profile_config = profile_config
+    
+    def login_from_profile(self) -> bool:
+        """.
+        Log in using password from profile configuration.
+        
+        Returns:
+            True if login successful
+        """
+        if not self.profile_config:
+            print("No profile configuration provided")
+            return False
+        
+        if "credentials" not in self.profile_config or "password" not in self.profile_config["credentials"]:
+            print("No password found in profile configuration")
+            return False
+        
+        password = self.profile_config["credentials"]["password"]
+        
+        if not password:
+            print("Password is empty in profile configuration")
+            return False
+        
+        return self.login(password)
     
     def open_bank(self):
         """Open bank by clicking on bank booth/chest."""
@@ -192,4 +219,66 @@ class OSRS:
             else:
                 print(f"Expected text '{expected_text}' not found. Extracted text: {text}")
                 return False
+        return False
+    
+    def login(self, password: str) -> bool:
+        """.
+        Log into OSRS using existing user credentials.
+        
+        Assumes username is remembered and cursor starts on password field.
+        
+        Args:
+            password: Account password to enter
+            
+        Returns:
+            True if successfully logged in
+        """
+        print("Starting login process...")
+        
+        if not self.window.window:
+            print("Window not found")
+            return False
+        
+        # Click "Existing User" button
+        print("Clicking 'Existing User' button...")
+        self.window.capture()
+        self.window.move_mouse_to(LOGIN_EXISTING_USER_BUTTON.random_point())
+        time.sleep(random.uniform(0.3, 0.6))
+        self.window.click()
+        time.sleep(random.uniform(0.8, 1.5))
+        
+        # Type password
+        print("Entering password...")
+        self.keyboard.type_text(password)
+        time.sleep(random.uniform(0.3, 0.6))
+        
+        # Click login button
+        print("Clicking login button...")
+        self.window.capture()
+        self.window.move_mouse_to(LOGIN_BUTTON_REGION.random_point())
+        time.sleep(random.uniform(0.3, 0.6))
+        self.window.click()
+        
+        # Wait and check for "Click here to play" screen
+        print("Waiting for character selection screen...")
+        max_attempts = 10
+        for attempt in range(max_attempts):
+            time.sleep(random.uniform(1.0, 1.5))
+            self.window.capture()
+            
+            play_text = self.window.read_text(LOGIN_CLICK_HERE_TO_PLAY_REGION)
+            if play_text and any(phrase in play_text.upper() for phrase in ["CLICK", "PLAY", "HERE"]):
+                print("Character selection screen detected!")
+                
+                # Click to enter game
+                print("Clicking to enter game...")
+                self.window.move_mouse_to(LOGIN_CLICK_HERE_TO_PLAY_REGION.random_point())
+                time.sleep(random.uniform(0.3, 0.6))
+                self.window.click()
+                time.sleep(random.uniform(2.0, 3.0))
+                
+                print("Login successful!")
+                return True
+        
+        print("Login verification timed out")
         return False

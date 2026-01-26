@@ -83,6 +83,15 @@ INVENTORY_TAB_REGION = Region(648, 214, 30, 25)  # Inventory tab button
 
 
 # ============================================================================
+# Login Screen Regions
+# ============================================================================
+
+LOGIN_EXISTING_USER_BUTTON = Region(408, 305, 120, 25)  # Existing user button
+LOGIN_BUTTON_REGION = Region(251, 336, 120, 25)  # Login button
+LOGIN_CLICK_HERE_TO_PLAY_REGION = Region(287, 329, 210, 70)  # Click here to play area
+
+
+# ============================================================================
 # Miscellaneous Regions
 # ============================================================================
 

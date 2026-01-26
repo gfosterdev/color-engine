@@ -830,6 +830,70 @@ class ModularTester:
         print("✓ Done")
     
     # =================================================================
+    # LOGIN/AUTHENTICATION TESTS
+    # =================================================================
+    
+    def test_login(self):
+        """Test login functionality."""
+        print("\n[Login Test]")
+        print("WARNING: This will attempt to log into the game.")
+        print("Make sure you are at the login screen!")
+        
+        # Get password from user input
+        try:
+            password = input("\nEnter password (or press Ctrl+C to cancel): ").strip()
+            
+            if not password:
+                print("✗ No password entered")
+                return
+            
+            osrs = self.init_osrs()
+            print("\nAttempting login...")
+            result = osrs.login(password)
+            
+            if result:
+                print("✓ Login successful!")
+            else:
+                print("✗ Login failed")
+                
+        except KeyboardInterrupt:
+            print("\n✗ Login test cancelled")
+        except Exception as e:
+            print(f"✗ Error: {e}")
+    
+    def test_login_from_profile(self):
+        """Test login using password from profile."""
+        print("\n[Login from Profile Test]")
+        print("WARNING: This will attempt to log into the game.")
+        print("Make sure you are at the login screen!")
+        print("Password will be loaded from profile configuration.")
+        
+        try:
+            confirm = input("\nContinue? (y/n): ").strip().lower()
+            if confirm != 'y':
+                print("✗ Login test cancelled")
+                return
+            
+            config = self.init_config()
+            
+            # Create OSRS instance with profile
+            from client.osrs import OSRS
+            osrs = OSRS(profile_config=config)
+            
+            print("\nAttempting login from profile...")
+            result = osrs.login_from_profile()
+            
+            if result:
+                print("✓ Login successful!")
+            else:
+                print("✗ Login failed - check password in profile")
+                
+        except KeyboardInterrupt:
+            print("\n✗ Login test cancelled")
+        except Exception as e:
+            print(f"✗ Error: {e}")
+    
+    # =================================================================
     # COLOR REGISTRY TESTS
     # =================================================================
     
@@ -1074,6 +1138,26 @@ class ModularTester:
         
         self._run_submenu(test_map)
     
+    def run_login_tests(self):
+        """Run login testing menu."""
+        self.current_menu = "login"
+        
+        test_map = {
+            '1': ("Login with Password", self.test_login),
+            '2': ("Login from Profile", self.test_login_from_profile),
+        }
+        
+        print("\n" + "="*60)
+        print("LOGIN/AUTHENTICATION TESTS")
+        print("="*60)
+        print("1 - Login with Password (manual input)")
+        print("2 - Login from Profile (uses config)")
+        print("\nWARNING: Make sure you are at the login screen!")
+        print("\nESC - Back to Main Menu")
+        print("="*60)
+        
+        self._run_submenu(test_map)
+    
     def run_registry_tests(self):
         """Run color registry testing menu."""
         self.current_menu = "registry"
@@ -1135,7 +1219,8 @@ class ModularTester:
             '5': ("Banking", self.run_banking_tests),
             '6': ("Game Objects", self.run_gameobject_tests),
             '7': ("Anti-Ban", self.run_antiban_tests),
-            '8': ("Color Registry", self.run_registry_tests),
+            '8': ("Login/Auth", self.run_login_tests),
+            '9': ("Color Registry", self.run_registry_tests),
         }
         
         def print_main_menu():
@@ -1149,7 +1234,8 @@ class ModularTester:
             print("5 - Banking Module Tests")
             print("6 - Game Object Interaction Tests")
             print("7 - Anti-Ban System Tests")
-            print("8 - Color Registry Tests")
+            print("8 - Login/Authentication Tests")
+            print("9 - Color Registry Tests")
             print("\nESC - Exit")
             print("="*60)
         
