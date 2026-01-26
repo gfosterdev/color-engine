@@ -148,8 +148,8 @@ class Region:
 class Window:
     """Find and interact with a window by title."""
 
-    ROTATE_DURATION_MIN = 0.2
-    ROTATE_DURATION_MAX = 0.5
+    ROTATE_DURATION_MIN = 0.1
+    ROTATE_DURATION_MAX = 0.25
     ROTATE_CURVE_INTENSITY_MIN = 0.3
     ROTATE_CURVE_INTENSITY_MAX = 0.7
     
@@ -315,7 +315,7 @@ class Window:
         
         return Region(int(x), int(y), int(w), int(h), filled_mask)
     
-    def move_mouse_to(self, coords: tuple[int, int], duration: float = 0.5, 
+    def move_mouse_to(self, coords: tuple[int, int], duration: float = 0.25, 
                       curve_intensity: float = 1.0) -> bool:
         """
         Move mouse to coordinates relative to the found window.
@@ -572,7 +572,7 @@ class Window:
                 screen_end_y = self.window['y'] + end_y
                 
                 # Move mouse to start position first
-                self.mouse.move_to(screen_start_x, screen_start_y, duration=0.2, curve_intensity=0.5)
+                self.mouse.move_to(screen_start_x, screen_start_y, duration=0.1, curve_intensity=0.5)
                 sleep(0.05)
                 
                 # Perform the drag
@@ -611,7 +611,7 @@ class Window:
                     screen_end_y = self.window['y'] + end_y
                     
                     # Move mouse to start position first
-                    self.mouse.move_to(screen_start_x, screen_start_y, duration=0.2, curve_intensity=0.5)
+                    self.mouse.move_to(screen_start_x, screen_start_y, duration=0.1, curve_intensity=0.5)
                     sleep(0.05)
                     
                     # Perform the drag

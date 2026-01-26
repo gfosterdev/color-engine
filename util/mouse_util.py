@@ -59,7 +59,7 @@ class MouseMover:
         
         return (x, y)
     
-    def move_to(self, target_x: int, target_y: int, duration: float = 0.5, 
+    def move_to(self, target_x: int, target_y: int, duration: float = 0.25, 
                 curve_intensity: float = 1.0) -> None:
         """
         Move mouse to target position with smooth, human-like movement.
@@ -67,7 +67,7 @@ class MouseMover:
         Args:
             target_x: Target X coordinate
             target_y: Target Y coordinate
-            duration: Time to complete movement in seconds (default 0.5)
+            duration: Time to complete movement in seconds (default 0.25)
             curve_intensity: How curved the path should be (0=straight, 1=moderate, 2=very curved)
         """
         start_x, start_y = self.get_position()
@@ -135,7 +135,7 @@ class MouseMover:
         else:
             return 1 - pow(-2 * t + 2, 2) / 2
     
-    def move_relative(self, dx: int, dy: int, duration: float = 0.5, 
+    def move_relative(self, dx: int, dy: int, duration: float = 0.25, 
                       curve_intensity: float = 1.0) -> None:
         """
         Move mouse relative to current position.
@@ -149,7 +149,7 @@ class MouseMover:
         current_x, current_y = self.get_position()
         self.move_to(current_x + dx, current_y + dy, duration, curve_intensity)
     
-    def click(self, x: Optional[int] = None, y: Optional[int] = None, duration: float = 0.5, 
+    def click(self, x: Optional[int] = None, y: Optional[int] = None, duration: float = 0.25, 
               button: str = 'left') -> None:
         """
         Move to position and click.
@@ -175,7 +175,7 @@ class MouseMover:
             time.sleep(random.uniform(0.05, 0.12))
             self.user32.mouse_event(0x0010, 0, 0, 0, 0)  # MOUSEEVENTF_RIGHTUP
     
-    def drag_middle_mouse(self, target_x: int, target_y: int, duration: float = 0.5, 
+    def drag_middle_mouse(self, target_x: int, target_y: int, duration: float = 0.25, 
                           curve_intensity: float = 1.0) -> None:
         """
         Hold middle mouse button and drag to target position with smooth movement.
@@ -184,7 +184,7 @@ class MouseMover:
         Args:
             target_x: Target X coordinate
             target_y: Target Y coordinate
-            duration: Time to complete drag in seconds (default 0.5)
+            duration: Time to complete drag in seconds (default 0.25)
             curve_intensity: How curved the path should be (0=straight, 1=moderate, 2=very curved)
         """
         # Press middle mouse button down

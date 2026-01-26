@@ -42,6 +42,13 @@ class BreakConfig:
     duration_max: int = 20
     randomize: bool = True
     
+    # Logout break configuration
+    logout_breaks_enabled: bool = True
+    logout_frequency_min: int = 60  # minutes
+    logout_frequency_max: int = 180
+    logout_duration_min: int = 10  # minutes
+    logout_duration_max: int = 45
+    
     def validate(self):
         """Validate break configuration values."""
         if self.frequency_min <= 0 or self.duration_min <= 0:
@@ -50,6 +57,13 @@ class BreakConfig:
             raise ValueError("frequency_min cannot be greater than frequency_max")
         if self.duration_min > self.duration_max:
             raise ValueError("duration_min cannot be greater than duration_max")
+        if self.logout_breaks_enabled:
+            if self.logout_frequency_min <= 0 or self.logout_duration_min <= 0:
+                raise ValueError("Logout break times must be positive")
+            if self.logout_frequency_min > self.logout_frequency_max:
+                raise ValueError("logout_frequency_min cannot be greater than logout_frequency_max")
+            if self.logout_duration_min > self.logout_duration_max:
+                raise ValueError("logout_duration_min cannot be greater than logout_duration_max")
 
 
 @dataclass

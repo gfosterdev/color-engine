@@ -18,6 +18,7 @@ class BreakSchedule:
     """Represents a scheduled break."""
     start_time: float
     duration: float  # seconds
+    break_type: str = "idle"  # 'idle' or 'logout'
     reason: str = "scheduled_break"
 
 
@@ -28,7 +29,7 @@ class AntiBanManager:
     Implements various randomization strategies to avoid detection patterns.
     """
     
-    def __init__(self, window: Window, config: AntiBanConfig, break_config: Optional[BreakConfig] = None):
+    def __init__(self, window: Window, config: AntiBanConfig, break_config: Optional[BreakConfig] = None, osrs_client=None):
         """
         Initialize anti-ban manager.
         
@@ -36,19 +37,24 @@ class AntiBanManager:
             window: Window instance for interactions
             config: Anti-ban configuration
             break_config: Break configuration (optional)
+            osrs_client: OSRS client instance for logout/login (optional)
         """
         self.window = window
         self.config = config
         self.break_config = break_config or BreakConfig()
+        self.osrs_client = osrs_client
         self.last_idle_action = time.time()
         self.last_camera_movement = time.time()
         self.last_tab_switch = time.time()
         self.next_break: Optional[BreakSchedule] = None
+        self.next_logout_break: Optional[BreakSchedule] = None
         self.action_count = 0
         self.fatigue_level = 0.0  # 0.0 to 1.0
         
         if self.config.enabled:
             self._schedule_next_break()
+            if self.break_config.logout_breaks_enabled and self.osrs_client:
+                self._schedule_next_logout_break()
     
     def should_perform_idle_action(self) -> bool:
         """
@@ -132,25 +138,47 @@ class AntiBanManager:
         self.window.move_mouse_to((x, y))
         time.sleep(random.uniform(0.3, 1.5))
     
-    def should_take_break(self) -> bool:
+    def should_take_break(self) -> tuple[bool, str]:
         """
         Check if it's time for a scheduled break.
         
         Returns:
-            True if break should be taken
+            Tuple of (should_break, break_type) where break_type is 'idle' or 'logout'
         """
-        if not self.config.enabled or not self.next_break:
-            return False
+        if not self.config.enabled:
+            return (False, "none")
         
-        return time.time() >= self.next_break.start_time
+        current_time = time.time()
+        
+        # Check logout break first (higher priority)
+        if self.next_logout_break and current_time >= self.next_logout_break.start_time:
+            return (True, "logout")
+        
+        # Check regular idle break
+        if self.next_break and current_time >= self.next_break.start_time:
+            return (True, "idle")
+        
+        return (False, "none")
     
-    def take_break(self) -> None:
-        """Take a scheduled break."""
+    def take_break(self, break_type: str = "idle") -> None:
+        """
+        Take a scheduled break.
+        
+        Args:
+            break_type: Type of break to take ('idle' or 'logout')
+        """
+        if break_type == "logout":
+            self._take_logout_break()
+        else:
+            self._take_idle_break()
+    
+    def _take_idle_break(self) -> None:
+        """Take an idle break (stay logged in)."""
         if not self.next_break:
             return
         
         print(f"\n{'='*50}")
-        print(f"TAKING BREAK - {self.next_break.reason}")
+        print(f"TAKING IDLE BREAK - {self.next_break.reason}")
         print(f"Duration: {self.next_break.duration / 60:.1f} minutes")
         print(f"{'='*50}\n")
         
@@ -165,12 +193,55 @@ class AntiBanManager:
             # Sleep for a bit
             time.sleep(random.uniform(10, 30))
         
-        print("Break finished, resuming bot...")
+        print("Idle break finished, resuming bot...")
         
         # Schedule next break
         self._schedule_next_break()
         
         # Reset fatigue
+        self.fatigue_level = 0.0
+    
+    def _take_logout_break(self) -> None:
+        """Take a logout break (logout, wait, login back)."""
+        if not self.next_logout_break or not self.osrs_client:
+            return
+        
+        print(f"\n{'='*50}")
+        print(f"TAKING LOGOUT BREAK")
+        print(f"Duration: {self.next_logout_break.duration / 60:.1f} minutes")
+        print(f"{'='*50}\n")
+        
+        # Perform logout
+        print("Logging out...")
+        if self.osrs_client.logout():
+            print("Successfully logged out")
+            
+            # Wait for break duration
+            break_minutes = self.next_logout_break.duration / 60
+            print(f"Waiting {break_minutes:.1f} minutes before logging back in...")
+            time.sleep(self.next_logout_break.duration)
+            
+            # Login back
+            print("Logging back in...")
+            max_login_attempts = 3
+            for attempt in range(max_login_attempts):
+                if self.osrs_client.login_from_profile():
+                    print("Successfully logged back in")
+                    break
+                else:
+                    print(f"Login attempt {attempt + 1} failed, retrying...")
+                    time.sleep(random.uniform(5, 10))
+            else:
+                print("WARNING: Failed to log back in after multiple attempts!")
+        else:
+            print("WARNING: Failed to logout, skipping logout break")
+        
+        print("Logout break finished, resuming bot...")
+        
+        # Schedule next logout break
+        self._schedule_next_logout_break()
+        
+        # Reset fatigue completely after logout break
         self.fatigue_level = 0.0
     
     def _schedule_next_break(self) -> None:
@@ -193,10 +264,38 @@ class AntiBanManager:
         self.next_break = BreakSchedule(
             start_time=time.time() + (minutes_until_break * 60),
             duration=break_duration_minutes * 60,
+            break_type="idle",
             reason="scheduled_break"
         )
         
-        print(f"Next break scheduled in {minutes_until_break:.1f} minutes "
+        print(f"Next idle break scheduled in {minutes_until_break:.1f} minutes "
+              f"for {break_duration_minutes:.1f} minutes")
+    
+    def _schedule_next_logout_break(self) -> None:
+        """Schedule the next logout break."""
+        if not self.config.enabled or not self.break_config.logout_breaks_enabled or not self.osrs_client:
+            return
+        
+        # Random time until next logout break (in minutes)
+        minutes_until_break = random.uniform(
+            self.break_config.logout_frequency_min,
+            self.break_config.logout_frequency_max
+        )
+        
+        # Random logout break duration (in minutes)
+        break_duration_minutes = random.uniform(
+            self.break_config.logout_duration_min,
+            self.break_config.logout_duration_max
+        )
+        
+        self.next_logout_break = BreakSchedule(
+            start_time=time.time() + (minutes_until_break * 60),
+            duration=break_duration_minutes * 60,
+            break_type="logout",
+            reason="logout_break"
+        )
+        
+        print(f"Next logout break scheduled in {minutes_until_break:.1f} minutes "
               f"for {break_duration_minutes:.1f} minutes")
     
     def apply_action_delay(self) -> None:
@@ -303,11 +402,16 @@ class AntiBanManager:
         if self.next_break:
             next_break_minutes = (self.next_break.start_time - time.time()) / 60
         
+        next_logout_break_minutes = None
+        if self.next_logout_break:
+            next_logout_break_minutes = (self.next_logout_break.start_time - time.time()) / 60
+        
         return {
             "enabled": self.config.enabled,
             "actions_performed": self.action_count,
             "fatigue_level": f"{self.fatigue_level * 100:.1f}%",
-            "next_break_in_minutes": f"{next_break_minutes:.1f}" if next_break_minutes else "N/A",
+            "next_idle_break_in_minutes": f"{next_break_minutes:.1f}" if next_break_minutes else "N/A",
+            "next_logout_break_in_minutes": f"{next_logout_break_minutes:.1f}" if next_logout_break_minutes else "N/A",
             "last_idle_action_seconds_ago": time.time() - self.last_idle_action
         }
 
@@ -338,8 +442,9 @@ class AntiBanDecorator:
         """
         def wrapped(*args, **kwargs):
             # Check if break is needed
-            if self.anti_ban.should_take_break():
-                self.anti_ban.take_break()
+            should_break, break_type = self.anti_ban.should_take_break()
+            if should_break:
+                self.anti_ban.take_break(break_type)
             
             # Perform random idle action occasionally
             if self.anti_ban.should_perform_idle_action():

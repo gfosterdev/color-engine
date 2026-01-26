@@ -109,11 +109,13 @@ class ModularTester:
         if not self.anti_ban:
             from core.anti_ban import AntiBanManager
             config = self.init_config()
+            osrs = self.init_osrs()  # Need OSRS client for logout breaks
             print("[Loading anti-ban module...]")
             self.anti_ban = AntiBanManager(
                 window=self.window,
                 config=config.anti_ban,
-                break_config=config.breaks
+                break_config=config.breaks,
+                osrs_client=osrs
             )
             print("[Anti-ban ready]")
         return self.anti_ban
@@ -804,24 +806,26 @@ class ModularTester:
         status = ab.get_status()
         
         print(f"\nAnti-Ban Status:")
-        print(f"  Enabled:         {status['enabled']}")
-        print(f"  Actions:         {status['actions_performed']}")
-        print(f"  Fatigue:         {status['fatigue_level']:.2f}")
-        print(f"  Next break (m):  {status['next_break_in_minutes']:.1f}")
+        print(f"  Enabled:              {status['enabled']}")
+        print(f"  Actions:              {status['actions_performed']}")
+        print(f"  Fatigue:              {status['fatigue_level']}")
+        print(f"  Next idle break (m):  {status['next_idle_break_in_minutes']}")
+        print(f"  Next logout break (m):{status['next_logout_break_in_minutes']}")
     
     def test_antiban_break(self):
-        """Simulate 5-second break."""
+        """Simulate 5-second idle break."""
         ab = self.init_anti_ban()
-        print("\nSimulating 5-second break...")
+        print("\nSimulating 5-second idle break...")
         
         from core.anti_ban import BreakSchedule
         ab.next_break = BreakSchedule(
             start_time=time.time(),
             duration=5.0,
+            break_type="idle",
             reason="manual_test"
         )
-        ab.take_break()
-        print("✓ Break complete")
+        ab.take_break("idle")
+        print("✓ Idle break complete")
     
     def test_antiban_tab_switch(self):
         """Test tab switching."""
@@ -829,6 +833,30 @@ class ModularTester:
         print("\nPerforming random idle action (may switch tabs)...")
         ab.perform_idle_action()
         print("✓ Done")
+    
+    def test_antiban_logout_break(self):
+        """Test logout break functionality."""
+        ab = self.init_anti_ban()
+        print("\n[Logout Break Test]")
+        print("WARNING: This will log you out for 10 seconds, then log back in.")
+        print("Make sure you are logged in and have credentials in profile!\n")
+        
+        response = input("Continue? (y/n): ").strip().lower()
+        if response != 'y':
+            print("Test cancelled.")
+            return
+        
+        print("\nSimulating 10-second logout break...")
+        
+        from core.anti_ban import BreakSchedule
+        ab.next_logout_break = BreakSchedule(
+            start_time=time.time(),
+            duration=10.0,
+            break_type="logout",
+            reason="test_logout_break"
+        )
+        ab._take_logout_break()
+        print("✓ Logout break test complete")
     
     # =================================================================
     # LOGIN/AUTHENTICATION TESTS
@@ -1167,6 +1195,7 @@ class ModularTester:
             's': ("Status", self.test_antiban_status),
             'b': ("Simulate Break", self.test_antiban_break),
             't': ("Tab Switch", self.test_antiban_tab_switch),
+            'l': ("Logout Break", self.test_antiban_logout_break),
         }
         
         print("\n" + "="*60)
@@ -1175,8 +1204,9 @@ class ModularTester:
         print("I - Perform Idle Action")
         print("C - Random Camera Movement")
         print("S - Check Status")
-        print("B - Simulate 5s Break")
+        print("B - Simulate 5s Idle Break")
         print("T - Test Tab Switching")
+        print("L - Test Logout Break (10s)")
         print("\nESC - Back to Main Menu")
         print("="*60)
         
