@@ -235,7 +235,7 @@ class OSRS:
         
         self.window.capture()
         login_text = self.window.read_text(LOGIN_EXISTING_USER_BUTTON, debug=True)
-        return login_text and "existing" in login_text.lower()
+        return bool(login_text and "existing" in login_text.lower())
     
     def login(self, password: str) -> bool:
         """.
