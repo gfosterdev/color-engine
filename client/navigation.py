@@ -376,6 +376,41 @@ class NavigationManager:
         dy = world_y - current_y
         distance = math.sqrt(dx**2 + dy**2)
         
+        # Validate distance - if unreasonably far, OCR likely misread
+        if distance > 500:
+            print(f"⚠ Warning: Distance is {distance:.1f} tiles - likely OCR misread")
+            print("Attempting small movement to trigger coordinate re-read...")
+            
+            # Move a small distance to refresh OCR
+            small_offset_x = random.randint(-2, 2)
+            small_offset_y = random.randint(-2, 2)
+            
+            # Click nearby on minimap to move slightly
+            if self._click_minimap_offset(small_offset_x, small_offset_y):
+                # Wait for movement
+                time.sleep(random.uniform(1.5, 2.5))
+                
+                # Re-read coordinates
+                new_pos = self.read_world_coordinates()
+                if new_pos:
+                    current_x, current_y = new_pos
+                    dx = world_x - current_x
+                    dy = world_y - current_y
+                    distance = math.sqrt(dx**2 + dy**2)
+                    print(f"Re-read coordinates: ({current_x}, {current_y})")
+                    print(f"Updated distance: {distance:.1f} tiles")
+                    
+                    # If still unreasonable, abort
+                    if distance > 500:
+                        print("✗ Distance still unreasonable after re-read. Aborting navigation.")
+                        return False
+                else:
+                    print("✗ Failed to re-read coordinates. Aborting navigation.")
+                    return False
+            else:
+                print("✗ Failed to trigger movement for re-read. Aborting navigation.")
+                return False
+        
         print(f"Walking from ({current_x}, {current_y}) to ({world_x}, {world_y})")
         print(f"Distance: {distance:.1f} tiles")
         
@@ -501,7 +536,9 @@ class NavigationManager:
         max_distance: int = 12
     ) -> List[Tuple[int, int]]:
         """
-        Chunk waypoints into segments suitable for minimap clicking range.
+        Intelligently select waypoints to maximize minimap click distance.
+        Uses greedy algorithm to skip intermediate waypoints when possible,
+        resulting in fewer total clicks for more human-like navigation.
         
         Args:
             waypoints: Full list of path waypoints
@@ -509,31 +546,41 @@ class NavigationManager:
             max_distance: Maximum tiles per minimap click (default: 12)
             
         Returns:
-            Chunked waypoints list
+            Optimized waypoints list with maximum spacing
         """
         if not waypoints:
             return []
         
+        # If only one waypoint, just return it
+        if len(waypoints) == 1:
+            return waypoints
+        
         chunked = []
         last_pos = current_pos
+        i = 0
         
-        for wp in waypoints:
-            dx = wp[0] - last_pos[0]
-            dy = wp[1] - last_pos[1]
-            dist = math.sqrt(dx**2 + dy**2)
+        while i < len(waypoints):
+            # Greedy search: find farthest reachable waypoint from current position
+            farthest_index = i
             
-            if dist <= max_distance:
-                chunked.append(wp)
-                last_pos = wp
-            else:
-                # Need to add intermediate waypoint
-                steps = math.ceil(dist / max_distance)
-                for step in range(1, steps + 1):
-                    progress = step / steps
-                    inter_x = int(last_pos[0] + dx * progress)
-                    inter_y = int(last_pos[1] + dy * progress)
-                    chunked.append((inter_x, inter_y))
-                last_pos = wp
+            # Look ahead to find the farthest waypoint within minimap range
+            for j in range(i, len(waypoints)):
+                dx = waypoints[j][0] - last_pos[0]
+                dy = waypoints[j][1] - last_pos[1]
+                dist = math.sqrt(dx**2 + dy**2)
+                
+                if dist <= max_distance:
+                    farthest_index = j
+                else:
+                    # Exceeded minimap range, stop looking
+                    break
+            
+            # Add the farthest reachable waypoint
+            chunked.append(waypoints[farthest_index])
+            last_pos = waypoints[farthest_index]
+            
+            # Move to next segment (skip all intermediate waypoints)
+            i = farthest_index + 1
         
         return chunked
     

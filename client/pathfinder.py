@@ -129,7 +129,7 @@ class VariancePathfinder:
         path = self._inject_waypoints(path, variance_config)
         
         # Simplify path by removing unnecessary intermediate waypoints
-        path = self._simplify_path(path)
+        path = self._simplify_path(path, variance_config)
         
         # Cache the path
         if use_cache:
@@ -148,32 +148,43 @@ class VariancePathfinder:
         Get variance configuration parameters.
         
         Args:
-            variance_level: "conservative", "moderate", or "aggressive"
+            variance_level: "minimal", "conservative", "moderate", or "aggressive"
             
         Returns:
             Dictionary with variance parameters
         """
         configs = {
+            "minimal": {
+                "edge_weight_min": 1.00,
+                "edge_weight_max": 1.00,
+                "waypoint_count_min": 0,
+                "waypoint_count_max": 0,
+                "waypoint_deviation": 0,
+                "lookahead_distance": 20  # Maximum simplification
+            },
             "conservative": {
                 "edge_weight_min": 0.90,
                 "edge_weight_max": 1.10,
                 "waypoint_count_min": 0,
                 "waypoint_count_max": 1,
-                "waypoint_deviation": 3  # tiles from straight line
+                "waypoint_deviation": 3,
+                "lookahead_distance": 15
             },
             "moderate": {
                 "edge_weight_min": 0.85,
                 "edge_weight_max": 1.25,
                 "waypoint_count_min": 1,
                 "waypoint_count_max": 2,
-                "waypoint_deviation": 5
+                "waypoint_deviation": 5,
+                "lookahead_distance": 12
             },
             "aggressive": {
                 "edge_weight_min": 0.75,
                 "edge_weight_max": 1.35,
                 "waypoint_count_min": 2,
                 "waypoint_count_max": 3,
-                "waypoint_deviation": 8
+                "waypoint_deviation": 8,
+                "lookahead_distance": 10
             }
         }
         
@@ -282,7 +293,7 @@ class VariancePathfinder:
             goal_node: Final node in path
             
         Returns:
-            List of waypoints from start to goal
+            List of waypoints from start to goal (excluding starting position)
         """
         path = []
         current = goal_node
@@ -292,6 +303,11 @@ class VariancePathfinder:
             current = current.parent
         
         path.reverse()
+        
+        # Remove starting position since we're already there
+        if len(path) > 1:
+            path = path[1:]
+        
         return path
     
     def _inject_waypoints(
@@ -364,7 +380,7 @@ class VariancePathfinder:
         
         return new_path
     
-    def _simplify_path(self, path: List[Tuple[int, int, int]]) -> List[Tuple[int, int, int]]:
+    def _simplify_path(self, path: List[Tuple[int, int, int]], variance_config: dict) -> List[Tuple[int, int, int]]:
         """
         Simplify path by removing intermediate waypoints when line-of-sight is clear.
         Uses greedy algorithm: looks ahead as far as possible and skips to farthest
@@ -372,6 +388,7 @@ class VariancePathfinder:
         
         Args:
             path: Original path with potentially many intermediate waypoints
+            variance_config: Configuration containing lookahead_distance parameter
             
         Returns:
             Simplified path with fewer waypoints
@@ -381,11 +398,11 @@ class VariancePathfinder:
         
         simplified = [path[0]]  # Always keep start
         current_index = 0
+        lookahead_distance = variance_config.get("lookahead_distance", 12)
         
         while current_index < len(path) - 1:
             # Look ahead to find farthest visible tile
-            # Limit to 12 tiles (minimap click range) for practical pathing
-            max_lookahead = min(len(path) - 1, current_index + 12)
+            max_lookahead = min(len(path) - 1, current_index + lookahead_distance)
             farthest_visible = current_index + 1  # Default to next tile
             
             # Greedy search: find farthest tile with clear line-of-sight

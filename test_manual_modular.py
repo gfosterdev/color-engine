@@ -1535,6 +1535,114 @@ class ModularTester:
             pf_stats = stats['pathfinder']
             print(f"Cached paths: {pf_stats.get('cached_paths', 0)}")
     
+    def test_custom_coordinates_pathfinding(self):
+        """Test pathfinding from current position to custom world coordinates."""
+        nav = self.init_navigation()
+        
+        print("\nCustom Coordinate Pathfinding Test")
+        print("="*60)
+        
+        # Ensure pathfinding is loaded
+        if not nav._ensure_pathfinding_loaded():
+            print("✗ Pathfinding not available")
+            return
+        
+        # Get current position as start
+        current_pos = nav.read_world_coordinates()
+        if not current_pos:
+            print("✗ Could not read current position")
+            return
+        
+        start_x, start_y = current_pos
+        print(f"Start position: ({start_x}, {start_y})")
+        print("-"*60)
+        
+        # Get goal coordinates
+        try:
+            goal_input = input(f"Enter goal coordinates (x,y): ").strip()
+            if not goal_input:
+                print("✗ Goal coordinates required")
+                return
+            
+            goal_parts = goal_input.split(',')
+            goal_x = int(goal_parts[0].strip())
+            goal_y = int(goal_parts[1].strip())
+            
+            start_z = int(input(f"Enter plane (0-3) [default 0]: ").strip() or "0")
+            goal_z = start_z  # Same plane unless otherwise needed
+            
+            # Get variance level
+            print("\nVariance levels: conservative, moderate, aggressive")
+            variance = input("Enter variance level [default moderate]: ").strip() or "moderate"
+            
+        except (ValueError, IndexError) as e:
+            print(f"✗ Invalid input: {e}")
+            return
+        
+        print("\n" + "="*60)
+        print(f"Start: ({start_x}, {start_y}, {start_z})")
+        print(f"Goal:  ({goal_x}, {goal_y}, {goal_z})")
+        print(f"Variance: {variance}")
+        print("="*60)
+        
+        # Calculate path
+        from client.pathfinder import VariancePathfinder
+        from util.collision_util import CollisionMap
+        
+        pathfinder = VariancePathfinder(CollisionMap())
+        
+        import time
+        start_time = time.time()
+        path = pathfinder.find_path(
+            (start_x, start_y, start_z),
+            (goal_x, goal_y, goal_z),
+            variance_level=variance,
+            use_cache=False
+        )
+        elapsed = time.time() - start_time
+        
+        if path:
+            print(f"✓ Path found: {len(path)} waypoints in {elapsed*1000:.1f}ms")
+            
+            # Calculate distance
+            dx = goal_x - start_x
+            dy = goal_y - start_y
+            straight_line = (dx**2 + dy**2)**0.5
+            
+            print(f"Straight-line distance: {straight_line:.1f} tiles")
+            print(f"Path efficiency: {straight_line/len(path)*100:.1f}%")
+            
+            # Show first/last few waypoints
+            print("\nFirst 5 waypoints:")
+            for i, (x, y, z) in enumerate(path[:5]):
+                print(f"  {i+1}. ({x}, {y}, {z})")
+            
+            if len(path) > 10:
+                print("  ...")
+                print(f"Last 5 waypoints:")
+                for i, (x, y, z) in enumerate(path[-5:], len(path)-4):
+                    print(f"  {i}. ({x}, {y}, {z})")
+            elif len(path) > 5:
+                print(f"Remaining waypoints:")
+                for i, (x, y, z) in enumerate(path[5:], 6):
+                    print(f"  {i}. ({x}, {y}, {z})")
+            
+            # Ask if user wants to walk the path
+            walk_input = input("\nExecute this path? (y/n): ").strip().lower()
+            if walk_input == 'y':
+                print("\nExecuting path...")
+                success = nav.walk_to_tile(goal_x, goal_y, plane=goal_z, use_pathfinding=True)
+                if success:
+                    print("✓ Walk completed successfully")
+                else:
+                    print("✗ Walk failed or interrupted")
+        else:
+            print(f"✗ No path found (searched for {elapsed*1000:.1f}ms)")
+            print("Possible reasons:")
+            print("  - Goal is unreachable (blocked by obstacles)")
+            print("  - Goal is too far (>100 tiles)")
+            print("  - Different planes with no connection")
+    
     def run_pathfinding_tests(self):
         """Run pathfinding testing menu."""
         self.current_menu = "pathfinding"
@@ -1546,6 +1654,7 @@ class ModularTester:
             'v': ("Path Variance Test", self.test_path_variance),
             'w': ("Walk with Pathfinding", self.test_walk_with_pathfinding),
             'l': ("Walk without Pathfinding", self.test_walk_without_pathfinding),
+            'i': ("Custom Coordinates Input", self.test_custom_coordinates_pathfinding),
             'x': ("Clear Path Cache", self.test_clear_path_cache),
         }
         
@@ -1558,6 +1667,7 @@ class ModularTester:
         print("V - Path Variance Test (generate 5 paths)")
         print("W - Walk with Pathfinding (+10 north)")
         print("L - Walk without Pathfinding (+10 north)")
+        print("I - Custom Coordinates Input (test any path)")
         print("X - Clear Path Cache")
         print("\nESC - Back to Main Menu")
         print("="*60)
