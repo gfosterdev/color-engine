@@ -12,6 +12,7 @@ from PIL import ImageGrab, Image
 from .mouse_util import MouseMover
 import random
 import math
+import subprocess
 
 
 class Region:

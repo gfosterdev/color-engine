@@ -19,7 +19,7 @@ class ModularTester:
         """Initialize basic window connection only."""
         print("Initializing window connection...")
         self.window = Window()
-        self.window.find(title="RuneLite - xJawj", exact_match=True)
+        self.window.find(title="RuneLite", exact_match=True)
         
         if not self.window.window:
             raise RuntimeError("Could not find RuneLite window!")
@@ -155,7 +155,7 @@ class ModularTester:
         print("\nScreenshot captured!")
         print(f"Image shape: {self.window.screenshot.shape if self.window.screenshot is not None else 'None'}")
         print("(Image stored in memory, call debug=True in Window methods to save to disk)")
-    
+
     def test_mouse_position(self):
         """Get mouse position and color."""
         if not self.ensure_window():
@@ -234,22 +234,9 @@ class ModularTester:
         
         while True:
             if keyboard.is_pressed('space'):
-                # Get current mouse position
-                try:
-                    import win32api
-                    x, y = win32api.GetCursorPos()
-                except ImportError:
-                    class POINT(ctypes.Structure):
-                        _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
-                    point = POINT()
-                    ctypes.windll.user32.GetCursorPos(ctypes.byref(point))
-                    x, y = point.x, point.y
-                
                 w = self.window.window
                 if w:
-                    local_x = x - w['x']
-                    local_y = y - w['y']
-                    print(f"Clicking at local position ({local_x}, {local_y})...")
+                    print(f"Clicking at current mouse position...")
                     
                     if self.window.click():
                         print("✓ Click executed successfully")
