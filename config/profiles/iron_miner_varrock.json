@@ -36,6 +36,13 @@
 		"idle_frequency_min": 10.0,
 		"idle_frequency_max": 45.0
 	},
+	"pathfinding": {
+		"enable_pathfinding": true,
+		"variance_level": "moderate",
+		"repathing_chance": 0.2,
+		"path_cache_size": 100,
+		"region_cache_size": 50
+	},
 	"skill_settings": {
 		"skill": "mining",
 		"ore_type": "iron_ore",

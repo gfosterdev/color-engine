@@ -2,13 +2,14 @@
 Navigation system for OSRS bot using minimap and coordinate-based movement.
 
 Implements coordinate reading, minimap clicking with yaw rotation, path chunking
-for long distances, and movement validation with stuck detection.
+for long distances, movement validation with stuck detection, and variance-based
+pathfinding with collision awareness.
 """
 
 import math
 import time
 import random
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, cast
 from collections import deque
 from util import Window
 from config.regions import (
@@ -20,6 +21,10 @@ from config.regions import (
     MINIMAP_COMPASS_REGION
 )
 
+# Lazy imports for pathfinding (only loaded when needed)
+_collision_map = None
+_pathfinder = None
+
 
 class NavigationManager:
     """
@@ -29,22 +34,20 @@ class NavigationManager:
     - Reads world/scene coordinates from RuneLite overlay via OCR
     - Reads camera yaw angle (0-2048 units) for rotation handling
     - Clicks minimap with yaw-adjusted offsets for directional movement
-    - Chunks long paths into multiple waypoints (linear interpolation)
+    - Variance-based pathfinding with collision awareness (Dijkstra + random edge weights)
+    - Path caching with execution randomness for anti-detection
     - Validates arrival with 2-tile tolerance
-    - Detects stuck players (no movement for 3+ seconds)
-    
-    Future Enhancements:
-    - A* pathfinding with collision detection (currently uses linear paths)
-    - Minimap scale calibration for accuracy tuning
-    - Game area clicking (extended from minimap system)
+    - Detects stuck players and triggers re-pathing
+    - Dynamic re-pathing (20% chance mid-journey)
     """
     
-    def __init__(self, window: Window):
+    def __init__(self, window: Window, profile_config: Optional[dict] = None):
         """
         Initialize navigation manager.
         
         Args:
             window: Window instance for screen capture and interaction
+            profile_config: Optional profile configuration dict with pathfinding settings
         """
         self.window = window
         
@@ -54,6 +57,81 @@ class NavigationManager:
         # Movement validation tracking
         self._position_history = deque(maxlen=4)  # Last 4 positions with timestamps
         self._last_check_time = 0
+        
+        # Pathfinding configuration (lazy-loaded)
+        self._pathfinding_enabled = False
+        self._pathfinding_config = self._init_pathfinding_config(profile_config)
+        
+        # Track stuck detection for re-pathing
+        self._stuck_count = 0
+        self._last_stuck_position = None
+    
+    def _init_pathfinding_config(self, profile_config: Optional[dict] = None) -> dict:
+        """
+        Initialize pathfinding configuration from profile.
+        
+        Args:
+            profile_config: Profile configuration dictionary
+            
+        Returns:
+            Pathfinding configuration dict with defaults
+        """
+        default_config = {
+            "variance_level": "moderate",  # conservative, moderate, aggressive
+            "repathing_chance": 0.2,       # 20% chance to re-path mid-journey
+            "path_cache_size": 100,         # Max cached paths
+            "region_cache_size": 50,        # Max cached collision regions
+            "enable_pathfinding": True      # Use collision-aware pathfinding
+        }
+        
+        if profile_config and "pathfinding" in profile_config:
+            default_config.update(profile_config["pathfinding"])
+        
+        return default_config
+    
+    def _ensure_pathfinding_loaded(self) -> bool:
+        """
+        Lazy-load pathfinding modules when first needed.
+        
+        Returns:
+            True if pathfinding loaded successfully, False otherwise
+        """
+        global _collision_map, _pathfinder
+        
+        if not self._pathfinding_config.get("enable_pathfinding", True):
+            return False
+        
+        if _collision_map is not None and _pathfinder is not None:
+            return True
+        
+        try:
+            from util.collision_util import CollisionMap
+            from client.pathfinder import VariancePathfinder
+            
+            print("Loading collision map and pathfinder...")
+            # CollisionMap singleton - parameters are correct despite type checker warning
+            _collision_map = CollisionMap(
+                zip_path=None,  # type: ignore[call-arg]
+                max_cache_size=self._pathfinding_config.get("region_cache_size", 50)  # type: ignore[call-arg]
+            )
+            _pathfinder = VariancePathfinder(
+                collision_map=_collision_map,
+                max_cache_size=self._pathfinding_config.get("path_cache_size", 100)
+            )
+            
+            self._pathfinding_enabled = True
+            print("✓ Pathfinding system loaded")
+            return True
+            
+        except FileNotFoundError as e:
+            print(f"Pathfinding disabled: {e}")
+            print("Run: python scripts/download_collision_data.py")
+            self._pathfinding_enabled = False
+            return False
+        except Exception as e:
+            print(f"Error loading pathfinding: {e}")
+            self._pathfinding_enabled = False
+            return False
         
     def read_world_coordinates(self) -> Optional[Tuple[int, int]]:
         """
@@ -264,16 +342,20 @@ class NavigationManager:
         
         return True
     
-    def walk_to_tile(self, world_x: int, world_y: int) -> bool:
+    def walk_to_tile(self, world_x: int, world_y: int, plane: int = 0, use_pathfinding: bool = True) -> bool:
         """
         Walk to target world coordinates using minimap clicks.
         
-        Long distances are automatically chunked into waypoints every 10-12 tiles.
-        Uses linear interpolation for pathfinding (no obstacle avoidance yet).
+        If pathfinding is enabled and collision data is available, uses variance-based
+        pathfinding with collision avoidance. Otherwise falls back to linear interpolation.
+        
+        Long distances are automatically chunked into waypoints.
         
         Args:
             world_x: Target world x coordinate
             world_y: Target world y coordinate
+            plane: Plane/height level (default: 0)
+            use_pathfinding: Whether to use pathfinding (default: True)
             
         Returns:
             True if successfully reached target (within 2 tiles), False otherwise
@@ -302,25 +384,63 @@ class NavigationManager:
             print("Already at target location")
             return True
         
-        # Generate waypoints if distance > 12 tiles
-        waypoints = []
-        if distance > 12:
-            # Chunk into segments of 10-12 tiles (randomized)
-            num_segments = math.ceil(distance / 11)
-            for i in range(1, num_segments):
-                progress = i / num_segments
-                wp_x = int(current_x + dx * progress)
-                wp_y = int(current_y + dy * progress)
-                waypoints.append((wp_x, wp_y))
+        # Try to use pathfinding if enabled
+        waypoints = None
+        if use_pathfinding and self._ensure_pathfinding_loaded():
+            try:
+                print("Using collision-aware pathfinding...")
+                start = (current_x, current_y, plane)
+                goal = (world_x, world_y, plane)
+                variance_level = self._pathfinding_config.get("variance_level", "moderate")
+                
+                if _pathfinder is not None:
+                    waypoints = _pathfinder.find_path(start, goal, variance_level=variance_level)
+                else:
+                    waypoints = None
+                
+                if waypoints:
+                    print(f"✓ Path found: {len(waypoints)} tiles")
+                    # Convert to simpler format and chunk for minimap range
+                    waypoints = [(x, y) for x, y, z in waypoints]
+                else:
+                    print("No path found, falling back to linear navigation")
+                    
+            except Exception as e:
+                print(f"Pathfinding error: {e}, falling back to linear navigation")
+                waypoints = None
         
-        # Add final target
-        waypoints.append((world_x, world_y))
+        # Fallback: Generate linear waypoints if pathfinding unavailable or failed
+        if waypoints is None:
+            print("Using linear path navigation...")
+            waypoints = []
+            if distance > 12:
+                # Chunk into segments of 10-12 tiles (randomized)
+                num_segments = math.ceil(distance / 11)
+                for i in range(1, num_segments):
+                    progress = i / num_segments
+                    wp_x = int(current_x + dx * progress)
+                    wp_y = int(current_y + dy * progress)
+                    waypoints.append((wp_x, wp_y))
+            
+            # Add final target
+            waypoints.append((world_x, world_y))
         
-        print(f"Path: {len(waypoints)} waypoint(s)")
+        # Chunk waypoints for minimap range (max 12 tiles per click)
+        # At this point waypoints is always List[Tuple[int, int]]
+        waypoints_2d = cast(List[Tuple[int, int]], waypoints)
+        chunked_waypoints = self._chunk_waypoints_for_minimap(waypoints_2d, current_pos)
+        
+        print(f"Executing path: {len(chunked_waypoints)} waypoint(s)")
         
         # Navigate through waypoints
-        for i, (wp_x, wp_y) in enumerate(waypoints):
-            print(f"\nWaypoint {i+1}/{len(waypoints)}: ({wp_x}, {wp_y})")
+        for i, (wp_x, wp_y) in enumerate(chunked_waypoints):
+            print(f"\nWaypoint {i+1}/{len(chunked_waypoints)}: ({wp_x}, {wp_y})")
+            
+            # Random re-pathing chance (anti-ban)
+            if i > 0 and random.random() < self._pathfinding_config.get("repathing_chance", 0.2):
+                print("  ↻ Dynamic re-pathing triggered")
+                # Re-calculate remaining path with new random seed
+                return self.walk_to_tile(world_x, world_y, plane, use_pathfinding=True)
             
             # Re-read current position for accuracy
             current_pos = self.read_world_coordinates()
@@ -343,17 +463,79 @@ class NavigationManager:
                 print("Error: Minimap click failed (out of bounds)")
                 return False
             
-            # Wait for arrival
+            # Wait for arrival with stuck detection
             time.sleep(random.uniform(0.8, 1.2))  # Initial movement delay
             
             if not self.wait_until_arrived(wp_x, wp_y, tolerance=2, timeout=10):
-                print(f"Failed to reach waypoint {i+1}")
-                return False
+                # Check if we're stuck
+                if self._is_stuck():
+                    print("  ⚠ Stuck detected, attempting re-path...")
+                    self._stuck_count += 1
+                    self._last_stuck_position = (current_x, current_y)
+                    
+                    # Clear path cache to force new calculation
+                    if _pathfinder:
+                        _pathfinder.clear_cache()
+                    
+                    # Retry navigation with fresh path
+                    if self._stuck_count < 3:
+                        return self.walk_to_tile(world_x, world_y, plane, use_pathfinding=True)
+                    else:
+                        print("  ✗ Failed after 3 re-path attempts")
+                        return False
+                else:
+                    print(f"Failed to reach waypoint {i+1}")
+                    return False
             
+            # Reset stuck counter on successful waypoint
+            self._stuck_count = 0
             print(f"  ✓ Reached waypoint {i+1}")
         
         print("\n✓ Successfully reached target")
         return True
+    
+    def _chunk_waypoints_for_minimap(
+        self,
+        waypoints: List[Tuple[int, int]],
+        current_pos: Tuple[int, int],
+        max_distance: int = 12
+    ) -> List[Tuple[int, int]]:
+        """
+        Chunk waypoints into segments suitable for minimap clicking range.
+        
+        Args:
+            waypoints: Full list of path waypoints
+            current_pos: Current player position
+            max_distance: Maximum tiles per minimap click (default: 12)
+            
+        Returns:
+            Chunked waypoints list
+        """
+        if not waypoints:
+            return []
+        
+        chunked = []
+        last_pos = current_pos
+        
+        for wp in waypoints:
+            dx = wp[0] - last_pos[0]
+            dy = wp[1] - last_pos[1]
+            dist = math.sqrt(dx**2 + dy**2)
+            
+            if dist <= max_distance:
+                chunked.append(wp)
+                last_pos = wp
+            else:
+                # Need to add intermediate waypoint
+                steps = math.ceil(dist / max_distance)
+                for step in range(1, steps + 1):
+                    progress = step / steps
+                    inter_x = int(last_pos[0] + dx * progress)
+                    inter_y = int(last_pos[1] + dy * progress)
+                    chunked.append((inter_x, inter_y))
+                last_pos = wp
+        
+        return chunked
     
     def wait_until_arrived(self, target_x: int, target_y: int, tolerance: int = 2, timeout: float = 10.0) -> bool:
         """
@@ -455,6 +637,32 @@ class NavigationManager:
         
         # Stuck if no movement for 3+ seconds
         return time_span >= 3.0
+    
+    def get_pathfinding_stats(self) -> dict:
+        """
+        Get pathfinding system statistics for monitoring.
+        
+        Returns:
+            Dictionary with collision map and path cache statistics
+        """
+        stats = {
+            "pathfinding_enabled": self._pathfinding_enabled,
+            "variance_level": self._pathfinding_config.get("variance_level", "N/A")
+        }
+        
+        if _collision_map:
+            stats["collision_map"] = _collision_map.get_cache_stats()
+        
+        if _pathfinder:
+            stats["pathfinder"] = _pathfinder.get_cache_stats()
+        
+        return stats
+    
+    def clear_path_cache(self):
+        """Clear pathfinding cache (useful for testing or forcing new paths)."""
+        if _pathfinder:
+            _pathfinder.clear_cache()
+            print("Path cache cleared")
     
     def calibrate_minimap_scale(self):
         """

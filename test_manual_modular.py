@@ -162,7 +162,7 @@ class ModularTester:
             return
         
         try:
-            import win32api
+            import win32api  # type: ignore[import-not-found]
             x, y = win32api.GetCursorPos()
         except ImportError:
             # Fallback to ctypes
@@ -1283,6 +1283,288 @@ class ModularTester:
         self._run_submenu(test_map)
     
     # =================================================================
+    # PATHFINDING TESTS
+    # =================================================================
+    
+    def test_pathfinding_stats(self):
+        """Display pathfinding system statistics."""
+        nav = self.init_navigation()
+        
+        print("\nPathfinding System Statistics:")
+        print("-" * 60)
+        
+        stats = nav.get_pathfinding_stats()
+        
+        print(f"Pathfinding Enabled: {stats.get('pathfinding_enabled', False)}")
+        print(f"Variance Level: {stats.get('variance_level', 'N/A')}")
+        
+        if 'collision_map' in stats:
+            cm_stats = stats['collision_map']
+            print(f"\nCollision Map:")
+            print(f"  Cached Regions: {cm_stats.get('cached_regions', 0)} / {cm_stats.get('max_cache_size', 0)}")
+            print(f"  Cache Utilization: {cm_stats.get('cache_utilization', 0):.1f}%")
+        
+        if 'pathfinder' in stats:
+            pf_stats = stats['pathfinder']
+            print(f"\nPathfinder:")
+            print(f"  Cached Paths: {pf_stats.get('cached_paths', 0)} / {pf_stats.get('max_cache_size', 0)}")
+            print(f"  Cache Hits: {pf_stats.get('cache_hits', 0)}")
+            print(f"  Cache Misses: {pf_stats.get('cache_misses', 0)}")
+            print(f"  Hit Rate: {pf_stats.get('hit_rate_percent', 0):.1f}%")
+    
+    def test_collision_detection(self):
+        """Test collision detection at current location."""
+        nav = self.init_navigation()
+        
+        print("\nTesting collision detection...")
+        
+        # Ensure pathfinding is loaded
+        if not nav._ensure_pathfinding_loaded():
+            print("✗ Pathfinding not available")
+            return
+        
+        # Get current position
+        pos = nav.read_world_coordinates()
+        if not pos:
+            print("✗ Could not read coordinates")
+            return
+        
+        x, y = pos
+        z = 0  # Assume ground level
+        
+        print(f"Position: ({x}, {y}, {z})")
+        print("-" * 60)
+        
+        from util.collision_util import CollisionMap
+        collision_map = CollisionMap()
+        
+        # Check all 8 directions
+        directions = {
+            "North": collision_map.can_move_north,
+            "South": collision_map.can_move_south,
+            "East": collision_map.can_move_east,
+            "West": collision_map.can_move_west,
+            "NE": collision_map.can_move_northeast,
+            "NW": collision_map.can_move_northwest,
+            "SE": collision_map.can_move_southeast,
+            "SW": collision_map.can_move_southwest
+        }
+        
+        for direction, check_func in directions.items():
+            can_move = check_func(x, y, z)
+            status = "✓ Walkable" if can_move else "✗ Blocked"
+            print(f"{direction:6} {status}")
+        
+        # Check if tile itself is blocked
+        if collision_map.is_tile_blocked(x, y, z):
+            print("\n⚠ Current tile is completely blocked!")
+        
+        # Show walkable neighbors
+        neighbors = collision_map.get_walkable_neighbors(x, y, z)
+        print(f"\nWalkable neighbors: {len(neighbors)}")
+    
+    def test_pathfinding_calculation(self):
+        """Test pathfinding calculation performance."""
+        nav = self.init_navigation()
+        
+        print("\nTesting pathfinding calculation...")
+        
+        # Ensure pathfinding is loaded
+        if not nav._ensure_pathfinding_loaded():
+            print("✗ Pathfinding not available")
+            return
+        
+        # Get current position
+        pos = nav.read_world_coordinates()
+        if not pos:
+            print("✗ Could not read coordinates")
+            return
+        
+        x, y = pos
+        z = 0
+        
+        # Test distances: 5, 10, 20, 50 tiles
+        test_distances = [5, 10, 20, 50]
+        
+        from client.pathfinder import VariancePathfinder
+        from util.collision_util import CollisionMap
+        
+        pathfinder = VariancePathfinder(CollisionMap())
+        
+        print(f"Starting position: ({x}, {y}, {z})")
+        print("-" * 60)
+        
+        for distance in test_distances:
+            # Test north
+            goal = (x, y + distance, z)
+            
+            import time
+            start_time = time.time()
+            path = pathfinder.find_path((x, y, z), goal, variance_level="moderate")
+            elapsed = time.time() - start_time
+            
+            if path:
+                print(f"{distance:2} tiles: {len(path):3} waypoints in {elapsed*1000:.1f}ms")
+            else:
+                print(f"{distance:2} tiles: No path found")
+    
+    def test_path_variance(self):
+        """Visualize path variance by generating multiple paths."""
+        nav = self.init_navigation()
+        
+        print("\nTesting path variance (generating 5 paths)...")
+        
+        # Ensure pathfinding is loaded
+        if not nav._ensure_pathfinding_loaded():
+            print("✗ Pathfinding not available")
+            return
+        
+        # Get current position
+        pos = nav.read_world_coordinates()
+        if not pos:
+            print("✗ Could not read coordinates")
+            return
+        
+        x, y = pos
+        z = 0
+        
+        # Target: 20 tiles northeast
+        goal = (x + 20, y + 20, z)
+        
+        from client.pathfinder import VariancePathfinder
+        from util.collision_util import CollisionMap
+        
+        pathfinder = VariancePathfinder(CollisionMap())
+        
+        print(f"Start: ({x}, {y})")
+        print(f"Goal: {goal}")
+        print("-" * 60)
+        
+        # Clear cache to force new calculations
+        pathfinder.clear_cache()
+        
+        paths = []
+        for i in range(5):
+            path = pathfinder.find_path((x, y, z), goal, variance_level="moderate", use_cache=False)
+            if path:
+                paths.append(path)
+                print(f"Path {i+1}: {len(path)} waypoints")
+            else:
+                print(f"Path {i+1}: No path found")
+        
+        # Analyze variance
+        if len(paths) > 1:
+            print("\nVariance Analysis:")
+            lengths = [len(p) for p in paths]
+            print(f"  Length range: {min(lengths)}-{max(lengths)} waypoints")
+            
+            # Check if paths are actually different
+            unique_paths = len(set(tuple(p) for p in paths))
+            print(f"  Unique paths: {unique_paths} / {len(paths)}")
+            
+            if unique_paths == len(paths):
+                print("  ✓ All paths are unique (good variance)")
+            else:
+                print("  ⚠ Some paths are identical (increase variance)")
+    
+    def test_walk_with_pathfinding(self):
+        """Walk a short distance using pathfinding."""
+        nav = self.init_navigation()
+        
+        print("\nWalking with pathfinding (+10 tiles north)...")
+        
+        # Get current position
+        pos = nav.read_world_coordinates()
+        if not pos:
+            print("✗ Could not read coordinates")
+            return
+        
+        x, y = pos
+        target_x = x
+        target_y = y + 10
+        
+        print(f"From: ({x}, {y})")
+        print(f"To: ({target_x}, {target_y})")
+        print("\nStarting walk (using pathfinding)...")
+        
+        success = nav.walk_to_tile(target_x, target_y, plane=0, use_pathfinding=True)
+        
+        if success:
+            print("✓ Walk completed successfully")
+        else:
+            print("✗ Walk failed")
+    
+    def test_walk_without_pathfinding(self):
+        """Walk a short distance using linear navigation."""
+        nav = self.init_navigation()
+        
+        print("\nWalking without pathfinding (+10 tiles north)...")
+        
+        # Get current position
+        pos = nav.read_world_coordinates()
+        if not pos:
+            print("✗ Could not read coordinates")
+            return
+        
+        x, y = pos
+        target_x = x
+        target_y = y + 10
+        
+        print(f"From: ({x}, {y})")
+        print(f"To: ({target_x}, {target_y})")
+        print("\nStarting walk (linear path)...")
+        
+        success = nav.walk_to_tile(target_x, target_y, plane=0, use_pathfinding=False)
+        
+        if success:
+            print("✓ Walk completed successfully")
+        else:
+            print("✗ Walk failed")
+    
+    def test_clear_path_cache(self):
+        """Clear the pathfinding cache."""
+        nav = self.init_navigation()
+        
+        print("\nClearing path cache...")
+        nav.clear_path_cache()
+        print("✓ Cache cleared")
+        
+        # Show stats
+        stats = nav.get_pathfinding_stats()
+        if 'pathfinder' in stats:
+            pf_stats = stats['pathfinder']
+            print(f"Cached paths: {pf_stats.get('cached_paths', 0)}")
+    
+    def run_pathfinding_tests(self):
+        """Run pathfinding testing menu."""
+        self.current_menu = "pathfinding"
+        
+        test_map = {
+            's': ("Pathfinding Statistics", self.test_pathfinding_stats),
+            'c': ("Collision Detection", self.test_collision_detection),
+            'p': ("Path Calculation Performance", self.test_pathfinding_calculation),
+            'v': ("Path Variance Test", self.test_path_variance),
+            'w': ("Walk with Pathfinding", self.test_walk_with_pathfinding),
+            'l': ("Walk without Pathfinding", self.test_walk_without_pathfinding),
+            'x': ("Clear Path Cache", self.test_clear_path_cache),
+        }
+        
+        print("\n" + "="*60)
+        print("PATHFINDING TESTS")
+        print("="*60)
+        print("S - Show Pathfinding Statistics")
+        print("C - Test Collision Detection (current position)")
+        print("P - Path Calculation Performance (various distances)")
+        print("V - Path Variance Test (generate 5 paths)")
+        print("W - Walk with Pathfinding (+10 north)")
+        print("L - Walk without Pathfinding (+10 north)")
+        print("X - Clear Path Cache")
+        print("\nESC - Back to Main Menu")
+        print("="*60)
+        
+        self._run_submenu(test_map)
+    
+    # =================================================================
     # NAVIGATION TESTS
     # =================================================================
     
@@ -1573,6 +1855,7 @@ class ModularTester:
             '8': ("Login/Auth", self.run_login_tests),
             '9': ("Color Registry", self.run_registry_tests),
             '0': ("Navigation", self.run_navigation_tests),
+            'p': ("Pathfinding", self.run_pathfinding_tests),
         }
         
         def print_main_menu():
@@ -1589,6 +1872,7 @@ class ModularTester:
             print("8 - Login/Authentication Tests")
             print("9 - Color Registry Tests")
             print("0 - Navigation Tests")
+            print("P - Pathfinding Tests (NEW)")
             print("\nESC - Exit")
             print("="*60)
         
