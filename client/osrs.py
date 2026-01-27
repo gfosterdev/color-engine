@@ -24,7 +24,7 @@ BANK = (190, 25, 25)
 class OSRS:
     def __init__(self, profile_config=None):
         self.window = Window()
-        self.window.find(title="RuneLite - xJawj", exact_match=True)
+        self.window.find(title="RuneLite", exact_match=False)
         self.inventory = InventoryManager(self.window)
         self.interfaces = InterfaceDetector(self.window)
         self.keyboard = KeyboardInput()

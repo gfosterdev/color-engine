@@ -19,7 +19,7 @@ class ModularTester:
         """Initialize basic window connection only."""
         print("Initializing window connection...")
         self.window = Window()
-        self.window.find(title="RuneLite", exact_match=True)
+        self.window.find(title="RuneLite", exact_match=False)
         
         if not self.window.window:
             raise RuntimeError("Could not find RuneLite window!")

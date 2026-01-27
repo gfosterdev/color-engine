@@ -186,7 +186,7 @@ class NavigationManager:
         
         # Click random point within compass region
         compass_point = MINIMAP_COMPASS_REGION.random_point()
-        self.window.click_at(compass_point)
+        self.window.click_at(*compass_point)
         
         # Camera snaps instantly, just brief pause for click to register
         time.sleep(random.uniform(0.2, 0.3))
@@ -228,10 +228,11 @@ class NavigationManager:
         # 0 = north, 512 = east, 1024 = south, 1536 = west
         yaw_radians = yaw * 2 * math.pi / 2048
         
-        # Apply rotation matrix to tile delta
-        # Rotation: [cos(θ), -sin(θ); sin(θ), cos(θ)]
-        rotated_dx = dx * math.cos(yaw_radians) - dy * math.sin(yaw_radians)
-        rotated_dy = dx * math.sin(yaw_radians) + dy * math.cos(yaw_radians)
+        # Apply inverse rotation matrix to convert world offsets to minimap offsets
+        # We rotate by -yaw to counter the camera rotation
+        # Rotation by -θ: [cos(θ), sin(θ); -sin(θ), cos(θ)]
+        rotated_dx = dx * math.cos(yaw_radians) + dy * math.sin(yaw_radians)
+        rotated_dy = -dx * math.sin(yaw_radians) + dy * math.cos(yaw_radians)
         
         # Convert to minimap pixels
         pixel_dx = rotated_dx * self.minimap_scale
