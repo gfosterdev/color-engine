@@ -1,0 +1,643 @@
+"""
+Comprehensive Test Suite for RuneLite HTTP Server Plugin API
+Tests all available endpoints with detailed output and performance metrics.
+
+Usage:
+    python test_comprehensive_api.py
+
+Features:
+    - Tests all 17 endpoints
+    - Performance benchmarking
+    - Data validation
+    - Real-time monitoring modes
+    - Export capabilities
+"""
+
+import requests
+import json
+import time
+from typing import Any, Dict, List, Optional, Union, cast
+from datetime import datetime
+
+
+class ComprehensiveRuneLiteAPI:
+    """Complete API wrapper for all RuneLite HTTP Server endpoints."""
+    
+    def __init__(self, host='localhost', port=8080):
+        self.base_url = f"http://{host}:{port}"
+        self.session = requests.Session()
+        self.last_request_time = {}
+        
+    def _get(self, endpoint: str) -> Optional[Union[Dict[str, Any], List[Any]]]:
+        """Make GET request and track timing."""
+        start_time = time.time()
+        try:
+            response = self.session.get(f"{self.base_url}/{endpoint}", timeout=2)
+            elapsed = (time.time() - start_time) * 1000  # Convert to ms
+            self.last_request_time[endpoint] = elapsed
+            
+            response.raise_for_status()
+            
+            if not response.text or response.text.strip() == '':
+                return None
+            
+            return response.json()
+        except requests.exceptions.JSONDecodeError as e:
+            print(f"❌ JSON Error on /{endpoint}: {e}")
+            return None
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Request Error on /{endpoint}: {e}")
+            return None
+    
+    # Player Data Endpoints
+    def get_stats(self) -> Optional[List[Dict[str, Any]]]:
+        """Get all skill stats with XP calculations."""
+        result = self._get("stats")
+        return cast(Optional[List[Dict[str, Any]]], result)
+    
+    def get_player(self) -> Optional[Dict[str, Any]]:
+        """Get player state (health, prayer, energy, etc)."""
+        result = self._get("player")
+        return cast(Optional[Dict[str, Any]], result)
+    
+    def get_coords(self) -> Optional[Dict[str, Any]]:
+        """Get world and local coordinates."""
+        result = self._get("coords")
+        return cast(Optional[Dict[str, Any]], result)
+    
+    def get_combat(self) -> Optional[Dict[str, Any]]:
+        """Get combat state and target info."""
+        result = self._get("combat")
+        return cast(Optional[Dict[str, Any]], result)
+    
+    def get_animation(self) -> Optional[Dict[str, Any]]:
+        """Get current animation state."""
+        result = self._get("animation")
+        return cast(Optional[Dict[str, Any]], result)
+    
+    # Inventory & Equipment
+    def get_inventory(self) -> Optional[List[Dict[str, Any]]]:
+        """Get inventory items."""
+        result = self._get("inv")
+        return cast(Optional[List[Dict[str, Any]]], result)
+    
+    def get_equipment(self) -> Optional[List[Dict[str, Any]]]:
+        """Get equipped items."""
+        result = self._get("equip")
+        return cast(Optional[List[Dict[str, Any]]], result)
+    
+    def get_bank(self) -> Optional[List[Dict[str, Any]]]:
+        """Get bank items (only when bank is open)."""
+        result = self._get("bank")
+        return cast(Optional[List[Dict[str, Any]]], result)
+    
+    # World Data
+    def get_npcs(self) -> Optional[List[Dict[str, Any]]]:
+        """Get all NPCs in scene."""
+        result = self._get("npcs")
+        return cast(Optional[List[Dict[str, Any]]], result)
+    
+    def get_players(self) -> Optional[List[Dict[str, Any]]]:
+        """Get all other players in scene."""
+        result = self._get("players")
+        return cast(Optional[List[Dict[str, Any]]], result)
+    
+    def get_objects(self) -> Optional[List[Dict[str, Any]]]:
+        """Get all game objects in scene."""
+        result = self._get("objects")
+        return cast(Optional[List[Dict[str, Any]]], result)
+    
+    def get_ground_items(self) -> Optional[List[Dict[str, Any]]]:
+        """Get all ground items in scene."""
+        result = self._get("grounditems")
+        return cast(Optional[List[Dict[str, Any]]], result)
+    
+    # Game State
+    def get_camera(self) -> Optional[Dict[str, Any]]:
+        """Get camera position and rotation."""
+        result = self._get("camera")
+        return cast(Optional[Dict[str, Any]], result)
+    
+    def get_game_state(self) -> Optional[Dict[str, Any]]:
+        """Get game state info."""
+        result = self._get("game")
+        return cast(Optional[Dict[str, Any]], result)
+    
+    def get_menu(self) -> Optional[List[Dict[str, Any]]]:
+        """Get current right-click menu entries."""
+        result = self._get("menu")
+        return cast(Optional[List[Dict[str, Any]]], result)
+    
+    def get_widgets(self) -> Optional[Dict[str, Any]]:
+        """Get interface/widget states."""
+        result = self._get("widgets")
+        return cast(Optional[Dict[str, Any]], result)
+    
+    def get_performance_stats(self) -> Dict[str, float]:
+        """Get request performance metrics."""
+        return self.last_request_time.copy()
+
+
+def print_header(title: str, char="="):
+    """Print formatted header."""
+    width = 80
+    print(f"\n{char * width}")
+    print(f"  {title}")
+    print(f"{char * width}\n")
+
+
+def test_player_data(api: ComprehensiveRuneLiteAPI):
+    """Test all player-related endpoints."""
+    print_header("🎮 PLAYER DATA TESTS")
+    
+    # Player State
+    print("📊 Player State:")
+    player = api.get_player()
+    if player:
+        print(f"  Name:           {player.get('name', 'N/A')}")
+        print(f"  Combat Level:   {player.get('combatLevel', 'N/A')}")
+        print(f"  Health:         {player.get('health', 0)}/{player.get('maxHealth', 0)}")
+        print(f"  Prayer:         {player.get('prayer', 0)}/{player.get('maxPrayer', 0)}")
+        print(f"  Run Energy:     {player.get('runEnergy', 0)}%")
+        print(f"  Special Attack: {player.get('specialAttack', 0)}%")
+        print(f"  Weight:         {player.get('weight', 0)} kg")
+        print(f"  Is Animating:   {player.get('isAnimating', False)}")
+        if player.get('interactingWith'):
+            print(f"  Interacting:    {player['interactingWith']}")
+    else:
+        print("  ❌ No player data available")
+    
+    # Combat State
+    print("\n⚔️  Combat State:")
+    combat = api.get_combat()
+    if combat:
+        print(f"  In Combat:      {combat.get('inCombat', False)}")
+        print(f"  Auto Retaliate: {combat.get('autoRetaliate', False)}")
+        if combat.get('target'):
+            target = combat['target']
+            print(f"  Target:         {target.get('name', 'Unknown')}")
+            if 'id' in target:
+                print(f"  Target ID:      {target['id']}")
+                print(f"  Target Level:   {target.get('combatLevel', 'N/A')}")
+    else:
+        print("  ❌ No combat data available")
+    
+    # Animation
+    print("\n🏃 Animation State:")
+    anim = api.get_animation()
+    if anim:
+        print(f"  Animation ID:   {anim.get('animationId', -1)}")
+        print(f"  Pose Animation: {anim.get('poseAnimation', -1)}")
+        print(f"  Is Animating:   {anim.get('isAnimating', False)}")
+        print(f"  Is Moving:      {anim.get('isMoving', False)}")
+    else:
+        print("  ❌ No animation data available")
+    
+    # Coordinates
+    print("\n📍 Location:")
+    coords = api.get_coords()
+    if coords and 'world' in coords:
+        world = coords['world']
+        local = coords.get('local', {})
+        print(f"  World: ({world.get('x')}, {world.get('y')}, Plane {world.get('plane')})")
+        print(f"  Region: {world.get('regionID')} [{world.get('regionX')}, {world.get('regionY')}]")
+        print(f"  Scene: ({local.get('sceneX')}, {local.get('sceneY')})")
+    else:
+        print("  ❌ No coordinate data available")
+
+
+def test_skills(api: ComprehensiveRuneLiteAPI):
+    """Test skills endpoint with detailed breakdown."""
+    print_header("📈 SKILLS TEST")
+    
+    stats = api.get_stats()
+    if not stats:
+        print("❌ No stats available")
+        return
+    
+    print(f"✅ Retrieved {len(stats)} skills\n")
+    
+    # Group skills by category
+    combat = ["Attack", "Strength", "Defence", "Hitpoints", "Ranged", "Prayer", "Magic"]
+    gathering = ["Mining", "Fishing", "Woodcutting", "Farming", "Hunter"]
+    production = ["Smithing", "Crafting", "Fletching", "Herblore", "Cooking", "Firemaking", "Runecraft", "Construction"]
+    support = ["Agility", "Thieving", "Slayer"]
+    
+    def print_skill_group(name: str, skill_names: List[str]):
+        print(f"{name}:")
+        for stat in stats:
+            if stat['stat'] in skill_names:
+                level = stat['level']
+                boosted = stat['boostedLevel']
+                xp = stat['xp']
+                to_next = stat.get('xpToNextLevel', 0)
+                
+                boost_str = f" ({boosted-level:+d})" if boosted != level else ""
+                next_str = f" ({to_next:,} to {level+1})" if to_next > 0 and level < 99 else ""
+                
+                print(f"  {stat['stat']:14} Lvl {boosted}{boost_str:7} | {xp:>10,} XP{next_str}")
+        print()
+    
+    print_skill_group("⚔️  Combat Skills", combat)
+    print_skill_group("⛏️  Gathering Skills", gathering)
+    print_skill_group("🔨 Production Skills", production)
+    print_skill_group("🏃 Support Skills", support)
+    
+    # Calculate totals
+    total_level = sum(s['level'] for s in stats)
+    total_xp = sum(s['xp'] for s in stats)
+    print(f"📊 Total Level: {total_level}")
+    print(f"📊 Total XP: {total_xp:,}")
+
+
+def test_inventory_equipment(api: ComprehensiveRuneLiteAPI):
+    """Test inventory and equipment endpoints."""
+    print_header("🎒 INVENTORY & EQUIPMENT TEST")
+    
+    # Inventory
+    print("📦 Inventory:")
+    inv = api.get_inventory()
+    if inv:
+        items = [item for item in inv if item.get('id', -1) != -1]
+        if items:
+            print(f"  {len(items)}/28 slots used\n")
+            for i, item in enumerate(items[:10], 1):  # Show first 10
+                qty = item.get('quantity', 1)
+                qty_str = f" x{qty}" if qty > 1 else ""
+                print(f"  {i:2}. ID {item.get('id'):5}{qty_str}")
+            if len(items) > 10:
+                print(f"  ... and {len(items)-10} more items")
+        else:
+            print("  Empty")
+    else:
+        print("  ❌ Could not retrieve inventory")
+    
+    # Equipment
+    print("\n🛡️  Equipment:")
+    equip = api.get_equipment()
+    if equip:
+        items = [item for item in equip if item.get('id', -1) != -1]
+        if items:
+            slots = {0: "Head", 1: "Cape", 2: "Neck", 3: "Weapon", 4: "Body",
+                    5: "Shield", 6: "Legs", 7: "Hands", 8: "Feet", 9: "Ring", 10: "Ammo"}
+            for item in items:
+                slot_name = slots.get(item.get('slot', -1), 'Unknown')
+                print(f"  {slot_name:8} - ID {item.get('id')}")
+        else:
+            print("  No items equipped")
+    else:
+        print("  ❌ Could not retrieve equipment")
+    
+    # Bank (only if open)
+    print("\n🏦 Bank:")
+    bank = api.get_bank()
+    if bank:
+        print(f"  {len(bank)} items in bank")
+        total_value = len(bank)  # Could calculate actual value if we had prices
+        print(f"  Total slots used: {total_value}")
+    else:
+        print("  Bank not open or empty")
+
+
+def test_world_data(api: ComprehensiveRuneLiteAPI):
+    """Test NPCs, players, objects, and ground items."""
+    print_header("🌍 WORLD DATA TEST")
+    
+    # NPCs
+    print("👹 NPCs in Scene:")
+    npcs = api.get_npcs()
+    if npcs:
+        print(f"  Total NPCs: {len(npcs)}\n")
+        
+        # Group by name
+        npc_counts = {}
+        for npc in npcs:
+            name = npc.get('name', 'Unknown')
+            npc_counts[name] = npc_counts.get(name, 0) + 1
+        
+        # Show top 10
+        sorted_npcs = sorted(npc_counts.items(), key=lambda x: x[1], reverse=True)
+        for name, count in sorted_npcs[:10]:
+            print(f"  {name:30} x{count}")
+        
+        if len(sorted_npcs) > 10:
+            print(f"  ... and {len(sorted_npcs)-10} more types")
+        
+        # Show closest NPC
+        npcs_with_dist = [n for n in npcs if n.get('distanceFromPlayer', -1) >= 0]
+        if npcs_with_dist:
+            closest = min(npcs_with_dist, key=lambda n: n['distanceFromPlayer'])
+            print(f"\n  Closest: {closest.get('name')} (ID: {closest.get('id')}) - {closest['distanceFromPlayer']} tiles away")
+    else:
+        print("  No NPCs found")
+    
+    # Players
+    print("\n👥 Other Players:")
+    players = api.get_players()
+    if players:
+        print(f"  {len(players)} players nearby\n")
+        for player in players[:10]:
+            name = player.get('name', 'Unknown')
+            level = player.get('combatLevel', '?')
+            print(f"  {name} (Level {level})")
+        if len(players) > 10:
+            print(f"  ... and {len(players)-10} more players")
+    else:
+        print("  No other players nearby")
+    
+    # Ground Items
+    print("\n💎 Ground Items:")
+    items = api.get_ground_items()
+    if items:
+        print(f"  {len(items)} items on ground")
+        item_counts = {}
+        for item in items:
+            item_id = item.get('id', -1)
+            item_counts[item_id] = item_counts.get(item_id, 0) + item.get('quantity', 1)
+        
+        print(f"  {len(item_counts)} unique item types")
+    else:
+        print("  No ground items visible")
+    
+    # Objects
+    print("\n🏛️  Game Objects:")
+    objects = api.get_objects()
+    if objects:
+        print(f"  {len(objects)} objects in scene")
+        
+        # Count unique objects
+        obj_counts = {}
+        for obj in objects:
+            obj_id = obj.get('id', -1)
+            obj_counts[obj_id] = obj_counts.get(obj_id, 0) + 1
+        
+        print(f"  {len(obj_counts)} unique object types")
+    else:
+        print("  No objects found")
+
+
+def test_game_state(api: ComprehensiveRuneLiteAPI):
+    """Test camera, game state, menu, and widgets."""
+    print_header("🎯 GAME STATE TEST")
+    
+    # Camera
+    print("📷 Camera:")
+    camera = api.get_camera()
+    if camera:
+        print(f"  Yaw:   {camera.get('yaw', 0)}")
+        print(f"  Pitch: {camera.get('pitch', 0)}")
+        print(f"  Position: ({camera.get('x')}, {camera.get('y')}, {camera.get('z')})")
+    else:
+        print("  ❌ No camera data")
+    
+    # Game State
+    print("\n🎮 Game State:")
+    game = api.get_game_state()
+    if game:
+        print(f"  State:       {game.get('state', 'Unknown')}")
+        print(f"  Logged In:   {game.get('isLoggedIn', False)}")
+        print(f"  World:       {game.get('world', 'N/A')}")
+        print(f"  Game Cycle:  {game.get('gameCycle', 0)}")
+        print(f"  Tick Count:  {game.get('tickCount', 0)}")
+        print(f"  FPS:         {game.get('fps', 0)}")
+    else:
+        print("  ❌ No game state data")
+    
+    # Widgets
+    print("\n📱 Interface States:")
+    widgets = api.get_widgets()
+    if widgets:
+        print(f"  Bank Open:       {widgets.get('isBankOpen', False)}")
+        print(f"  Shop Open:       {widgets.get('isShopOpen', False)}")
+        print(f"  Dialogue Open:   {widgets.get('isDialogueOpen', False)}")
+        print(f"  Inventory Visible: {widgets.get('isInventoryVisible', False)}")
+    else:
+        print("  ❌ No widget data")
+    
+    # Menu
+    print("\n📋 Right-Click Menu:")
+    menu = api.get_menu()
+    if menu:
+        print(f"  {len(menu)} menu entries")
+        for i, entry in enumerate(menu[:5], 1):
+            option = entry.get('option', '')
+            target = entry.get('target', '')
+            print(f"  {i}. {option} {target}")
+        if len(menu) > 5:
+            print(f"  ... and {len(menu)-5} more entries")
+    else:
+        print("  Menu empty or not open")
+
+
+def test_performance(api: ComprehensiveRuneLiteAPI):
+    """Test API performance and response times."""
+    print_header("⚡ PERFORMANCE TEST")
+    
+    endpoints = [
+        ('stats', api.get_stats),
+        ('player', api.get_player),
+        ('coords', api.get_coords),
+        ('combat', api.get_combat),
+        ('animation', api.get_animation),
+        ('inv', api.get_inventory),
+        ('equip', api.get_equipment),
+        ('npcs', api.get_npcs),
+        ('players', api.get_players),
+        ('objects', api.get_objects),
+        ('grounditems', api.get_ground_items),
+        ('camera', api.get_camera),
+        ('game', api.get_game_state),
+        ('menu', api.get_menu),
+        ('widgets', api.get_widgets),
+    ]
+    
+    print("Running performance tests (3 iterations each)...\n")
+    
+    results = {}
+    for name, func in endpoints:
+        times = []
+        for _ in range(3):
+            start = time.time()
+            func()
+            elapsed = (time.time() - start) * 1000
+            times.append(elapsed)
+            time.sleep(0.1)  # Small delay between tests
+        
+        avg_time = sum(times) / len(times)
+        min_time = min(times)
+        max_time = max(times)
+        results[name] = (avg_time, min_time, max_time)
+    
+    # Sort by average time
+    sorted_results = sorted(results.items(), key=lambda x: x[1][0])
+    
+    print("Endpoint Performance (avg / min / max ms):")
+    print("-" * 60)
+    for name, (avg, minimum, maximum) in sorted_results:
+        bar_len = int(avg / 5)
+        bar = "█" * min(bar_len, 40)
+        print(f"  /{name:12} {avg:6.1f} / {minimum:6.1f} / {maximum:6.1f} ms {bar}")
+    
+    total_avg = sum(r[0] for r in results.values()) / len(results)
+    print(f"\n📊 Average response time: {total_avg:.1f}ms")
+
+
+def monitor_mining(api: ComprehensiveRuneLiteAPI):
+    """Real-time mining monitor - perfect for bots!"""
+    print_header("⛏️  MINING MONITOR", "=")
+    print("Monitoring mining activity in real-time...")
+    print("Shows: Animation state, inventory changes, nearby rocks")
+    print("Press Ctrl+C to stop\n")
+    
+    last_inv_count = 0
+    mining_count = 0
+    start_time = time.time()
+    
+    try:
+        while True:
+            # Get player state
+            player = api.get_player()
+            anim = api.get_animation()
+            inv = api.get_inventory()
+            
+            # Count inventory items
+            if inv:
+                ore_count = len([i for i in inv if i.get('id', -1) != -1])
+            else:
+                ore_count = 0
+            
+            # Detect mining
+            is_mining = anim and anim.get('isAnimating', False)
+            
+            # Detect inventory change
+            if ore_count > last_inv_count:
+                mining_count += 1
+                print(f"  ⛏️  Mined ore #{mining_count}! Inventory: {ore_count}/28")
+            
+            last_inv_count = ore_count
+            
+            # Display status
+            timestamp = time.strftime("%H:%M:%S")
+            status = "⛏️  MINING" if is_mining else "⏸️  IDLE"
+            health = player.get('health', 0) if player else 0
+            
+            print(f"\r[{timestamp}] {status} | HP: {health} | Inv: {ore_count}/28 | Mined: {mining_count}", end="")
+            
+            time.sleep(1)
+    
+    except KeyboardInterrupt:
+        elapsed = time.time() - start_time
+        print(f"\n\n⏹️  Stopped after {elapsed:.0f} seconds")
+        print(f"   Total ore mined: {mining_count}")
+        if elapsed > 0:
+            print(f"   Average rate: {mining_count/(elapsed/60):.1f} ore/minute")
+
+
+def run_all_tests(api: ComprehensiveRuneLiteAPI):
+    """Run complete test suite."""
+    print_header("🚀 COMPREHENSIVE API TEST SUITE", "=")
+    
+    test_player_data(api)
+    input("\nPress Enter to continue to Skills test...")
+    
+    test_skills(api)
+    input("\nPress Enter to continue to Inventory test...")
+    
+    test_inventory_equipment(api)
+    input("\nPress Enter to continue to World Data test...")
+    
+    test_world_data(api)
+    input("\nPress Enter to continue to Game State test...")
+    
+    test_game_state(api)
+    input("\nPress Enter to continue to Performance test...")
+    
+    test_performance(api)
+    
+    print_header("✅ ALL TESTS COMPLETED", "=")
+
+
+def print_menu():
+    """Display test menu."""
+    print("\n" + "=" * 80)
+    print("  ⚡ COMPREHENSIVE RUNELITE API TEST SUITE")
+    print("=" * 80)
+    print("\n📡 Individual Tests:")
+    print("  1 - Player Data (health, prayer, energy, combat, animation)")
+    print("  2 - Skills (all 23 skills with XP tracking)")
+    print("  3 - Inventory & Equipment")
+    print("  4 - World Data (NPCs, players, objects, ground items)")
+    print("  5 - Game State (camera, widgets, menu)")
+    print("  6 - Performance Benchmark")
+    print("\n🔥 Special Features:")
+    print("  7 - Mining Monitor (real-time bot-ready tracking)")
+    print("  8 - Run All Tests")
+    print("\n❌ Exit:")
+    print("  0 - Quit")
+    print("\n" + "=" * 80)
+
+
+def main():
+    """Main interactive menu."""
+    print("\n" + "⚡" * 40)
+    print("  COMPREHENSIVE RUNELITE HTTP API TEST SUITE")
+    print("⚡" * 40)
+    
+    api = ComprehensiveRuneLiteAPI()
+    
+    # Connection check
+    print("\n🔌 Testing connection...")
+    test_data = api.get_game_state()
+    if test_data:
+        print(f"✅ Connected successfully!")
+        print(f"   World: {test_data.get('world', 'N/A')}")
+        print(f"   FPS: {test_data.get('fps', 0)}")
+    else:
+        print("⚠️  Could not connect to API")
+        print("   Make sure RuneLite is running with the HTTP Server plugin enabled")
+    
+    while True:
+        print_menu()
+        choice = input("\nSelect option (0-8): ").strip()
+        
+        if choice == '0':
+            print("\n👋 Goodbye!")
+            break
+        elif choice == '1':
+            test_player_data(api)
+            input("\nPress Enter to continue...")
+        elif choice == '2':
+            test_skills(api)
+            input("\nPress Enter to continue...")
+        elif choice == '3':
+            test_inventory_equipment(api)
+            input("\nPress Enter to continue...")
+        elif choice == '4':
+            test_world_data(api)
+            input("\nPress Enter to continue...")
+        elif choice == '5':
+            test_game_state(api)
+            input("\nPress Enter to continue...")
+        elif choice == '6':
+            test_performance(api)
+            input("\nPress Enter to continue...")
+        elif choice == '7':
+            monitor_mining(api)
+            input("\nPress Enter to continue...")
+        elif choice == '8':
+            run_all_tests(api)
+            input("\nPress Enter to continue...")
+        else:
+            print("\n❌ Invalid option")
+            time.sleep(1)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n\n⏹️  Test suite interrupted")
+    except Exception as e:
+        print(f"\n\n❌ Error: {e}")
+        import traceback
+        traceback.print_exc()

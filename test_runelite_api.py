@@ -68,6 +68,11 @@ class RuneLiteAPI:
         result = self._get("equipment")
         return result if isinstance(result, list) else None
     
+    def get_coords(self) -> Optional[Dict[str, Any]]:
+        """Get player coordinates (world and local)."""
+        result = self._get("coords")
+        return result if isinstance(result, dict) else None
+    
     def is_server_running(self) -> bool:
         """Check if HTTP server is responding."""
         try:
@@ -83,7 +88,7 @@ class RuneLiteAPI:
     def discover_endpoints(self) -> Dict[str, bool]:
         """Test common endpoints to see which are available."""
         endpoints = [
-            'stats', 'inventory', 'equipment', 'bank', 'location', 
+            'stats', 'inventory', 'equipment', 'coords', 'bank', 'location', 
             'health', 'prayer', 'run-energy', 'xp', 'combat', 'events',
             'world', 'position', 'skills', 'player', 'animation'
         ]
@@ -219,6 +224,41 @@ def test_equipment(api: RuneLiteAPI):
         print(f"   {slot_name:8} - {item_name} (ID: {item_id})")
 
 
+def test_coords(api: RuneLiteAPI):
+    """Test and display player coordinates."""
+    print_section("Player Coordinates")
+    coords = api.get_coords()
+    
+    if not coords:
+        print("❌ Could not retrieve coordinates")
+        return
+    
+    world = coords.get('world', {})
+    local = coords.get('local', {})
+    
+    print("✅ Retrieved player position\n")
+    
+    print("🌍 World Coordinates (Absolute Position):")
+    print(f"   X:         {world.get('x', 'N/A')}")
+    print(f"   Y:         {world.get('y', 'N/A')}")
+    print(f"   Plane:     {world.get('plane', 'N/A')} (Floor Level)")
+    print(f"   Region ID: {world.get('regionID', 'N/A')}")
+    print(f"   Region X:  {world.get('regionX', 'N/A')}")
+    print(f"   Region Y:  {world.get('regionY', 'N/A')}")
+    
+    print("\n📍 Local Coordinates (Scene Position):")
+    print(f"   X:       {local.get('x', 'N/A')} (1/128th of a tile)")
+    print(f"   Y:       {local.get('y', 'N/A')} (1/128th of a tile)")
+    print(f"   Scene X: {local.get('sceneX', 'N/A')} (tiles)")
+    print(f"   Scene Y: {local.get('sceneY', 'N/A')} (tiles)")
+    
+    print("\n💡 Usage Tips:")
+    print("   • World coords are fixed positions in the game world")
+    print("   • Local coords are relative to the current loaded scene")
+    print("   • Use world coords for navigation and pathfinding")
+    print("   • Use local coords for screen positioning calculations")
+
+
 def test_realtime_monitoring(api: RuneLiteAPI):
     """Monitor stats in real-time."""
     print_section("Real-time Monitoring")
@@ -299,7 +339,7 @@ def test_endpoint_discovery(api: RuneLiteAPI):
 def test_custom_endpoint(api: RuneLiteAPI):
     """Test a custom endpoint."""
     print_section("Custom Endpoint Test")
-    print("Known working endpoints: stats, inventory, equipment")
+    print("Known working endpoints: stats, inventory, equipment, coords")
     print("Tip: Use option 4 to discover all available endpoints")
     endpoint = input("\nEnter endpoint name: ").strip()
     
@@ -356,15 +396,16 @@ def print_menu():
     print("  1 - Test Connection")
     print("  2 - Get Player Stats")
     print("  3 - Get Inventory")
-    print("  4 - Discover All Endpoints")
-    print("  5 - Get Equipment")
-    print("  6 - Custom Endpoint (raw JSON)")
+    print("  4 - Get Player Coordinates")
+    print("  5 - Discover All Endpoints")
+    print("  6 - Get Equipment")
+    print("  7 - Custom Endpoint (raw JSON)")
     print("\n📊 Monitoring:")
-    print("  7 - Real-time HP/Prayer Monitor")
+    print("  8 - Real-time HP/Prayer Monitor")
     print("\n📖 Information:")
-    print("  8 - API vs CV Comparison")
+    print("  9 - API vs CV Comparison")
     print("\n🔄 Batch Operations:")
-    print("  9 - Run All Tests")
+    print("  a - Run All Tests")
     print("\n❌ Exit:")
     print("  0 - Quit")
     print("\n" + "="*70)
@@ -386,7 +427,7 @@ def main():
     
     while True:
         print_menu()
-        choice = input("\nSelect an option (0-9): ").strip()
+        choice = input("\nSelect an option (0-9, a): ").strip().lower()
         
         if choice == '0':
             print("\n👋 Goodbye!")
@@ -405,36 +446,41 @@ def main():
             input("\nPress Enter to continue...")
         
         elif choice == '4':
-            test_endpoint_discovery(api)
+            test_coords(api)
             input("\nPress Enter to continue...")
         
         elif choice == '5':
-            test_equipment(api)
+            test_endpoint_discovery(api)
             input("\nPress Enter to continue...")
         
         elif choice == '6':
-            test_custom_endpoint(api)
+            test_equipment(api)
             input("\nPress Enter to continue...")
         
         elif choice == '7':
-            test_realtime_monitoring(api)
+            test_custom_endpoint(api)
             input("\nPress Enter to continue...")
         
         elif choice == '8':
-            compare_with_current_system()
+            test_realtime_monitoring(api)
             input("\nPress Enter to continue...")
         
         elif choice == '9':
+            compare_with_current_system()
+            input("\nPress Enter to continue...")
+        
+        elif choice == 'a':
             print_section("Running All Tests")
             test_stats(api)
             test_inventory(api)
+            test_coords(api)
             test_equipment(api)
             compare_with_current_system()
             print("\n✅ All tests completed!")
             input("\nPress Enter to continue...")
         
         else:
-            print("\n❌ Invalid option. Please select 0-9.")
+            print("\n❌ Invalid option. Please select 0-9 or 'a'.")
             time.sleep(1)
 
 

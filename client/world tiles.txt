@@ -1,0 +1,6 @@
+3253, 3421 -- varrock east Bank
+3229, 3436 -- horvik
+
+3289, 3409 -- v east test route
+
+3261, 3366 -- test route south of varrock
