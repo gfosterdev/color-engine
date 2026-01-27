@@ -232,7 +232,7 @@ class RuneLiteAPI:
         Get interface/widget states.
         
         Returns:
-            Dictionary with isBankOpen, isShopOpen, isDialogueOpen, isInventoryVisible
+            Dictionary with isBankOpen, isShopOpen, isDialogueOpen, isInventoryOpen,
         """
         result = self._get("widgets")
         return cast(Optional[Dict[str, Any]], result)

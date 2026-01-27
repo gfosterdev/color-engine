@@ -3,6 +3,7 @@ from client.inventory import InventoryManager
 from client.interfaces import InterfaceDetector
 from client.interactions import KeyboardInput
 from client.navigation import NavigationManager
+from client.runelite_api import RuneLiteAPI
 from config.regions import (
     INTERACT_TEXT_REGION,
     BANK_SEARCH_REGION,
@@ -30,6 +31,7 @@ class OSRS:
         self.keyboard = KeyboardInput()
         self.navigation = NavigationManager(self.window)
         self.profile_config = profile_config
+        self.api = RuneLiteAPI()
     
     def login_from_profile(self) -> bool:
         """.
@@ -54,8 +56,14 @@ class OSRS:
         
         return self.login(password)
     
-    def open_bank(self):
-        """Open bank by clicking on bank booth/chest."""
+    def open_bank(self) -> bool:
+        """
+        Open bank by clicking on bank booth/chest.
+
+        Returns:
+            True if bank opened successfully
+        """
+
         print("Attempting to open bank...")
         if self.window.window:
             self.window.capture()
@@ -213,6 +221,20 @@ class OSRS:
         return None
 
     def validate_interact_text(self, expected_text):
+        """
+            Validate right click menu has expected text.
+        """
+        menu_entries = self.api.get_menu()
+        if menu_entries:
+            for entry in menu_entries:
+                option = entry.get("option", "")
+                if expected_text.lower() in option.lower():
+                    print(f"Found expected interact text: {option}")
+                    return True
+            print(f"Expected interact text '{expected_text}' not found in menu entries.")
+        return False
+
+    def validate_interact_text_ocr(self, expected_text):
         """Validate hover text matches expected text."""
         if self.window.window:
             self.window.capture()
@@ -230,15 +252,27 @@ class OSRS:
         Check if we are at the login screen.
         
         Returns:
-            True if at login screen ("Existing User" button visible)
+            True if at login screen
         """
         if not self.window.window:
             return False
         
-        self.window.capture()
-        login_text = self.window.read_text(LOGIN_EXISTING_USER_BUTTON, debug=True)
-        return bool(login_text and "existing" in login_text.lower())
+        game_state = self.api.get_game_state()
+        return bool(game_state and game_state.get("state", "") == "LOGIN_SCREEN")
     
+    def is_logged_in(self) -> bool:
+        """
+        Check if we are logged into the game.
+        
+        Returns:
+            True if logged in
+        """
+        if not self.window.window:
+            return False
+        
+        game_state = self.api.get_game_state()
+        return bool(game_state and game_state.get("isLoggedIn", False))
+
     def login(self, password: str) -> bool:
         """.
         Log into OSRS using existing user credentials.
@@ -287,21 +321,25 @@ class OSRS:
         max_attempts = 10
         for attempt in range(max_attempts):
             time.sleep(random.uniform(1.0, 1.5))
-            self.window.capture()
-            
-            play_text = self.window.read_text(LOGIN_CLICK_HERE_TO_PLAY_REGION)
-            if play_text and any(phrase in play_text.upper() for phrase in ["CLICK", "PLAY", "HERE"]):
-                print("Character selection screen detected!")
-                
-                # Click to enter game
-                print("Clicking to enter game...")
-                self.window.move_mouse_to(LOGIN_CLICK_HERE_TO_PLAY_REGION.random_point())
-                time.sleep(random.uniform(0.3, 0.6))
-                self.window.click()
-                time.sleep(random.uniform(2.0, 3.0))
-                
-                print("Login successful!")
-                return True
+
+            # Check if state is not LOGGING_IN
+            game_state = self.api.get_game_state()
+            if game_state and game_state.get("state", "") != "LOGGING_IN":
+                # Either logged in or incorrect details
+                if self.is_logged_in():
+                    time.sleep(random.uniform(1.5, 2.5))
+                    # Click to enter game
+                    print("Clicking to enter game...")
+                    self.window.move_mouse_to(LOGIN_CLICK_HERE_TO_PLAY_REGION.random_point())
+                    time.sleep(random.uniform(0.3, 0.6))
+                    self.window.click()
+                    time.sleep(random.uniform(2.0, 3.0))
+                    
+                    print("Login successful!")
+                    return True
+                else:
+                    print("Login failed - incorrect credentials or other issue")
+                    return False
         
         print("Login verification timed out")
         return False

@@ -291,10 +291,11 @@ def test_game_state(api: RuneLiteAPI):
     print("\n📱 Interface States:")
     widgets = api.get_widgets()
     if widgets:
+        print(f"  Logout Panel Open:       {widgets.get('isLogoutPanelOpen', False)}")
         print(f"  Bank Open:       {widgets.get('isBankOpen', False)}")
         print(f"  Shop Open:       {widgets.get('isShopOpen', False)}")
         print(f"  Dialogue Open:   {widgets.get('isDialogueOpen', False)}")
-        print(f"  Inventory Visible: {widgets.get('isInventoryVisible', False)}")
+        print(f"  Inventory Open: {widgets.get('isInventoryOpen', False)}")
     else:
         print("  ❌ No widget data")
     
@@ -312,6 +313,19 @@ def test_game_state(api: RuneLiteAPI):
     else:
         print("  Menu empty or not open")
 
+def test_right_click_menu(api: RuneLiteAPI):
+    """Test right-click menu entries."""
+    print_header("📋 RIGHT-CLICK MENU TEST")
+    
+    menu = api.get_menu()
+    if menu:
+        print(f"✅ Retrieved {len(menu)} menu entries:\n")
+        for i, entry in enumerate(menu, 1):
+            option = entry.get('option', '')
+            target = entry.get('target', '')
+            print(f"  {i:2}. {option} {target}")
+    else:
+        print("❌ No menu entries available")
 
 def test_performance(api: RuneLiteAPI):
     """Test API performance and response times."""
@@ -456,6 +470,7 @@ def print_menu():
     print("\n🔥 Special Features:")
     print("  7 - Mining Monitor (real-time bot-ready tracking)")
     print("  8 - Run All Tests")
+    print("  9 - Right-Click Menu Test (displays current menu entries)")
     print("\n❌ Exit:")
     print("  0 - Quit")
     print("\n" + "=" * 80)
@@ -511,6 +526,9 @@ def main():
         elif choice == '8':
             run_all_tests(api)
             input("\nPress Enter to continue...")
+        elif choice == '9':
+            test_right_click_menu(api)
+            input("\n⚡ Press Enter to continue...")
         else:
             print("\n❌ Invalid option")
             time.sleep(1)

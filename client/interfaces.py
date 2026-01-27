@@ -17,6 +17,7 @@ from config.regions import (
     LEVEL_UP_REGION,
     UI_LOGOUT_BUTTON_REGION
 )
+from .runelite_api import RuneLiteAPI
 import random
 
 
@@ -58,6 +59,7 @@ class InterfaceDetector:
             window: Window instance for screen capture and OCR
         """
         self.window = window
+        self.api = RuneLiteAPI()
     
     def is_bank_open(self) -> bool:
         """
@@ -69,18 +71,10 @@ class InterfaceDetector:
         if not self.window.window:
             return False
         
-        self.window.capture()
-        
-        # Method 1: Check for bank title text
-        text = self.window.read_text(BANK_TITLE_REGION)
-        if BANK_TITLE_TEXT in text:
+        widgets = self.api.get_widgets()
+        if widgets and widgets.get("isBankOpen", False):
             return True
-        
-        # Method 2: Check for "Rearrange mode" text in bank interface
-        rearrange_text = self.window.read_text(BANK_REARRANGE_MODE_REGION)
-        if rearrange_text and "rearrange" in rearrange_text.lower():
-            return True
-        
+
         return False
     
     def is_shop_open(self) -> bool:
