@@ -13,129 +13,9 @@ Features:
     - Export capabilities
 """
 
-import requests
-import json
 import time
-from typing import Any, Dict, List, Optional, Union, cast
-from datetime import datetime
-
-
-class ComprehensiveRuneLiteAPI:
-    """Complete API wrapper for all RuneLite HTTP Server endpoints."""
-    
-    def __init__(self, host='localhost', port=8080):
-        self.base_url = f"http://{host}:{port}"
-        self.session = requests.Session()
-        self.last_request_time = {}
-        
-    def _get(self, endpoint: str) -> Optional[Union[Dict[str, Any], List[Any]]]:
-        """Make GET request and track timing."""
-        start_time = time.time()
-        try:
-            response = self.session.get(f"{self.base_url}/{endpoint}", timeout=2)
-            elapsed = (time.time() - start_time) * 1000  # Convert to ms
-            self.last_request_time[endpoint] = elapsed
-            
-            response.raise_for_status()
-            
-            if not response.text or response.text.strip() == '':
-                return None
-            
-            return response.json()
-        except requests.exceptions.JSONDecodeError as e:
-            print(f"❌ JSON Error on /{endpoint}: {e}")
-            return None
-        except requests.exceptions.RequestException as e:
-            print(f"❌ Request Error on /{endpoint}: {e}")
-            return None
-    
-    # Player Data Endpoints
-    def get_stats(self) -> Optional[List[Dict[str, Any]]]:
-        """Get all skill stats with XP calculations."""
-        result = self._get("stats")
-        return cast(Optional[List[Dict[str, Any]]], result)
-    
-    def get_player(self) -> Optional[Dict[str, Any]]:
-        """Get player state (health, prayer, energy, etc)."""
-        result = self._get("player")
-        return cast(Optional[Dict[str, Any]], result)
-    
-    def get_coords(self) -> Optional[Dict[str, Any]]:
-        """Get world and local coordinates."""
-        result = self._get("coords")
-        return cast(Optional[Dict[str, Any]], result)
-    
-    def get_combat(self) -> Optional[Dict[str, Any]]:
-        """Get combat state and target info."""
-        result = self._get("combat")
-        return cast(Optional[Dict[str, Any]], result)
-    
-    def get_animation(self) -> Optional[Dict[str, Any]]:
-        """Get current animation state."""
-        result = self._get("animation")
-        return cast(Optional[Dict[str, Any]], result)
-    
-    # Inventory & Equipment
-    def get_inventory(self) -> Optional[List[Dict[str, Any]]]:
-        """Get inventory items."""
-        result = self._get("inv")
-        return cast(Optional[List[Dict[str, Any]]], result)
-    
-    def get_equipment(self) -> Optional[List[Dict[str, Any]]]:
-        """Get equipped items."""
-        result = self._get("equip")
-        return cast(Optional[List[Dict[str, Any]]], result)
-    
-    def get_bank(self) -> Optional[List[Dict[str, Any]]]:
-        """Get bank items (only when bank is open)."""
-        result = self._get("bank")
-        return cast(Optional[List[Dict[str, Any]]], result)
-    
-    # World Data
-    def get_npcs(self) -> Optional[List[Dict[str, Any]]]:
-        """Get all NPCs in scene."""
-        result = self._get("npcs")
-        return cast(Optional[List[Dict[str, Any]]], result)
-    
-    def get_players(self) -> Optional[List[Dict[str, Any]]]:
-        """Get all other players in scene."""
-        result = self._get("players")
-        return cast(Optional[List[Dict[str, Any]]], result)
-    
-    def get_objects(self) -> Optional[List[Dict[str, Any]]]:
-        """Get all game objects in scene."""
-        result = self._get("objects")
-        return cast(Optional[List[Dict[str, Any]]], result)
-    
-    def get_ground_items(self) -> Optional[List[Dict[str, Any]]]:
-        """Get all ground items in scene."""
-        result = self._get("grounditems")
-        return cast(Optional[List[Dict[str, Any]]], result)
-    
-    # Game State
-    def get_camera(self) -> Optional[Dict[str, Any]]:
-        """Get camera position and rotation."""
-        result = self._get("camera")
-        return cast(Optional[Dict[str, Any]], result)
-    
-    def get_game_state(self) -> Optional[Dict[str, Any]]:
-        """Get game state info."""
-        result = self._get("game")
-        return cast(Optional[Dict[str, Any]], result)
-    
-    def get_menu(self) -> Optional[List[Dict[str, Any]]]:
-        """Get current right-click menu entries."""
-        result = self._get("menu")
-        return cast(Optional[List[Dict[str, Any]]], result)
-    
-    def get_widgets(self) -> Optional[Dict[str, Any]]:
-        """Get interface/widget states."""
-        result = self._get("widgets")
-        return cast(Optional[Dict[str, Any]], result)
-    
-    def get_performance_stats(self) -> Dict[str, float]:
-        """Get request performance metrics."""
-        return self.last_request_time.copy()
+from typing import Any, Dict, List
+from client.runelite_api import RuneLiteAPI
 
 
 def print_header(title: str, char="="):
@@ -146,7 +26,7 @@ def print_header(title: str, char="="):
     print(f"{char * width}\n")
 
 
-def test_player_data(api: ComprehensiveRuneLiteAPI):
+def test_player_data(api: RuneLiteAPI):
     """Test all player-related endpoints."""
     print_header("🎮 PLAYER DATA TESTS")
     
@@ -206,7 +86,7 @@ def test_player_data(api: ComprehensiveRuneLiteAPI):
         print("  ❌ No coordinate data available")
 
 
-def test_skills(api: ComprehensiveRuneLiteAPI):
+def test_skills(api: RuneLiteAPI):
     """Test skills endpoint with detailed breakdown."""
     print_header("📈 SKILLS TEST")
     
@@ -250,7 +130,7 @@ def test_skills(api: ComprehensiveRuneLiteAPI):
     print(f"📊 Total XP: {total_xp:,}")
 
 
-def test_inventory_equipment(api: ComprehensiveRuneLiteAPI):
+def test_inventory_equipment(api: RuneLiteAPI):
     """Test inventory and equipment endpoints."""
     print_header("🎒 INVENTORY & EQUIPMENT TEST")
     
@@ -299,7 +179,7 @@ def test_inventory_equipment(api: ComprehensiveRuneLiteAPI):
         print("  Bank not open or empty")
 
 
-def test_world_data(api: ComprehensiveRuneLiteAPI):
+def test_world_data(api: RuneLiteAPI):
     """Test NPCs, players, objects, and ground items."""
     print_header("🌍 WORLD DATA TEST")
     
@@ -376,7 +256,7 @@ def test_world_data(api: ComprehensiveRuneLiteAPI):
         print("  No objects found")
 
 
-def test_game_state(api: ComprehensiveRuneLiteAPI):
+def test_game_state(api: RuneLiteAPI):
     """Test camera, game state, menu, and widgets."""
     print_header("🎯 GAME STATE TEST")
     
@@ -429,7 +309,7 @@ def test_game_state(api: ComprehensiveRuneLiteAPI):
         print("  Menu empty or not open")
 
 
-def test_performance(api: ComprehensiveRuneLiteAPI):
+def test_performance(api: RuneLiteAPI):
     """Test API performance and response times."""
     print_header("⚡ PERFORMANCE TEST")
     
@@ -482,7 +362,7 @@ def test_performance(api: ComprehensiveRuneLiteAPI):
     print(f"\n📊 Average response time: {total_avg:.1f}ms")
 
 
-def monitor_mining(api: ComprehensiveRuneLiteAPI):
+def monitor_mining(api: RuneLiteAPI):
     """Real-time mining monitor - perfect for bots!"""
     print_header("⛏️  MINING MONITOR", "=")
     print("Monitoring mining activity in real-time...")
@@ -533,7 +413,7 @@ def monitor_mining(api: ComprehensiveRuneLiteAPI):
             print(f"   Average rate: {mining_count/(elapsed/60):.1f} ore/minute")
 
 
-def run_all_tests(api: ComprehensiveRuneLiteAPI):
+def run_all_tests(api: RuneLiteAPI):
     """Run complete test suite."""
     print_header("🚀 COMPREHENSIVE API TEST SUITE", "=")
     
@@ -583,7 +463,7 @@ def main():
     print("  COMPREHENSIVE RUNELITE HTTP API TEST SUITE")
     print("⚡" * 40)
     
-    api = ComprehensiveRuneLiteAPI()
+    api = RuneLiteAPI()
     
     # Connection check
     print("\n🔌 Testing connection...")
