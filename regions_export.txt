@@ -1,3 +1,1 @@
-1  COORD_LOCAL_REGION = Region(94, 56, 76, 17)  # local coords
-1  COORD_WORLD_REGION = Region(82, 73, 87, 16)  # world coords
-1  COORD_SCENE_REGION = Region(124, 89, 45, 15)  # scene coords
+1  MINIMAP_COMPASS_REGION = Region(561, 39, 22, 21)  # Minimap compass

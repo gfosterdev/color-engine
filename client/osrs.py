@@ -2,6 +2,7 @@ from util import Window
 from client.inventory import InventoryManager
 from client.interfaces import InterfaceDetector
 from client.interactions import KeyboardInput
+from client.navigation import NavigationManager
 from config.regions import (
     INTERACT_TEXT_REGION,
     BANK_SEARCH_REGION,
@@ -27,6 +28,7 @@ class OSRS:
         self.inventory = InventoryManager(self.window)
         self.interfaces = InterfaceDetector(self.window)
         self.keyboard = KeyboardInput()
+        self.navigation = NavigationManager(self.window)
         self.profile_config = profile_config
     
     def login_from_profile(self) -> bool:

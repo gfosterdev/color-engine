@@ -34,6 +34,7 @@ class ModularTester:
         self.anti_ban = None
         self.registry = None
         self.config = None
+        self.navigation = None
         
         self.current_menu = "main"
         print("Basic initialization complete!")
@@ -119,6 +120,15 @@ class ModularTester:
             )
             print("[Anti-ban ready]")
         return self.anti_ban
+    
+    def init_navigation(self):
+        """Initialize navigation module."""
+        if not self.navigation:
+            from client.navigation import NavigationManager
+            print("[Loading navigation module...]")
+            self.navigation = NavigationManager(self.window)
+            print("[Navigation ready]")
+        return self.navigation
     
     # =================================================================
     # WINDOW & COLOR DETECTION TESTS
@@ -210,6 +220,53 @@ class ModularTester:
         print("\nRotating camera...")
         self.window.rotate_camera(min_drag_distance=100)
         print("✓ Done")
+    
+    def test_click_at_position(self):
+        """Test clicking at current mouse position."""
+        if not self.ensure_window():
+            return
+        
+        print("\nTest: Click at current mouse position")
+        print("Move your mouse to where you want to click")
+        print("Press SPACE to execute the click, ESC to cancel\n")
+        
+        import keyboard
+        
+        while True:
+            if keyboard.is_pressed('space'):
+                # Get current mouse position
+                try:
+                    import win32api
+                    x, y = win32api.GetCursorPos()
+                except ImportError:
+                    class POINT(ctypes.Structure):
+                        _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
+                    point = POINT()
+                    ctypes.windll.user32.GetCursorPos(ctypes.byref(point))
+                    x, y = point.x, point.y
+                
+                w = self.window.window
+                if w:
+                    local_x = x - w['x']
+                    local_y = y - w['y']
+                    print(f"Clicking at local position ({local_x}, {local_y})...")
+                    
+                    if self.window.click():
+                        print("✓ Click executed successfully")
+                    else:
+                        print("✗ Click failed")
+                else:
+                    print("✗ Window not found")
+                
+                time.sleep(0.3)  # Debounce
+                break
+            
+            if keyboard.is_pressed('esc'):
+                print("Cancelled")
+                time.sleep(0.3)  # Debounce
+                break
+            
+            time.sleep(0.05)
     
     # =================================================================
     # OCR & TEXT RECOGNITION TESTS
@@ -1041,6 +1098,7 @@ class ModularTester:
             'm': ("Mouse Position & Color", self.test_mouse_position),
             'f': ("Find Color", self.test_find_color),
             'r': ("Camera Rotation", self.test_camera_rotation),
+            'k': ("Click at Position", self.test_click_at_position),
             'v': ("Visualize All Regions", self.test_visualize_all_regions),
         }
         
@@ -1052,6 +1110,7 @@ class ModularTester:
         print("M - Mouse Position & Color")
         print("F - Find Color (input RGB)")
         print("R - Camera Rotation")
+        print("K - Click at Position")
         print("V - Visualize All Regions (from config)")
         print("\nESC - Back to Main Menu")
         print("="*60)
@@ -1236,6 +1295,233 @@ class ModularTester:
         
         self._run_submenu(test_map)
     
+    # =================================================================
+    # NAVIGATION TESTS
+    # =================================================================
+    
+    def test_read_coordinates(self):
+        """Read and display current world coordinates."""
+        nav = self.init_navigation()
+        
+        print("\nReading coordinates...")
+        world_coords = nav.read_world_coordinates()
+        scene_coords = nav.read_scene_coordinates()
+        
+        if world_coords:
+            print(f"✓ World coordinates: {world_coords}")
+        else:
+            print("✗ Could not read world coordinates")
+        
+        if scene_coords:
+            print(f"✓ Scene coordinates: {scene_coords}")
+        else:
+            print("✗ Could not read scene coordinates")
+    
+    def test_read_camera_yaw(self):
+        """Read and display current camera yaw angle."""
+        nav = self.init_navigation()
+        
+        print("\nReading camera yaw...")
+        yaw = nav.read_camera_yaw()
+        
+        if yaw is not None:
+            print(f"✓ Camera yaw: {yaw} / 2048")
+            # Convert to degrees for reference (counter-clockwise from north)
+            degrees = (yaw / 2048) * 360
+            print(f"  ({degrees:.1f}° counter-clockwise from north)")
+            # 8-direction cardinal direction
+            direction = nav.get_cardinal_direction(yaw)
+            print(f"  Facing: {direction}")
+        else:
+            print("✗ Could not read camera yaw")
+    
+    def test_click_compass_to_north(self):
+        """Test clicking compass to reset camera to north."""
+        nav = self.init_navigation()
+        
+        print("\nTesting compass click to reset to north...")
+        
+        # Show current direction
+        yaw_before = nav.read_camera_yaw()
+        if yaw_before is not None:
+            direction_before = nav.get_cardinal_direction(yaw_before)
+            print(f"Before: Yaw = {yaw_before}, Facing {direction_before}")
+        else:
+            print("Before: Could not read yaw")
+        
+        # Click compass
+        if nav.click_compass_to_north():
+            print("✓ Compass clicked successfully")
+            
+            # Show new direction
+            yaw_after = nav.read_camera_yaw()
+            if yaw_after is not None:
+                direction_after = nav.get_cardinal_direction(yaw_after)
+                print(f"After: Yaw = {yaw_after}, Facing {direction_after}")
+            else:
+                print("After: Could not read yaw")
+        else:
+            print("✗ Compass click failed")
+    
+    def test_player_moving(self):
+        """Check if player is currently moving."""
+        nav = self.init_navigation()
+        
+        print("\nChecking player movement...")
+        print("(This takes ~0.6 seconds)")
+        
+        is_moving = nav.is_player_moving()
+        
+        if is_moving:
+            print("✓ Player is MOVING")
+        else:
+            print("✓ Player is STATIONARY")
+    
+    def test_minimap_offset_click(self):
+        """Test clicking minimap with tile offsets."""
+        nav = self.init_navigation()
+        
+        print("\nMinimap offset click test")
+        print("Enter tile offsets to click (e.g., '5,3' for 5 east, 3 north)")
+        print("Or press ESC to cancel")
+        
+        # Simple input simulation - in real use would need proper input
+        print("\nTesting with offset: +5 tiles east, +5 tiles north")
+        
+        current = nav.read_world_coordinates()
+        if current:
+            print(f"Current position: {current}")
+            print(f"Target: ({current[0]+5}, {current[1]+5})")
+            
+            if nav._click_minimap_offset(5, 5):
+                print("✓ Minimap click executed")
+            else:
+                print("✗ Minimap click failed (out of bounds?)")
+        else:
+            print("✗ Could not read current position")
+    
+    def test_walk_to_coordinates(self):
+        """Walk to absolute world coordinates."""
+        nav = self.init_navigation()
+        
+        print("\nWalk to coordinates test")
+        current = nav.read_world_coordinates()
+        
+        if not current:
+            print("✗ Could not read current position")
+            return
+        
+        print(f"Current position: {current}")
+        print("\nTest: Walking 10 tiles north")
+        
+        target_x = current[0]
+        target_y = current[1] + 10
+        
+        print(f"Target: ({target_x}, {target_y})")
+        print("Starting walk...\n")
+        
+        success = nav.walk_to_tile(target_x, target_y)
+        
+        if success:
+            print("\n✓ Successfully reached target!")
+            final_pos = nav.read_world_coordinates()
+            if final_pos:
+                print(f"Final position: {final_pos}")
+        else:
+            print("\n✗ Failed to reach target")
+    
+    def test_long_distance_walk(self):
+        """Test long distance walking with waypoint chunking."""
+        nav = self.init_navigation()
+        
+        print("\nLong distance walk test")
+        current = nav.read_world_coordinates()
+        
+        if not current:
+            print("✗ Could not read current position")
+            return
+        
+        print(f"Current position: {current}")
+        print("\nTest: Walking 25 tiles northeast (should chunk into waypoints)")
+        
+        target_x = current[0] + 18
+        target_y = current[1] + 18
+        
+        print(f"Target: ({target_x}, {target_y})")
+        print("Starting walk...\n")
+        
+        success = nav.walk_to_tile(target_x, target_y)
+        
+        if success:
+            print("\n✓ Successfully completed long distance walk!")
+            final_pos = nav.read_world_coordinates()
+            if final_pos:
+                print(f"Final position: {final_pos}")
+        else:
+            print("\n✗ Failed to complete walk")
+    
+    def test_stuck_detection(self):
+        """Test stuck detection system."""
+        nav = self.init_navigation()
+        
+        print("\nStuck detection test")
+        print("Make sure player is NOT moving, then wait...")
+        print("(Checking for 4 seconds)\n")
+        
+        for i in range(4):
+            time.sleep(1)
+            is_stuck = nav._is_stuck()
+            print(f"Check {i+1}/4: {'STUCK' if is_stuck else 'Moving/Unknown'}")
+        
+        print("\n✓ Stuck detection test complete")
+    
+    def test_calibration_info(self):
+        """Display calibration information."""
+        nav = self.init_navigation()
+        
+        print("\nMinimap Scale Calibration")
+        print(f"Current scale: {nav.minimap_scale} pixels/tile")
+        print("\nCalibration procedure (not yet automated):")
+        print("1. Note current world coordinates")
+        print("2. Walk exactly N tiles in one direction")
+        print("3. Measure pixel distance traveled on minimap")
+        print("4. Calculate: pixels_traveled / tiles_traveled")
+        print("5. Update nav.minimap_scale with result")
+        print("\nFor now, scale is estimated at 4.0 pixels/tile")
+    
+    def run_navigation_tests(self):
+        """Run navigation testing menu."""
+        self.current_menu = "navigation"
+        
+        test_map = {
+            'c': ("Read Coordinates", self.test_read_coordinates),
+            'y': ("Read Camera Yaw", self.test_read_camera_yaw),
+            'n': ("Click Compass to North", self.test_click_compass_to_north),
+            'm': ("Check Player Moving", self.test_player_moving),
+            'o': ("Click Minimap Offset", self.test_minimap_offset_click),
+            'w': ("Walk to Coordinates", self.test_walk_to_coordinates),
+            'l': ("Long Distance Walk", self.test_long_distance_walk),
+            's': ("Test Stuck Detection", self.test_stuck_detection),
+            'k': ("Calibration Info", self.test_calibration_info),
+        }
+        
+        print("\n" + "="*60)
+        print("NAVIGATION TESTS")
+        print("="*60)
+        print("C - Read Coordinates (World & Scene)")
+        print("Y - Read Camera Yaw")
+        print("N - Click Compass to North")
+        print("M - Check Player Moving")
+        print("O - Click Minimap Offset (+5, +5)")
+        print("W - Walk to Coordinates (+10 north)")
+        print("L - Long Distance Walk (25 tiles NE)")
+        print("S - Test Stuck Detection")
+        print("K - Calibration Info")
+        print("\nESC - Back to Main Menu")
+        print("="*60)
+        
+        self._run_submenu(test_map)
+    
     def run_registry_tests(self):
         """Run color registry testing menu."""
         self.current_menu = "registry"
@@ -1299,6 +1585,7 @@ class ModularTester:
             '7': ("Anti-Ban", self.run_antiban_tests),
             '8': ("Login/Auth", self.run_login_tests),
             '9': ("Color Registry", self.run_registry_tests),
+            '0': ("Navigation", self.run_navigation_tests),
         }
         
         def print_main_menu():
@@ -1314,6 +1601,7 @@ class ModularTester:
             print("7 - Anti-Ban System Tests")
             print("8 - Login/Authentication Tests")
             print("9 - Color Registry Tests")
+            print("0 - Navigation Tests")
             print("\nESC - Exit")
             print("="*60)
         

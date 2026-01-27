@@ -103,7 +103,19 @@ UI_WORLD_SWITCHER_BUTTON_REGION = Region(589, 402, 129, 19)  # World switcher bu
 
 # ============================================================================
 # Overlay Regions
-# ===========================================================================
+# ============================================================================
 
-COORD_WORLD_REGION = Region(82, 73, 89, 18)  # world coords
-COORD_SCENE_REGION = Region(124, 89, 48, 18)  # scene coords
+COORD_WORLD_REGION = Region(99, 384, 73, 18)  # World coordinates (x, y) [VERIFIED]
+COORD_SCENE_REGION = Region(125, 402, 50, 18)  # Scene coordinates (x, y) [VERIFIED]
+CAMERA_YAW_REGION = Region(154, 443, 50, 20)  # Camera yaw angle (0-2048) [VERIFIED]
+CAMERA_PITCH_REGION = Region(154, 425, 50, 20)  # Camera pitch [VERIFIED]
+CAMERA_SCALE_REGION = Region(154, 459, 50, 20)  # Camera scale [VERIFIED]
+
+
+# ============================================================================
+# Minimap Regions
+# ============================================================================
+
+MINIMAP_REGION = Region(580, 39, 141, 141)  # Full minimap clickable area [VERIFIED]
+MINIMAP_CENTER = Region(654, 113, 2, 2)  # Player position reference point [VERIFIED]
+MINIMAP_COMPASS_REGION = Region(561, 39, 22, 21)  # Minimap compass [UNVERIFIED]

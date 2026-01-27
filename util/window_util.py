@@ -364,14 +364,20 @@ class Window:
         self.mouse.click(screen_x, screen_y, duration, button)
         return True
     
-    def click(self) -> bool:
+    def click(self, button: str = 'left') -> bool:
         """
         Click at the current mouse position.
+        
+        Args:
+            button: 'left' or 'right' mouse button (default: 'left')
+            
+        Returns:
+            True if successful, False if no window found
         """
         if not self.window:
             return False
 
-        self.mouse.click()
+        self.mouse.click(x=None, y=None, duration=0.0, button=button)
         return True
 
     def get_color_at_mouse(self) -> Optional[tuple]:
