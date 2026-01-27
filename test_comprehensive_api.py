@@ -247,11 +247,15 @@ def test_world_data(api: RuneLiteAPI):
         
         # Count unique objects
         obj_counts = {}
+        iron_ore_count = 0
         for obj in objects:
             obj_id = obj.get('id', -1)
             obj_counts[obj_id] = obj_counts.get(obj_id, 0) + 1
-        
+            if obj_id == 11365 or obj_id == 11364:  # Iron ore rock IDs
+                iron_ore_count += 1
+
         print(f"  {len(obj_counts)} unique object types")
+        print(f"  Iron ore rocks (ID 11365): {iron_ore_count}")
     else:
         print("  No objects found")
 

@@ -7,18 +7,18 @@ from .osrs import OSRS
 from .runelite_api import RuneLiteAPI
 from .inventory import InventoryManager
 from .interfaces import InterfaceDetector
-from .interactions import KeyboardController
+from .interactions import KeyboardInput
 from .color_registry import ColorRegistry
-from .navigation import Navigator
-from .pathfinder import Pathfinder
+from .navigation import NavigationManager
+from .pathfinder import VariancePathfinder
 
 __all__ = [
     'OSRS',
     'RuneLiteAPI',
     'InventoryManager',
     'InterfaceDetector',
-    'KeyboardController',
+    'KeyboardInput',
     'ColorRegistry',
-    'Navigator',
-    'Pathfinder',
+    'NavigationManager',
+    'VariancePathfinder',
 ]

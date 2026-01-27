@@ -20,6 +20,7 @@ from config.regions import (
     MINIMAP_CENTER,
     MINIMAP_COMPASS_REGION
 )
+from .runelite_api import RuneLiteAPI
 
 # Lazy imports for pathfinding (only loaded when needed)
 _collision_map = None
@@ -50,6 +51,8 @@ class NavigationManager:
             profile_config: Optional profile configuration dict with pathfinding settings
         """
         self.window = window
+
+        self.api = RuneLiteAPI()
         
         # Minimap scale: pixels per tile (estimated, calibratable later)
         self.minimap_scale = 4.0
@@ -135,6 +138,21 @@ class NavigationManager:
         
     def read_world_coordinates(self) -> Optional[Tuple[int, int]]:
         """
+        Read world coordinates from RuneLite API
+
+        Returns:
+            Tuple of (x, y) world coordinates, or None if reading failed
+        """
+
+        data = self.api.get_coords()
+        if data and "world" in data:
+            world = data["world"]
+            return (world.get("x", 0), world.get("y", 0))
+        return None
+    
+    # DEPRECATED: Use read_world_coordinates instead
+    def read_world_coordinates_ocr(self) -> Optional[Tuple[int, int]]:
+        """
         Read current world coordinates from RuneLite overlay.
         
         Returns:
@@ -163,6 +181,21 @@ class NavigationManager:
     
     def read_scene_coordinates(self) -> Optional[Tuple[int, int]]:
         """
+        Read scene coordinates from RuneLite API.
+
+        Returns:
+            Tuple of (x, y) scene coordinates, or None if reading failed
+        """
+
+        data = self.api.get_coords()
+        if data and "local" in data:
+            local = data["local"]
+            return (local.get("sceneX", 0), local.get("sceneY", 0))
+        return None
+
+    # DEPRECATED: Use read_scene_coordinates instead
+    def read_scene_coordinates_ocr(self) -> Optional[Tuple[int, int]]:
+        """
         Read current scene coordinates from RuneLite overlay.
         
         Returns:
@@ -190,6 +223,20 @@ class NavigationManager:
         return None
     
     def read_camera_yaw(self) -> Optional[int]:
+        """
+        Read current camera yaw angle from RuneLite API.
+
+        Returns:
+            Yaw angle as integer (0-2048), or None if reading failed
+        """
+
+        data = self.api.get_camera()
+        if data and "yaw" in data:
+            return data["yaw"]
+        return None
+
+    # DEPRECATED: Use read_camera_yaw instead
+    def read_camera_yaw_ocr(self) -> Optional[int]:
         """
         Read current camera yaw angle from RuneLite overlay.
         
