@@ -1,4 +1,5 @@
 from util import Window
+from util.types import Polygon
 from client.inventory import InventoryManager
 from client.interfaces import InterfaceDetector
 from client.interactions import KeyboardInput
@@ -25,7 +26,7 @@ BANK = (190, 25, 25)
 class OSRS:
     def __init__(self, profile_config=None):
         self.window = Window()
-        self.window.find(title="RuneLite", exact_match=False)
+        self.window.find(title="RuneLite - xJawj", exact_match=False)
         self.inventory = InventoryManager(self.window)
         self.interfaces = InterfaceDetector(self.window)
         self.keyboard = KeyboardInput()
@@ -247,6 +248,30 @@ class OSRS:
                 return False
         return False
     
+    def click_game_object(self, obj_id):
+        """
+        Click on a game object by its ID.
+        """
+        game_object = self.api.get_game_object_in_viewport(obj_id)
+        if not game_object:
+            print(f"Game object with ID {obj_id} not found in viewport.")
+            return False
+        
+        hull = game_object.get('hull', None)
+        if hull:
+            points = hull.get('points', None)
+            if points:
+                polygon = Polygon(points)
+                click_point = polygon.random_point_inside(self.window.GAME_AREA)
+                self.window.move_mouse_to(click_point, in_canvas=True)
+                time.sleep(random.uniform(0.2, 0.4))
+                self.window.click()
+                time.sleep(random.uniform(0.5, 0.8))
+                return True
+
+        return False
+        
+
     def is_at_login_screen(self) -> bool:
         """
         Check if we are at the login screen.

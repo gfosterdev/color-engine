@@ -12,7 +12,7 @@ from util import Region
 # General Game Regions
 # ============================================================================
 
-GAME_AREA = Region(20, 35, 500, 320)  # Main game viewing area [VERIFIED]
+GAME_AREA = Region(5, 5, 500, 320)  # Main game viewing area [VERIFIED]
 INTERACT_TEXT_REGION = Region(12, 28, 350, 30)  # Hover text at top left [VERIFIED]
 
 

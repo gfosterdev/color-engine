@@ -470,6 +470,20 @@ def test_npcs_in_viewport(api: RuneLiteAPI):
     else:
         print("❌ No NPCs in viewport or endpoint not available")
 
+def test_viewport_data(api: RuneLiteAPI):
+    """Test viewport data endpoint."""
+    print_header("🖼️ VIEWPORT DATA TEST")
+    
+    viewport = api.get_viewport_data()
+    if viewport:
+        print("✅ Viewport Data:\n")
+        print(f"  Width:        {viewport.get('width', 'N/A')}")
+        print(f"  Height:       {viewport.get('height', 'N/A')}")
+        print(f"  X Offset:     {viewport.get('xOffset', 'N/A')}")
+        print(f"  Y Offset:     {viewport.get('yOffset', 'N/A')}")
+    else:
+        print("❌ No viewport data available")
+
 def print_menu():
     """Display test menu."""
     print("\n" + "=" * 80)
@@ -487,6 +501,7 @@ def print_menu():
     print("  8 - Run All Tests")
     print("  9 - Right-Click Menu Test (displays current menu entries)")
     print("  a - NPCs in Viewport Test")
+    print("  v - Viewport Data Test")
     print("\n❌ Exit:")
     print("  0 - Quit")
     print("\n" + "=" * 80)
@@ -547,6 +562,9 @@ def main():
             input("\n⚡ Press Enter to continue...")
         elif choice == 'a':
             test_npcs_in_viewport(api)
+            input("\n⚡ Press Enter to continue...")
+        elif choice == 'v':
+            test_viewport_data(api)
             input("\n⚡ Press Enter to continue...")
         else:
             print("\n❌ Invalid option")

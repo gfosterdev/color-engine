@@ -142,6 +142,18 @@ class Region:
         
         return True
     
+    def setX(self, x: int):
+        self.x = x
+    
+    def setY(self, y: int):
+        self.y = y
+
+    def setWidth(self, width: int):
+        self.width = width
+
+    def setHeight(self, height: int):
+        self.height = height
+
     def __repr__(self) -> str:
         return f"Region(x={self.x}, y={self.y}, width={self.width}, height={self.height})"
 
@@ -153,6 +165,10 @@ class Window:
     ROTATE_DURATION_MAX = 0.25
     ROTATE_CURVE_INTENSITY_MIN = 0.3
     ROTATE_CURVE_INTENSITY_MAX = 0.7
+    CANVAS_OFFSET = {
+        'x': 12,
+        'y': 28
+    }
     
     def __init__(self):
         self.user32 = ctypes.windll.user32
@@ -167,6 +183,14 @@ class Window:
         if self._game_area is None:
             from config.regions import GAME_AREA
             self._game_area = GAME_AREA
+            from client.runelite_api import RuneLiteAPI
+            api = RuneLiteAPI()
+
+            # Update to API viewport width/height
+            viewport = api.get_viewport_data()
+            if viewport:
+                self._game_area.setWidth(viewport.get('width', self._game_area.width))
+                self._game_area.setHeight(viewport.get('height', self._game_area.height))
         return self._game_area
     
     def find(self, title: str, exact_match: bool = True) -> bool:
@@ -316,13 +340,14 @@ class Window:
         
         return Region(int(x), int(y), int(w), int(h), filled_mask)
     
-    def move_mouse_to(self, coords: tuple[int, int], duration: float = 0.25, 
+    def move_mouse_to(self, coords: tuple[int, int], in_canvas: bool = True, duration: float = 0.25, 
                       curve_intensity: float = 1.0) -> bool:
         """
         Move mouse to coordinates relative to the found window.
         
         Args:
             coords: Tuple of (x, y) coordinates relative to window (0, 0 = top-left corner)
+            in_canvas: If True, coordinates are relative to the game canvas within the window
             duration: Time to complete movement in seconds
             curve_intensity: How curved the path should be
             
@@ -337,6 +362,9 @@ class Window:
         # Convert window-relative coordinates to screen coordinates
         screen_x = self.window['x'] + x
         screen_y = self.window['y'] + y
+        if in_canvas:
+            screen_x += self.CANVAS_OFFSET['x']
+            screen_y += self.CANVAS_OFFSET['y']
         
         self.mouse.move_to(screen_x, screen_y, duration, curve_intensity)
         return True
@@ -521,6 +549,18 @@ class Window:
             print(f"Color not found after {max_attempts} attempts")
         
         return None
+
+    def is_in_game_area(self, x: int, y: int) -> bool:
+        """
+        Check if a point is within the GAME_AREA region.
+        Args:
+            x: X coordinate relative to window
+            y: Y coordinate relative to window
+        
+        Returns:
+            True if point is within GAME_AREA, False otherwise
+        """
+        return self.GAME_AREA.contains(x, y)
 
     def rotate_camera(self, min_drag_distance: int) -> bool:
         """

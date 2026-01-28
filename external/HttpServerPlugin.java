@@ -17,8 +17,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.inject.Inject;
 import net.runelite.api.*;
 import net.runelite.api.coords.LocalPoint;
-import net.runelite.api.coords.Point;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.geometry.SimplePolygon;
 import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.api.Perspective;
@@ -63,12 +63,16 @@ public class HttpServerPlugin extends Plugin
         server.createContext("/objects", this::handleObjects);
         server.createContext("/grounditems", this::handleGroundItems);
         server.createContext("/npcs_in_viewport", this::getNPCsInViewport);
+        server.createContext("/objects_in_viewport", this::getGameObjectsInViewport);
 
         // Game state
         server.createContext("/camera", this::handleCamera);
         server.createContext("/game", this::handleGameState);
         server.createContext("/menu", this::handleMenu);
         server.createContext("/widgets", this::handleWidgets);
+
+        // Client state
+        server.createContext("/viewport", this::handleViewport);
 
         server.setExecutor(Executors.newSingleThreadExecutor());
         server.start();
@@ -78,6 +82,27 @@ public class HttpServerPlugin extends Plugin
     protected void shutDown() throws Exception
     {
         server.stop(1);
+    }
+
+    public void handleViewport(HttpExchange exchange) throws IOException
+    {
+        JsonObject viewportData = invokeAndWait(() -> {
+            JsonObject data = new JsonObject();
+            data.addProperty("width", client.getViewportWidth());
+            data.addProperty("height", client.getViewportHeight());
+            data.addProperty("xOffset", client.getViewportXOffset());
+            data.addProperty("yOffset", client.getViewportYOffset());
+            Point canvasMousePos = client.getMouseCanvasPosition();
+            data.addProperty("canvasMousePosition", canvasMousePos != null ? canvasMousePos.toString() : "null");
+
+            return data;
+        });
+
+        exchange.sendResponseHeaders(200, 0);
+        try (OutputStreamWriter out = new OutputStreamWriter(exchange.getResponseBody()))
+        {
+            RuneLiteAPI.GSON.toJson(viewportData, out);
+        }
     }
 
     public void handleStats(HttpExchange exchange) throws IOException
@@ -239,6 +264,72 @@ public class HttpServerPlugin extends Plugin
         sendJsonResponse(exchange, coords);
     }
 
+    public void getGameObjectsInViewport(HttpExchange exchange) throws IOException
+    {
+        JsonArray objectsData = invokeAndWait(() -> {
+            JsonArray objects = new JsonArray();
+            Scene scene = client.getScene();
+            Tile[][][] tiles = scene.getTiles();
+            int plane = client.getPlane();
+
+            for (int x = 0; x < 104; x++)
+            {
+                for (int y = 0; y < 104; y++)
+                {
+                    Tile tile = tiles[plane][x][y];
+                    if (tile == null) continue;
+                    Point tilePoint = Perspective.localToCanvas(client, tile.getLocalLocation(), plane);
+                    if (!isPointInViewport(tilePoint)) continue;
+
+                    for (GameObject gameObject : tile.getGameObjects())
+                    {
+                        if (gameObject == null) continue;
+
+                        Point point = Perspective.localToCanvas(client, gameObject.getLocalLocation(), plane);
+                        JsonObject objData = new JsonObject();
+                        objData.addProperty("id", gameObject.getId());
+                        objData.addProperty("x", point.getX());
+                        objData.addProperty("y", point.getY());
+
+                        SimplePolygon hull = (SimplePolygon) gameObject.getConvexHull();
+                        JsonObject hullData = new JsonObject();
+                        hullData.addProperty("exists", hull != null);
+                        if (hull != null) {
+                            JsonArray pointData = new JsonArray();
+                            List<Point> points = hull.toRuneLitePointList();
+                            for (Point value : points) {
+                                JsonObject pointObj = new JsonObject();
+                                pointObj.addProperty("x", value.getX());
+                                pointObj.addProperty("y", value.getY());
+                                pointData.add(pointObj);
+                            }
+                            hullData.add("points", pointData);
+                        }
+
+                        objData.add("hull", hullData);
+
+                        objects.add(objData);
+                    }
+                }
+            }
+
+            return objects;
+        });
+
+        exchange.sendResponseHeaders(200, 0);
+        try (OutputStreamWriter out = new OutputStreamWriter(exchange.getResponseBody()))
+        {
+            RuneLiteAPI.GSON.toJson(objectsData, out);
+        }
+    }
+
+    public boolean isPointInViewport(Point point)
+    {
+        return point != null
+                && point.getX() >= 0 && point.getX() <= client.getViewportWidth()
+                && point.getY() >= 0 && point.getY() <= client.getViewportHeight();
+    }
+
     public void getNPCsInViewport(HttpExchange exchange) throws IOException
     {
         JsonArray npcsData = invokeAndWait(() -> {
@@ -252,7 +343,7 @@ public class HttpServerPlugin extends Plugin
                 WorldPoint wp = npc.getWorldLocation();
                 LocalPoint lp = npc.getLocalLocation();
                 Point point = Perspective.localToCanvas(client, lp, wp.getPlane());
-                if (point != null)
+                if (isPointInViewport(point))
                 {
                     JsonObject npcData = new JsonObject();
                     npcData.addProperty("name", npc.getName());
@@ -265,7 +356,7 @@ public class HttpServerPlugin extends Plugin
 
             return npcs;
         });
-        
+
         exchange.sendResponseHeaders(200, 0);
         try (OutputStreamWriter out = new OutputStreamWriter(exchange.getResponseBody()))
         {

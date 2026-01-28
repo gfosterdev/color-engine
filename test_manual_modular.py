@@ -9,6 +9,7 @@ import keyboard
 import time
 import ctypes
 from util import Window, Region
+from util.types import Polygon
 from typing import Optional
 
 
@@ -19,7 +20,7 @@ class ModularTester:
         """Initialize basic window connection only."""
         print("Initializing window connection...")
         self.window = Window()
-        self.window.find(title="RuneLite", exact_match=False)
+        self.window.find(title="RuneLite - xJawj", exact_match=True)
         
         if not self.window.window:
             raise RuntimeError("Could not find RuneLite window!")
@@ -265,6 +266,45 @@ class ModularTester:
             
             time.sleep(0.05)
     
+    def test_mouse_against_api(self):
+        """
+        Tests what the Window class has for mouse pos against
+        API actual canvas pos
+        """
+        api = self.init_api()
+        osrs = self.init_osrs()
+
+        print(f"\nMoving mouse to window: 512, 334")
+        osrs.window.move_mouse_to((512, 334))
+        import time
+        time.sleep(1.5)
+
+        print(f"\nGetting canvas mouse position from API")
+        viewport = api.get_viewport_data()
+        if viewport:
+            canvasMousePosition = viewport.get('canvasMousePosition', "N/A")
+            print(f"✓ Canvas mouse position from API: {canvasMousePosition}")
+
+    def test_viewport_bounds(self):
+        """Tests if viewport bounds are correct"""
+        osrs = self.init_osrs()
+        game_area = osrs.window.GAME_AREA
+        import time
+
+        print(f"\nMoving mouse to viewport top left: {(game_area.x, game_area.y)}")
+        osrs.window.move_mouse_to((game_area.x, game_area.y), in_canvas=True)
+        time.sleep(1.5)
+        print(f"\nMoving mouse to viewport top right: {(game_area.x + game_area.width, game_area.y)}")
+        osrs.window.move_mouse_to((game_area.x + game_area.width, game_area.y), in_canvas=True)
+        time.sleep(1.5)
+        print(f"\nMoving mouse to viewport bottom left: {(game_area.x, game_area.y + game_area.height)}")
+        osrs.window.move_mouse_to((game_area.x, game_area.y + game_area.height), in_canvas=True)
+        time.sleep(1.5)
+        print(f"\nMoving mouse to viewport bottom right: {(game_area.x + game_area.width, game_area.y + game_area.height)}")
+        osrs.window.move_mouse_to((game_area.x + game_area.width, game_area.y + game_area.height), in_canvas=True)
+        print(f"\nCanvas test complete")
+        
+
     # =================================================================
     # OCR & TEXT RECOGNITION TESTS
     # =================================================================
@@ -755,6 +795,81 @@ class ModularTester:
         result = interaction.interact_with_object(iron_ore, validate_hover=True)
         print(f"Result: {'✓ SUCCESS' if result else '✗ FAILED'}")
     
+    def test_gameobject_find_bank_api(self):
+        """Find bank booth via api"""
+        api = self.init_api()
+        osrs = self.init_osrs()
+
+        bank_booth = api.get_game_object_in_viewport(10583)
+        print(f"\n Bank booth data: {bank_booth}")
+        if bank_booth:
+            x = bank_booth.get('x', -1)
+            y = bank_booth.get('y', -1)
+            print(f"\n✓ Found bank booth at ({x}, {y})")
+            osrs.window.move_mouse_to((x, y))
+            
+    def test_gameobject_find_api(self):
+        """Find bank booth via api"""
+        api = self.init_api()
+        osrs = self.init_osrs()
+
+        try:
+            id_input = input("\nEnter object id (e.g., 10583): ").strip()
+            if not id_input:
+                print("✗ No id entered, cancelling")
+                return
+            obj_id = int(id_input, 0)
+        except ValueError:
+            print("✗ Invalid object id")
+            return
+        except Exception as e:
+            print(f"✗ Error: {e}")
+            return
+        
+
+        game_object = api.get_game_object_in_viewport(obj_id)
+        print(f"\n Game Object data: {game_object}")
+        if game_object:
+            x = game_object.get('x', -1)
+            y = game_object.get('y', -1)
+            print(f"\n✓ Found {obj_id} at ({x}, {y})")
+            osrs.window.move_mouse_to((x, y))
+            import time
+            time.sleep(1)
+            print("Moving mouse around hull")
+            hull = game_object.get('hull')
+            if hull and hull.get('exists', False) == True:
+                points = hull.get('points', [])
+                polygon = Polygon(points)
+                for point in points:
+                    osrs.window.move_mouse_to((point.get('x'), point.get('y')))
+                    time.sleep(0.2)
+                for _ in range(5):
+                    rand = polygon.random_point_inside(osrs.window.GAME_AREA)
+                    osrs.window.move_mouse_to(rand)
+                    time.sleep(0.5)
+
+    def test_click_on_gameobject(self):
+        """Clicks on a given game object"""
+        osrs = self.init_osrs()
+
+        try:
+            id_input = input("\nEnter object id (e.g., 10583): ").strip()
+            if not id_input:
+                print("✗ No id entered, cancelling")
+                return
+            obj_id = int(id_input, 0)
+        except ValueError:
+            print("✗ Invalid object id")
+            return
+        except Exception as e:
+            print(f"✗ Error: {e}")
+            return
+        
+        print(f"\nClicking on game object id {obj_id}...")
+        success = osrs.click_game_object(obj_id)
+        print("✓ Click successful" if success else "✗ Click failed")
+
     def test_gameobject_find_bank(self):
         """Find bank booth."""
         interaction = self.init_interactions()
@@ -1096,7 +1211,8 @@ class ModularTester:
             'f': ("Find Color", self.test_find_color),
             'r': ("Camera Rotation", self.test_camera_rotation),
             'k': ("Click at Position", self.test_click_at_position),
-            'v': ("Visualize All Regions", self.test_visualize_all_regions),
+            'v': ("Test viewport bounds", self.test_viewport_bounds),
+            't': ("Test mouse against API Canvas", self.test_mouse_against_api)
         }
         
         print("\n" + "="*60)
@@ -1108,7 +1224,8 @@ class ModularTester:
         print("F - Find Color (input RGB)")
         print("R - Camera Rotation")
         print("K - Click at Position")
-        print("V - Visualize All Regions (from config)")
+        print("V - Test viewport bounds")
+        print("T - Test mouse against API Canvas")
         print("\nESC - Back to Main Menu")
         print("="*60)
         
@@ -1221,23 +1338,31 @@ class ModularTester:
         self.current_menu = "gameobject"
         
         test_map = {
+            's': ("Find Game Object via ID", self.test_gameobject_find_api),
+            'c': ("Click on Game Object via ID", self.test_click_on_gameobject),
             '1': ("Find Iron Ore", self.test_gameobject_find_ore),
             '2': ("Interact with Ore", self.test_gameobject_interact_ore),
             '3': ("Find Bank Booth", self.test_gameobject_find_bank),
+            'e': ("Find Bank Booth (api)", self.test_gameobject_find_bank_api),
             '4': ("Find Custom Color", self.test_gameobject_custom_color),
             '5': ("Right-Click Menu", self.test_gameobject_right_click),
-            '6': ("Find NPCS in Viewport", self.test_npc_in_viewport)
+            '6': ("Find NPCS in Viewport", self.test_npc_in_viewport),
+            '7': ("Find Game Objects in Viewport", self.test_game_object_in_viewport)
         }
         
         print("\n" + "="*60)
         print("GAME OBJECT INTERACTION TESTS")
         print("="*60)
+        print("S - Find Game Object by ID")
+        print("C - Click on Game Object by ID")
         print("1 - Find Iron Ore")
         print("2 - Interact with Ore")
         print("3 - Find Bank Booth")
+        print("e - Find Bank Booth (API)")
         print("4 - Find Custom Color")
         print("5 - Right-Click Menu Test")
         print("6 - Find NPCS in Viewport")
+        print("7 - Find Game Objects in Viewport")
         print("\nESC - Back to Main Menu")
         print("="*60)
         
@@ -1957,6 +2082,26 @@ class ModularTester:
                 print(f"  {i:2}. {name} (ID: {npc_id}) - ({x}, {y})")
 
                 if name == "Banker":
+                    osrs.window.move_mouse_to((x, y))
+                    # osrs.window.click()
+        else:
+            print("❌ No NPCs in viewport or endpoint not available")
+    
+    def test_game_object_in_viewport(self):
+        api = self.init_api()
+        osrs = self.init_osrs()
+
+        objects = api.get_game_objects_in_viewport()
+        if objects:
+            print(f"✅ Retrieved {len(objects)} objects in viewport:\n")
+            for i, obj in enumerate(objects, 1):
+                name = obj.get('name', 'Unknown')
+                obj_id = obj.get('id', -1)
+                x = obj.get('x', -1)
+                y = obj.get('y', -1)
+                print(f"  {i:2}. {name} (ID: {obj_id}) - ({x}, {y})")
+
+                if obj_id == 10583:
                     osrs.window.move_mouse_to((x, y))
                     # osrs.window.click()
         else:

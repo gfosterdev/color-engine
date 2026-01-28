@@ -256,3 +256,41 @@ class RuneLiteAPI:
         """
         result = self._get("npcs_in_viewport")
         return cast(Optional[List[Dict[str, Any]]], result)
+
+    def get_game_objects_in_viewport(self) -> Optional[List[Dict[str, Any]]]:
+        """
+        Get all game objects currently visible in the viewport.
+        
+        Returns:
+            List of object dictionaries with id, name, worldX, worldY, plane
+        """
+        result = self._get("objects_in_viewport")
+        return cast(Optional[List[Dict[str, Any]]], result)
+
+    def get_game_object_in_viewport(self, obj_id) -> Optional[Dict[str, Any]]:
+        """
+        Get game object if it exists in the viewport.
+        If more than one exists, returns a random one.
+        
+        Returns:
+            Dictionary with id, name, x, y or None if not found
+        """
+        result = self._get("objects_in_viewport")
+        result = cast(Optional[List[Dict[str, Any]]], result)
+        if result and len(result) > 0:
+            filtered = [obj for obj in result if obj.get('id') == obj_id]
+            if len(filtered) > 0:
+                import random
+                return random.choice(filtered)
+        return None
+
+    def get_viewport_data(self) -> Optional[Dict[str, Any]]:
+        """
+        Get viewport data
+
+        Returns:
+            Dictionary with width, height, xOffset, yOffset, canvasMousePosition
+        """
+
+        result = self._get("viewport")
+        return cast(Optional[Dict[str, Any]], result)
