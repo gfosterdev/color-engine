@@ -245,3 +245,14 @@ class RuneLiteAPI:
             Dictionary mapping endpoint names to request times in milliseconds
         """
         return self.last_request_time.copy()
+
+    def get_npcs_in_viewport(self) -> Optional[List[Dict[str, Any]]]:
+        """
+        Get all NPCs currently visible in the viewport.
+        
+        Returns:
+            List of NPC dictionaries with name, id, combatLevel, distanceFromPlayer,
+            worldX, worldY, plane
+        """
+        result = self._get("npcs_in_viewport")
+        return cast(Optional[List[Dict[str, Any]]], result)

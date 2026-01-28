@@ -35,6 +35,7 @@ class ModularTester:
         self.registry = None
         self.config = None
         self.navigation = None
+        self.api = None
         
         self.current_menu = "main"
         print("Basic initialization complete!")
@@ -78,6 +79,15 @@ class ModularTester:
             print("[Interfaces ready]")
         return self.interfaces
     
+    def init_api(self):
+        """Initialize API"""
+        if not self.api:
+            from client.runelite_api import RuneLiteAPI
+            print("[Loading RuneLite API...]")
+            self.api = RuneLiteAPI()
+            print("[RuneLite API ready]")
+        return self.api
+
     def init_osrs(self):
         """Initialize OSRS client."""
         if not self.osrs:
@@ -1216,6 +1226,7 @@ class ModularTester:
             '3': ("Find Bank Booth", self.test_gameobject_find_bank),
             '4': ("Find Custom Color", self.test_gameobject_custom_color),
             '5': ("Right-Click Menu", self.test_gameobject_right_click),
+            '6': ("Find NPCS in Viewport", self.test_npc_in_viewport)
         }
         
         print("\n" + "="*60)
@@ -1226,6 +1237,7 @@ class ModularTester:
         print("3 - Find Bank Booth")
         print("4 - Find Custom Color")
         print("5 - Right-Click Menu Test")
+        print("6 - Find NPCS in Viewport")
         print("\nESC - Back to Main Menu")
         print("="*60)
         
@@ -1926,6 +1938,31 @@ class ModularTester:
         
         self._run_submenu(test_map)
     
+    # =================================================================
+    # INTERACTION TESTS
+    # =================================================================
+
+    def test_npc_in_viewport(self):
+        api = self.init_api()
+        osrs = self.init_osrs()
+
+        npcs = api.get_npcs_in_viewport()
+        if npcs:
+            print(f"✅ Retrieved {len(npcs)} NPCs in viewport:\n")
+            for i, npc in enumerate(npcs, 1):
+                name = npc.get('name', 'Unknown')
+                npc_id = npc.get('id', -1)
+                x = npc.get('x', -1)
+                y = npc.get('y', -1)
+                print(f"  {i:2}. {name} (ID: {npc_id}) - ({x}, {y})")
+
+                if name == "Banker":
+                    osrs.window.move_mouse_to((x, y))
+                    # osrs.window.click()
+        else:
+            print("❌ No NPCs in viewport or endpoint not available")
+
+
     def _run_submenu(self, test_map):
         """Run a submenu with tests."""
         # Wait for menu selection key to be released

@@ -17,9 +17,11 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.inject.Inject;
 import net.runelite.api.*;
 import net.runelite.api.coords.LocalPoint;
+import net.runelite.api.coords.Point;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.WidgetInfo;
+import net.runelite.api.Perspective;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -60,6 +62,7 @@ public class HttpServerPlugin extends Plugin
         server.createContext("/players", this::handlePlayers);
         server.createContext("/objects", this::handleObjects);
         server.createContext("/grounditems", this::handleGroundItems);
+        server.createContext("/npcs_in_viewport", this::getNPCsInViewport);
 
         // Game state
         server.createContext("/camera", this::handleCamera);
@@ -234,6 +237,40 @@ public class HttpServerPlugin extends Plugin
         });
 
         sendJsonResponse(exchange, coords);
+    }
+
+    public void getNPCsInViewport(HttpExchange exchange) throws IOException
+    {
+        JsonArray npcsData = invokeAndWait(() -> {
+            JsonArray npcs = new JsonArray();
+            List<NPC> npcList = client.getNpcs();
+
+            for (NPC npc : npcList)
+            {
+                if (npc == null) continue;
+
+                WorldPoint wp = npc.getWorldLocation();
+                LocalPoint lp = npc.getLocalLocation();
+                Point point = Perspective.localToCanvas(client, lp, wp.getPlane());
+                if (point != null)
+                {
+                    JsonObject npcData = new JsonObject();
+                    npcData.addProperty("name", npc.getName());
+                    npcData.addProperty("id", npc.getId());
+                    npcData.addProperty("x", point.getX());
+                    npcData.addProperty("y", point.getY());
+                    npcs.add(npcData);
+                }
+            }
+
+            return npcs;
+        });
+        
+        exchange.sendResponseHeaders(200, 0);
+        try (OutputStreamWriter out = new OutputStreamWriter(exchange.getResponseBody()))
+        {
+            RuneLiteAPI.GSON.toJson(npcsData, out);
+        }
     }
 
     public void handleNPCs(HttpExchange exchange) throws IOException

@@ -4,3 +4,7 @@
 3289, 3409 -- v east test route
 
 3261, 3366 -- test route south of varrock
+
+3223, 3219 -- Lumbridge tele
+2965, 3376 -- falador tele
+3216, 3424 -- varrock tele

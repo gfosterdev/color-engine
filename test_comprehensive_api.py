@@ -454,6 +454,21 @@ def run_all_tests(api: RuneLiteAPI):
     
     print_header("✅ ALL TESTS COMPLETED", "=")
 
+def test_npcs_in_viewport(api: RuneLiteAPI):
+    """Test NPCs in viewport endpoint."""
+    print_header("👀 NPCs IN VIEWPORT TEST")
+    
+    npcs = api.get_npcs_in_viewport()
+    if npcs:
+        print(f"✅ Retrieved {len(npcs)} NPCs in viewport:\n")
+        for i, npc in enumerate(npcs, 1):
+            name = npc.get('name', 'Unknown')
+            npc_id = npc.get('id', -1)
+            x = npc.get('x', -1)
+            y = npc.get('y', -1)
+            print(f"  {i:2}. {name} (ID: {npc_id}) - ({x}, {y})")
+    else:
+        print("❌ No NPCs in viewport or endpoint not available")
 
 def print_menu():
     """Display test menu."""
@@ -471,6 +486,7 @@ def print_menu():
     print("  7 - Mining Monitor (real-time bot-ready tracking)")
     print("  8 - Run All Tests")
     print("  9 - Right-Click Menu Test (displays current menu entries)")
+    print("  a - NPCs in Viewport Test")
     print("\n❌ Exit:")
     print("  0 - Quit")
     print("\n" + "=" * 80)
@@ -528,6 +544,9 @@ def main():
             input("\nPress Enter to continue...")
         elif choice == '9':
             test_right_click_menu(api)
+            input("\n⚡ Press Enter to continue...")
+        elif choice == 'a':
+            test_npcs_in_viewport(api)
             input("\n⚡ Press Enter to continue...")
         else:
             print("\n❌ Invalid option")
