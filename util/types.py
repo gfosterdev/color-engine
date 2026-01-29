@@ -129,10 +129,26 @@ class Polygon:
 		p0 = self.points[0]
 		triangles: List[Tuple[Point, Point, Point]] = []
 		areas: List[float] = []
+		# If bounds is provided, vertices outside bounds are clamped to the
+		# closest point on the region (edge or corner).
+		def _clamp(pt: Point) -> Point:
+			if bounds is None:
+				return pt
+			bx = bounds.x
+			by = bounds.y
+			bw = bounds.width
+			bh = bounds.height
+			cx = min(max(pt[0], bx), bx + bw - 1)
+			cy = min(max(pt[1], by), by + bh - 1)
+			return (cx, cy)
+
 		for i in range(1, len(self.points) - 1):
-			a = p0
-			b = self.points[i]
-			c = self.points[i + 1]
+			raw_a = p0
+			raw_b = self.points[i]
+			raw_c = self.points[i + 1]
+			a = _clamp(raw_a)
+			b = _clamp(raw_b)
+			c = _clamp(raw_c)
 			cross = abs((b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1])) / 2.0
 			triangles.append((a, b, c))
 			areas.append(cross)

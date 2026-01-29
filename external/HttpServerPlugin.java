@@ -350,6 +350,24 @@ public class HttpServerPlugin extends Plugin
                     npcData.addProperty("id", npc.getId());
                     npcData.addProperty("x", point.getX());
                     npcData.addProperty("y", point.getY());
+
+                    SimplePolygon hull = (SimplePolygon) npc.getConvexHull();
+                    JsonObject hullData = new JsonObject();
+                    hullData.addProperty("exists", hull != null);
+                    if (hull != null) {
+                        JsonArray pointData = new JsonArray();
+                        List<Point> points = hull.toRuneLitePointList();
+                        for (Point value : points) {
+                            JsonObject pointObj = new JsonObject();
+                            pointObj.addProperty("x", value.getX());
+                            pointObj.addProperty("y", value.getY());
+                            pointData.add(pointObj);
+                        }
+                        hullData.add("points", pointData);
+                    }
+
+                    npcData.add("hull", hullData);
+
                     npcs.add(npcData);
                 }
             }

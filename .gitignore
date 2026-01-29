@@ -14,3 +14,6 @@ __pycache__/
 *.png
 
 util/data/collision-map.zip
+
+external/NpcID.java
+external/ObjectID.java
