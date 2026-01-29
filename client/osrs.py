@@ -248,9 +248,32 @@ class OSRS:
                 return False
         return False
     
+    def click_npc(self, npc_id):
+        """
+        Click on an NPC by it's ID.
+        """
+        npc = self.api.get_npc_in_viewport(npc_id)
+        if not npc:
+            print(f"NPC with ID {npc_id} not found in viewport.")
+            return False
+        
+        hull = npc.get('hull', None)
+        if hull:
+            points = hull.get('points', None)
+            if points:
+                polygon = Polygon(points)
+                click_point = polygon.random_point_inside(self.window.GAME_AREA)
+                self.window.move_mouse_to(click_point, in_canvas=True, duration=random.uniform(0.1, 0.3))
+                time.sleep(random.uniform(0.05, 0.1))
+                self.window.click()
+                time.sleep(random.uniform(0.5, 0.8))
+                return True
+            
+        return False
+
     def click_game_object(self, obj_id):
         """
-        Click on a game object by its ID.
+        Click on a game object by it's ID.
         """
         game_object = self.api.get_game_object_in_viewport(obj_id)
         if not game_object:

@@ -257,6 +257,22 @@ class RuneLiteAPI:
         result = self._get("npcs_in_viewport")
         return cast(Optional[List[Dict[str, Any]]], result)
 
+    def get_npc_in_viewport(self, npc_id) -> Optional[Dict[str, Any]]:
+        """
+        Get npc in viewport if it exists
+
+        Returns:
+            Dictionary with name, id, x, y, hull
+        """
+        result = self._get("npcs_in_viewport")
+        result = cast(Optional[List[Dict[str, Any]]], result)
+        if result and len(result) > 0:
+            filtered = [npc for npc in result if npc.get('id') == npc_id]
+            if len(filtered) > 0:
+                import random
+                return random.choice(filtered)
+        return None
+
     def get_game_objects_in_viewport(self) -> Optional[List[Dict[str, Any]]]:
         """
         Get all game objects currently visible in the viewport.

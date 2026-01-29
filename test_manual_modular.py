@@ -849,6 +849,68 @@ class ModularTester:
                     osrs.window.move_mouse_to(rand)
                     time.sleep(0.5)
 
+    def test_npc_find_api(self):
+        """Find NPC api"""
+        api = self.init_api()
+        osrs = self.init_osrs()
+
+        try:
+            id_input = input("\nEnter NPC id (e.g., 10583): ").strip()
+            if not id_input:
+                print("✗ No id entered, cancelling")
+                return
+            npc_id = int(id_input, 0)
+        except ValueError:
+            print("✗ Invalid NPC id")
+            return
+        except Exception as e:
+            print(f"✗ Error: {e}")
+            return
+        
+
+        npc_object = api.get_npc_in_viewport(npc_id)
+        print(f"\n NPC data: {npc_object}")
+        if npc_object:
+            x = npc_object.get('x', -1)
+            y = npc_object.get('y', -1)
+            print(f"\n✓ Found {npc_id} at ({x}, {y})")
+            osrs.window.move_mouse_to((x, y))
+            import time
+            time.sleep(.1)
+            print("Moving mouse around hull")
+            hull = npc_object.get('hull')
+            if hull and hull.get('exists', False) == True:
+                points = hull.get('points', [])
+                polygon = Polygon(points)
+                for point in points:
+                    osrs.window.move_mouse_to((point.get('x'), point.get('y')))
+                    time.sleep(0.1)
+                # for _ in range(5):
+                #     rand = polygon.random_point_inside(osrs.window.GAME_AREA)
+                #     osrs.window.move_mouse_to(rand)
+                #     time.sleep(0.5)
+
+    def test_click_on_npc(self):
+        """Clicks on a given NPC"""
+        osrs = self.init_osrs()
+
+        try:
+            id_input = input("\nEnter NPC id (e.g., 10583): ").strip()
+            if not id_input:
+                print("✗ No id entered, cancelling")
+                return
+            npc_id = int(id_input, 0)
+        except ValueError:
+            print("✗ Invalid NPC id")
+            return
+        except Exception as e:
+            print(f"✗ Error: {e}")
+            return
+        
+        print(f"\nClicking on NPC id {npc_id}...")
+        success = osrs.click_npc(npc_id)
+        print("✓ Click successful" if success else "✗ Click failed")
+
     def test_click_on_gameobject(self):
         """Clicks on a given game object"""
         osrs = self.init_osrs()
@@ -1340,6 +1402,8 @@ class ModularTester:
         test_map = {
             's': ("Find Game Object via ID", self.test_gameobject_find_api),
             'c': ("Click on Game Object via ID", self.test_click_on_gameobject),
+            'l': ("Find NPC via ID", self.test_npc_find_api),
+            'k': ("Click on NPC via ID", self.test_click_on_npc),
             '1': ("Find Iron Ore", self.test_gameobject_find_ore),
             '2': ("Interact with Ore", self.test_gameobject_interact_ore),
             '3': ("Find Bank Booth", self.test_gameobject_find_bank),
@@ -1355,6 +1419,8 @@ class ModularTester:
         print("="*60)
         print("S - Find Game Object by ID")
         print("C - Click on Game Object by ID")
+        print("L - Find NPC by ID")
+        print("K - Click on NPC by ID")
         print("1 - Find Iron Ore")
         print("2 - Interact with Ore")
         print("3 - Find Bank Booth")

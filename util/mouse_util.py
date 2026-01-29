@@ -79,7 +79,8 @@ class MouseMover:
         
         # Adjust duration based on distance to make it feel more natural
         # Longer distances should take proportionally more time
-        adjusted_duration = max(duration, distance / 1000.0)
+        # adjusted_duration = max(duration, distance / 1000.0)
+        adjusted_duration = duration
         
         # Generate control points for Bezier curve
         # Add some randomness to make movement less predictable
