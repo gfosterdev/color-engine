@@ -1,8 +1,10 @@
+from typing import Optional
+from click import option
 from util import Window
 from util.types import Polygon
 from client.inventory import InventoryManager
 from client.interfaces import InterfaceDetector
-from client.interactions import KeyboardInput
+from client.interactions import RightClickMenu, KeyboardInput
 from client.navigation import NavigationManager
 from client.runelite_api import RuneLiteAPI
 from config.regions import (
@@ -29,11 +31,54 @@ class OSRS:
         self.window.find(title="RuneLite - xJawj", exact_match=False)
         self.inventory = InventoryManager(self.window)
         self.interfaces = InterfaceDetector(self.window)
-        self.keyboard = KeyboardInput()
         self.navigation = NavigationManager(self.window)
+        self.keyboard = KeyboardInput()
         self.profile_config = profile_config
         self.api = RuneLiteAPI()
     
+    def click(self, option: str, target: Optional[str] = None):
+        """
+        Checks if we can left click, if not attempts a right click.
+        """
+        menu = RightClickMenu(self.window)
+        print(f"Menu is open: {menu.is_open}")
+
+        can_left_click = menu.can_left_click(option, target)
+        print(f"Can left click: {can_left_click}")
+        if can_left_click:
+            print("Performing left click...")
+            self.window.click()
+            time.sleep(random.uniform(0.1, 0.3))
+            print("✓ Left clicked")
+        else:
+            if not menu.is_open:
+                print("Opening menu...")
+                menu.open()
+                time.sleep(random.uniform(0.1, 0.3))
+                print(f"Menu is open: {menu.is_open}")
+            
+            menu.populate()
+            if menu.is_open:
+                print(f"\nSelecting menu entry with option {option}")
+                entry = menu.get_entry(option, target)
+                if entry:
+                    index = entry.get('index')
+                    if not index:
+                        print(f"✗ Could not find index for entry {entry}")
+                        return
+                    index = int(index)
+                    print(f"Clicking entry: {entry}")
+                    menu.click_entry(index)
+                    time.sleep(random.uniform(0.1, 0.3))
+                    print("✓ Clicked")
+            
+            menu.populate()
+            if menu.is_open:
+                print("Closing menu...")
+                menu.close()
+                time.sleep(random.uniform(0.1, 0.3))
+                print(f"Menu is open: {menu.is_open}")
+
     def login_from_profile(self) -> bool:
         """.
         Log in using password from profile configuration.
@@ -249,7 +294,7 @@ class OSRS:
                 return False
         return False
     
-    def click_npc(self, npc_id):
+    def click_npc(self, npc_id, action: str):
         """
         Click on an NPC by it's ID.
         """
@@ -258,6 +303,8 @@ class OSRS:
             print(f"NPC with ID {npc_id} not found in viewport.")
             return False
         
+        target = npc.get('name', None)
+
         hull = npc.get('hull', None)
         if hull:
             points = hull.get('points', None)
@@ -266,13 +313,13 @@ class OSRS:
                 click_point = polygon.random_point_inside(self.window.GAME_AREA)
                 self.window.move_mouse_to(click_point, in_canvas =True, duration=random.uniform(0.1, 0.3))
                 time.sleep(random.uniform(0.05, 0.1))
-                self.window.click()
+                self.click(action, target)
                 time.sleep(random.uniform(0.5, 0.8))
                 return True
             
         return False
 
-    def click_game_object(self, obj_id):
+    def click_game_object(self, obj_id, action: str):
         """
         Click on a game object by it's ID.
         """
@@ -281,6 +328,8 @@ class OSRS:
             print(f"Game object with ID {obj_id} not found in viewport.")
             return False
         
+        target = game_object.get('name', None)
+
         hull = game_object.get('hull', None)
         if hull:
             points = hull.get('points', None)
@@ -289,7 +338,7 @@ class OSRS:
                 click_point = polygon.random_point_inside(self.window.GAME_AREA)
                 self.window.move_mouse_to(click_point, in_canvas=True)
                 time.sleep(random.uniform(0.2, 0.4))
-                self.window.click()
+                self.click(action, target)
                 time.sleep(random.uniform(0.5, 0.8))
                 return True
 

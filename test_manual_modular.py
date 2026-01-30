@@ -308,43 +308,12 @@ class ModularTester:
         """
         Finds and tests right click menu functionality.
         """
-        from client.interactions import RightClickMenu
+        osrs = self.init_osrs()
         print("\nTesting right click menu...")
-        menu = RightClickMenu(self.window)
-        print(f"Menu is open: {menu.is_open}")
-        if not menu.is_open:
-            print("Opening menu...")
-            menu.open()
-            time.sleep(0.5)
-            print(f"Menu is open: {menu.is_open}")
-        
-        menu.populate()
-        if menu.is_open:
-            print("Menu entries:")
-            for entry in menu.get_entries():
-                print(f" - {entry}")
+        option = "Talk-To"
+        target = "Town Crier"
 
-            option = "Bank"
-            target = "Banker"
-            print(f"\nSelecting menu entry with option {option}")
-            entry = menu.get_entry(option, target)
-            if entry:
-                index = entry.get('index')
-                if not index:
-                    print(f"✗ Could not find index for entry {entry}")
-                    return
-                index = int(index)
-                print(f"Clicking entry: {entry}")
-                menu.click_entry(index)
-                time.sleep(.5)
-                print("✓ Clicked")
-        
-        menu.populate()
-        if menu.is_open:
-            print("Closing menu...")
-            menu.close()
-            time.sleep(0.5)
-            print(f"Menu is open: {menu.is_open}")
+        osrs.click(option, target)
     
         print("\nFinished right click menu test")
 
@@ -944,6 +913,10 @@ class ModularTester:
                 print("✗ No id entered, cancelling")
                 return
             npc_id = int(id_input, 0)
+            action = input("Enter action (default 'Talk-to'): ").strip()
+            if not action:
+                print("No action entered, cancelling'")
+                return
         except ValueError:
             print("✗ Invalid NPC id")
             return
@@ -952,7 +925,7 @@ class ModularTester:
             return
         
         print(f"\nClicking on NPC id {npc_id}...")
-        success = osrs.click_npc(npc_id)
+        success = osrs.click_npc(npc_id, action)
         print("✓ Click successful" if success else "✗ Click failed")
 
     def test_click_on_gameobject(self):
@@ -965,6 +938,10 @@ class ModularTester:
                 print("✗ No id entered, cancelling")
                 return
             obj_id = int(id_input, 0)
+            action = input("Enter action (default 'Talk-to'): ").strip()
+            if not action:
+                print("No action entered, cancelling'")
+                return
         except ValueError:
             print("✗ Invalid object id")
             return
@@ -973,7 +950,7 @@ class ModularTester:
             return
         
         print(f"\nClicking on game object id {obj_id}...")
-        success = osrs.click_game_object(obj_id)
+        success = osrs.click_game_object(obj_id, action)
         print("✓ Click successful" if success else "✗ Click failed")
 
     def test_gameobject_find_bank(self):

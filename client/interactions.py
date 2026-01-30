@@ -143,7 +143,7 @@ class RightClickMenu:
         item_height = int(self.height / item_count)
         if not (idx > item_count or idx < 1):
             y = self.y + (item_height * idx)
-            point = Region(self.x, y, self.width, item_height)
+            point = Region(self.x, y + 4, self.width, item_height - 8)
             # self.window.move_mouse_to((point.x, point.y))
             # time.sleep(random.uniform(0.1, 0.3))
             # self.window.move_mouse_to((point.x + point.width, point.y))
@@ -161,6 +161,19 @@ class RightClickMenu:
         
         return False
     
+    def can_left_click(self, option: str, target: Optional[str] = None) -> bool:
+        """
+        Determine if an option can be left-clicked directly.
+        
+        Args:
+            option: The 'action' in the menu
+            target: The 'target' in the menu (optional)
+        """
+        entry = self.get_entry(option, target)
+        if entry and entry.get('index', 0) == 1:
+            return True
+        return False
+
     def close(self) -> bool:
         """
         Close the right-click menu by moving mouse elsewhere.
