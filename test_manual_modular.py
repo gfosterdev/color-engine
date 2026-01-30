@@ -289,10 +289,10 @@ class ModularTester:
         api = self.init_api()
         osrs = self.init_osrs()
 
-        print(f"\nMoving mouse to window: 512, 334")
-        osrs.window.move_mouse_to((512, 334))
-        import time
-        time.sleep(1.5)
+        # print(f"\nMoving mouse to window: 512, 334")
+        # osrs.window.move_mouse_to((512, 334))
+        # import time
+        # time.sleep(1.5)
 
         print(f"\nGetting canvas mouse position from API")
         viewport = api.get_viewport_data()

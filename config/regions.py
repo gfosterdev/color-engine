@@ -116,6 +116,6 @@ CAMERA_SCALE_REGION = Region(154, 459, 50, 20)  # Camera scale [VERIFIED]
 # Minimap Regions
 # ============================================================================
 
-MINIMAP_REGION = Region(580, 39, 141, 141)  # Full minimap clickable area [VERIFIED]
-MINIMAP_CENTER = Region(654, 113, 2, 2)  # Player position reference point [VERIFIED]
+MINIMAP_REGION = Region(570, 14, 138, 138)  # Full minimap clickable area [VERIFIED]
+MINIMAP_CENTER = Region(642, 84, 2, 2)  # Player position reference point [VERIFIED]
 MINIMAP_COMPASS_REGION = Region(561, 39, 22, 21)  # Minimap compass [UNVERIFIED]
