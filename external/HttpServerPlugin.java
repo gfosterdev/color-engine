@@ -594,18 +594,28 @@ public class HttpServerPlugin extends Plugin
 
     public void handleMenu(HttpExchange exchange) throws IOException
     {
-        JsonArray menuData = invokeAndWait(() -> {
-            JsonArray menu = new JsonArray();
-            MenuEntry[] entries = client.getMenuEntries();
+        JsonObject menuData = invokeAndWait(() -> {
+            JsonObject menu = new JsonObject();
+            Menu clientMenu = client.getMenu();
 
+            menu.addProperty("isOpen", client.isMenuOpen());
+            menu.addProperty("x", clientMenu.getMenuX());
+            menu.addProperty("y", clientMenu.getMenuY());
+            menu.addProperty("width", clientMenu.getMenuWidth());
+            menu.addProperty("height", clientMenu.getMenuHeight());
+
+            // Entries
+            JsonArray entriesArray = new JsonArray();
+            MenuEntry[] entries = clientMenu.getMenuEntries();
             for (MenuEntry entry : entries)
             {
                 JsonObject menuEntry = new JsonObject();
                 menuEntry.addProperty("option", entry.getOption());
                 menuEntry.addProperty("target", entry.getTarget());
                 menuEntry.addProperty("type", entry.getType().toString());
-                menu.add(menuEntry);
+                entriesArray.add(menuEntry);
             }
+            menu.add("entries", entriesArray);
 
             return menu;
         });

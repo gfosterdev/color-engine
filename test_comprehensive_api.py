@@ -14,6 +14,7 @@ Features:
 """
 
 import time
+import keyboard
 from typing import Any, Dict, List
 from client.runelite_api import RuneLiteAPI
 
@@ -259,6 +260,34 @@ def test_world_data(api: RuneLiteAPI):
     else:
         print("  No objects found")
 
+def test_menu(api: RuneLiteAPI):
+    """
+    Test Menu state.
+    """
+    print_header("📋 API Menu State")
+    
+    menu = api.get_menu()
+    if not menu:
+        print("❌ No menu data available")
+        return
+    
+    print("❌ Menu is not open" if not menu.get("isOpen", False) else "✅ Menu is open")
+    print(f"X Position: {menu.get('x', 'N/A')}")
+    print(f"Y Position: {menu.get('y', 'N/A')}")
+    print(f"Width:      {menu.get('width', 'N/A')}")
+    print(f"Height:     {menu.get('height', 'N/A')}")
+
+    # Entries
+    menu_entries = menu.get("entries", []) if menu else []
+    if menu_entries:
+        print(f"✅ Retrieved {len(menu_entries)} menu entries:\n")
+        for i, entry in enumerate(menu_entries, 1):
+            option = entry.get('option', '')
+            target = entry.get('target', '')
+            print(f"  {i:2}. {option} {target}")
+    else:
+        print("❌ No menu entries available")
+    
 
 def test_game_state(api: RuneLiteAPI):
     """Test camera, game state, menu, and widgets."""
@@ -299,28 +328,29 @@ def test_game_state(api: RuneLiteAPI):
     else:
         print("  ❌ No widget data")
     
-    # Menu
-    print("\n📋 Right-Click Menu:")
-    menu = api.get_menu()
-    if menu:
-        print(f"  {len(menu)} menu entries")
-        for i, entry in enumerate(menu[:5], 1):
-            option = entry.get('option', '')
-            target = entry.get('target', '')
-            print(f"  {i}. {option} {target}")
-        if len(menu) > 5:
-            print(f"  ... and {len(menu)-5} more entries")
-    else:
-        print("  Menu empty or not open")
+    # # Menu
+    # print("\n📋 Right-Click Menu:")
+    # menu = api.get_menu()
+    # if menu:
+    #     print(f"  {len(menu)} menu entries")
+    #     for i, entry in enumerate(menu[:5], 1):
+    #         option = entry.get('option', '')
+    #         target = entry.get('target', '')
+    #         print(f"  {i}. {option} {target}")
+    #     if len(menu) > 5:
+    #         print(f"  ... and {len(menu)-5} more entries")
+    # else:
+    #     print("  Menu empty or not open")
 
 def test_right_click_menu(api: RuneLiteAPI):
     """Test right-click menu entries."""
     print_header("📋 RIGHT-CLICK MENU TEST")
     
     menu = api.get_menu()
-    if menu:
-        print(f"✅ Retrieved {len(menu)} menu entries:\n")
-        for i, entry in enumerate(menu, 1):
+    menu_entries = menu.get("entries", []) if menu else []
+    if menu_entries:
+        print(f"✅ Retrieved {len(menu_entries)} menu entries:\n")
+        for i, entry in enumerate(menu_entries, 1):
             option = entry.get('option', '')
             target = entry.get('target', '')
             print(f"  {i:2}. {option} {target}")
@@ -499,7 +529,7 @@ def print_menu():
     print("\n🔥 Special Features:")
     print("  7 - Mining Monitor (real-time bot-ready tracking)")
     print("  8 - Run All Tests")
-    print("  9 - Right-Click Menu Test (displays current menu entries)")
+    print("  9 - Menu State Test (displays current menu state)")
     print("  a - NPCs in Viewport Test")
     print("  v - Viewport Data Test")
     print("\n❌ Exit:")
@@ -528,47 +558,42 @@ def main():
     
     while True:
         print_menu()
-        choice = input("\nSelect option (0-8): ").strip()
-        
-        if choice == '0':
-            print("\n👋 Goodbye!")
-            break
-        elif choice == '1':
-            test_player_data(api)
-            input("\nPress Enter to continue...")
-        elif choice == '2':
-            test_skills(api)
-            input("\nPress Enter to continue...")
-        elif choice == '3':
-            test_inventory_equipment(api)
-            input("\nPress Enter to continue...")
-        elif choice == '4':
-            test_world_data(api)
-            input("\nPress Enter to continue...")
-        elif choice == '5':
-            test_game_state(api)
-            input("\nPress Enter to continue...")
-        elif choice == '6':
-            test_performance(api)
-            input("\nPress Enter to continue...")
-        elif choice == '7':
-            monitor_mining(api)
-            input("\nPress Enter to continue...")
-        elif choice == '8':
-            run_all_tests(api)
-            input("\nPress Enter to continue...")
-        elif choice == '9':
-            test_right_click_menu(api)
-            input("\n⚡ Press Enter to continue...")
-        elif choice == 'a':
-            test_npcs_in_viewport(api)
-            input("\n⚡ Press Enter to continue...")
-        elif choice == 'v':
-            test_viewport_data(api)
-            input("\n⚡ Press Enter to continue...")
-        else:
-            print("\n❌ Invalid option")
-            time.sleep(1)
+        print("\nPress a key to run the corresponding test (Esc or 0 to quit)")
+
+        # Dispatch map: key -> callable that runs the test and optionally pauses
+        actions = {
+            '1': lambda: (test_player_data(api), input("\nPress Enter to continue...")),
+            '2': lambda: (test_skills(api), input("\nPress Enter to continue...")),
+            '3': lambda: (test_inventory_equipment(api), input("\nPress Enter to continue...")),
+            '4': lambda: (test_world_data(api), input("\nPress Enter to continue...")),
+            '5': lambda: (test_game_state(api), input("\nPress Enter to continue...")),
+            '6': lambda: (test_performance(api), input("\nPress Enter to continue...")),
+            '7': lambda: (monitor_mining(api), input("\nPress Enter to continue...")),
+            '8': lambda: (run_all_tests(api), input("\nPress Enter to continue...")),
+            '9': lambda: (test_menu(api), input("\n⚡ Press Enter to continue...")),
+            'a': lambda: (test_npcs_in_viewport(api), input("\n⚡ Press Enter to continue...")),
+            'v': lambda: (test_viewport_data(api), input("\n⚡ Press Enter to continue...")),
+        }
+
+        # Wait for key presses and dispatch immediately
+        while True:
+            # Exit
+            if keyboard.is_pressed('0') or keyboard.is_pressed('esc'):
+                print("\n👋 Goodbye!")
+                return
+
+            for key, func in actions.items():
+                if keyboard.is_pressed(key):
+                    try:
+                        func()
+                    except Exception as e:
+                        print(f"\n✗ ERROR: {e}")
+                        import traceback
+                        traceback.print_exc()
+                    time.sleep(0.3)  # debounce after handling
+                    break
+
+            time.sleep(0.05)
 
 
 if __name__ == "__main__":

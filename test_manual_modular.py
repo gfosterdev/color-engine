@@ -304,6 +304,62 @@ class ModularTester:
         osrs.window.move_mouse_to((game_area.x + game_area.width, game_area.y + game_area.height), in_canvas=True)
         print(f"\nCanvas test complete")
         
+    def test_gameobject_right_click(self):
+        """
+        Finds and tests right click menu functionality.
+        """
+        osrs = self.init_osrs()
+        api = self.init_api()
+
+        menu_state = osrs.open_right_click_menu()
+        time.sleep(1.0)
+
+        if menu_state:
+            # idx = input("What menu index: ")
+            idx = 1
+            menu_y = menu_state.get('y')
+            menu_x = menu_state.get('x')
+            menu_height = menu_state.get('height')
+            menu_width = menu_state.get('width')
+            entries = menu_state.get('entries', [])
+            if menu_y is None or menu_x is None or menu_height is None or menu_width is None or entries is None:
+                return None
+            item_count = len(entries) + 1  # +1 to account for header
+            print(f"Menu item count: {item_count}")
+            item_height = int(menu_height / item_count)
+            print(f"Item height: {item_height}")
+            if isinstance(idx, int):
+                idx = int(idx)
+                if not (idx > item_count or idx < 1):
+                    y = menu_y + (item_height * idx)
+                    point = Region(menu_x, y, menu_width, item_height)
+                    print(f"Clicking menu index {idx} at ({menu_x}, {y})")
+                    osrs.window.move_mouse_to(point.random_point())
+                    # osrs.window.move_mouse_to((point.x, point.y))
+                    # time.sleep(.5)
+                    # osrs.window.move_mouse_to((point.x + point.width, point.y))
+                    # time.sleep(.5)
+                    # osrs.window.move_mouse_to((point.x, point.y + point.height))
+                    # time.sleep(.5)
+                    # osrs.window.move_mouse_to((point.x + point.width, point.y + point.height))
+                    # time.sleep(.5)
+                else:
+                    print("Invalid index")
+        print("\nFinished right click menu test")
+
+
+        # menu_region = api.get_menu_region()
+        # if menu_region:
+        #     print(f"\n✓ Found right click menu at ({menu_region.x}, {menu_region.y}), size {menu_region.width}x{menu_region.height}")
+        #     osrs.window.move_mouse_to((menu_region.x, menu_region.y))
+        #     time.sleep(.5)
+        #     osrs.window.move_mouse_to((menu_region.x + menu_region.width, menu_region.y))
+        #     time.sleep(.5)
+        #     osrs.window.move_mouse_to((menu_region.x, menu_region.y + menu_region.height))
+        #     time.sleep(.5)
+        #     osrs.window.move_mouse_to((menu_region.x + menu_region.width, menu_region.y + menu_region.height))
+        #     time.sleep(.5)
+
 
     # =================================================================
     # OCR & TEXT RECOGNITION TESTS
@@ -998,21 +1054,6 @@ class ModularTester:
         except Exception as e:
             print(f"Error: {e}")
     
-    def test_gameobject_right_click(self):
-        """Test right-click menu detection."""
-        print("\n[Manual Test]")
-        print("This requires you to manually right-click an object.")
-        print("After right-clicking, check if the menu appears.")
-        print("Press any key when ready...")
-        input()
-        
-        from client.interactions import RightClickMenu
-        menu = RightClickMenu(self.window)
-        
-        print("Checking for right-click menu...")
-        is_open = menu.is_menu_open()
-        print(f"Menu open: {is_open}")
-    
     # =================================================================
     # ANTI-BAN SYSTEM TESTS
     # =================================================================
@@ -1274,7 +1315,8 @@ class ModularTester:
             'r': ("Camera Rotation", self.test_camera_rotation),
             'k': ("Click at Position", self.test_click_at_position),
             'v': ("Test viewport bounds", self.test_viewport_bounds),
-            't': ("Test mouse against API Canvas", self.test_mouse_against_api)
+            't': ("Test mouse against API Canvas", self.test_mouse_against_api),
+            's': ("Find right click menu", self.test_gameobject_right_click),
         }
         
         print("\n" + "="*60)
@@ -1288,6 +1330,7 @@ class ModularTester:
         print("K - Click at Position")
         print("V - Test viewport bounds")
         print("T - Test mouse against API Canvas")
+        print("S - Find right click menu")
         print("\nESC - Back to Main Menu")
         print("="*60)
         

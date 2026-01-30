@@ -23,6 +23,7 @@ Endpoints:
 
 import requests
 import time
+from util.window_util import Region
 from typing import Any, Dict, List, Optional, Union, cast
 
 
@@ -217,16 +218,32 @@ class RuneLiteAPI:
         result = self._get("game")
         return cast(Optional[Dict[str, Any]], result)
     
-    def get_menu(self) -> Optional[List[Dict[str, Any]]]:
+    def get_menu(self) -> Optional[Dict[str, Any]]:
         """
-        Get current right-click menu entries.
+        Get current menu state.
         
         Returns:
-            List of menu entry dictionaries with option, target
+            Dictionary with isOpen, size, x, y, width, height, entries
         """
         result = self._get("menu")
-        return cast(Optional[List[Dict[str, Any]]], result)
+        return cast(Optional[Dict[str, Any]], result)
     
+    def get_menu_region(self) -> Optional[Region]:
+        """
+        Get right click menu Region.
+
+        Returns:
+            Region object with x, y, width, height
+        """
+        menu_data = self.get_menu()
+        if menu_data and menu_data.get('isOpen'):
+            x = menu_data.get('x', 0)
+            y = menu_data.get('y', 0)
+            width = menu_data.get('width', 0)
+            height = menu_data.get('height', 0)
+            return Region(x, y, width, height)
+        return None
+
     def get_widgets(self) -> Optional[Dict[str, Any]]:
         """
         Get interface/widget states.

@@ -225,7 +225,8 @@ class OSRS:
         """
             Validate right click menu has expected text.
         """
-        menu_entries = self.api.get_menu()
+        menu = self.api.get_menu()
+        menu_entries = menu.get("entries", []) if menu else []
         if menu_entries:
             for entry in menu_entries:
                 option = entry.get("option", "")
@@ -263,7 +264,7 @@ class OSRS:
             if points:
                 polygon = Polygon(points)
                 click_point = polygon.random_point_inside(self.window.GAME_AREA)
-                self.window.move_mouse_to(click_point, in_canvas=True, duration=random.uniform(0.1, 0.3))
+                self.window.move_mouse_to(click_point, in_canvas =True, duration=random.uniform(0.1, 0.3))
                 time.sleep(random.uniform(0.05, 0.1))
                 self.window.click()
                 time.sleep(random.uniform(0.5, 0.8))
@@ -294,6 +295,27 @@ class OSRS:
 
         return False
         
+    def open_right_click_menu(self):
+        """
+        Attemps to open right click menu.
+
+        Returns:
+            True if menu opened else False.
+        """
+        menu_state = self.api.get_menu()
+        if menu_state and menu_state.get('isOpen'):
+            print("Right click menu is already open.")
+            return menu_state
+        print("Opening right click menu...")
+        self.window.click(button='right')
+        time.sleep(random.uniform(0.2, 0.4))
+
+        # Validate menu is open
+        menu_state = self.api.get_menu()
+        if not (menu_state and menu_state.get('isOpen')):
+            print("Failed to open right click menu.")
+            return None
+        return menu_state
 
     def is_at_login_screen(self) -> bool:
         """
