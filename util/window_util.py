@@ -104,8 +104,8 @@ class Region:
                 return (self.x + int(rel_x), self.y + int(rel_y))
         
         # Fallback to simple random point if no mask
-        margin_x = int(self.width * 0.1)
-        margin_y = int(self.height * 0.1)
+        margin_x = int(self.width * 0.15)
+        margin_y = int(self.height * 0.15)
         inner_width = max(1, self.width - 2 * margin_x)
         inner_height = max(1, self.height - 2 * margin_y)
         

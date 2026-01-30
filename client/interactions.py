@@ -11,6 +11,7 @@ import keyboard
 import time
 import random
 
+from .runelite_api import RuneLiteAPI
 
 # Right-click menu detection regions
 MENU_REGION = Region(0, 0, 765, 503)  # Full game window for menu detection
@@ -47,133 +48,132 @@ class RightClickMenu:
     def __init__(self, window: Window):
         """
         Initialize right-click menu handler.
-        
-        Args:
-            window: Window instance for screen interaction
         """
         self.window = window
-        self.last_menu_position: Optional[Tuple[int, int]] = None
-    
-    def is_menu_open(self) -> bool:
+        self.api = RuneLiteAPI()
+
+        self.is_open = None
+        self.entries = None
+        self.x = None
+        self.y = None
+        self.width = None
+        self.height = None
+
+        self.populate()
+
+    def populate(self):
         """
-        Check if a right-click menu is currently displayed.
+        Populate the current menu state from the API.
+        """
+        menu = self.api.get_menu()
+        if not menu:
+            return
+        self.is_open = menu.get('isOpen', False)
+        self.entries = menu.get('entries', [])
+        self.x = menu.get('x', 0)
+        self.y = menu.get('y', 0)
+        self.width = menu.get('width', 0)
+        self.height = menu.get('height', 0)
+
+    def open(self) -> bool:
+        """
+        Open the right-click menu by right-clicking at current mouse position.
         
         Returns:
-            True if menu is visible
+            True if menu is detected as open after action
         """
-        if not self.window.window:
-            return False
-        
-        self.window.capture()
-        
-        # Look for menu background color
-        found = self.window.find_color_region(
-            MENU_BACKGROUND_COLOR,
-            tolerance=20
-        )
-        
-        return found is not None
-    
-    def wait_for_menu(self, timeout: float = 2.0) -> bool:
+        self.window.mouse.click(button='right')
+        time.sleep(random.uniform(0.2, 0.4))
+        self.populate()
+        return self.is_open if self.is_open is not None else False
+
+    def get_entries(self) -> List[Dict[str, str]]:
         """
-        Wait for right-click menu to appear.
+        Get the current menu entries.
+        
+        Returns:
+            List of menu entry dicts if menu is open, else None
+        """
+        if self.is_open and self.entries:
+            return self.entries
+        return []
+
+    def get_entry(self, option: str, target: Optional[str] = None) -> Optional[Dict[str, str]]:
+        """
+        Get a menu entry by option text match.
         
         Args:
-            timeout: Maximum seconds to wait
+            option: The 'action' in the menu
+            target: The 'target' in the menu (optional)
             
         Returns:
-            True if menu appeared
+            Menu entry dict if found with index, else None
         """
-        start_time = time.time()
+        if not self.entries:
+            return None
         
-        while time.time() - start_time < timeout:
-            if self.is_menu_open():
-                return True
-            time.sleep(random.uniform(0.05, 0.15))
+        for rev_idx, entry in enumerate(reversed(self.entries)):
+            if option.lower() in entry.get('option', '').lower():
+                entry['index'] = rev_idx + 1  # 1-based index from top
+                if target:
+                    if target.lower() in entry.get('target', '').lower():
+                        return entry
+                else:
+                    return entry
+        
+        return None
+    
+    def click_entry(self, idx: int) -> bool:
+        """
+        Clicks a specific entry index.
+
+        Args:
+            idx: Index of the menu entry (1-based)
+            
+        Returns:
+            True if option was found and clicked else False
+        """
+        if not self.is_open or not self.entries:
+            return False
+        
+        if self.x is None or self.y is None or self.width is None or self.height is None:
+            return False
+
+        item_count = len(self.entries) + 1  # +1 to account for header
+        item_height = int(self.height / item_count)
+        if not (idx > item_count or idx < 1):
+            y = self.y + (item_height * idx)
+            point = Region(self.x, y, self.width, item_height)
+            # self.window.move_mouse_to((point.x, point.y))
+            # time.sleep(random.uniform(0.1, 0.3))
+            # self.window.move_mouse_to((point.x + point.width, point.y))
+            # time.sleep(random.uniform(0.1, 0.3))
+            # self.window.move_mouse_to((point.x, point.y + point.height))
+            # time.sleep(random.uniform(0.1, 0.3))
+            # self.window.move_mouse_to((point.x + point.width, point.y + point.height))
+            # time.sleep(random.uniform(0.1, 0.3))
+            self.window.move_mouse_to(point.random_point())
+            time.sleep(random.uniform(0.1, 0.3))
+            self.window.click()
+            return True
+        else:
+            print("Invalid index")
         
         return False
     
-    def read_menu_options(self) -> List[str]:
+    def close(self) -> bool:
         """
-        Read all options from the open menu using OCR.
-        
-        Returns:
-            List of menu option texts
-        """
-        if not self.window.window or not self.is_menu_open():
-            return []
-        
-        self.window.capture()
-        
-        # Read text from menu region
-        # Note: This is a simplified implementation
-        # In practice, you'd need to detect menu bounds first
-        text = self.window.read_text(MENU_REGION)
-        
-        # Split by newlines to get individual options
-        options = [line.strip() for line in text.split('\n') if line.strip()]
-        
-        return options
-    
-    def select_option(self, option_text: str, partial_match: bool = True) -> bool:
-        """
-        Select a specific option from the right-click menu.
-        
-        Args:
-            option_text: Text of the option to select
-            partial_match: Whether to match partial text
-            
-        Returns:
-            True if option was found and clicked
-        """
-        if not self.is_menu_open():
-            return False
-        
-        options = self.read_menu_options()
-        
-        for i, option in enumerate(options):
-            if partial_match:
-                if option_text.lower() in option.lower():
-                    # Click on this option
-                    # Estimate position based on index
-                    return self._click_menu_option(i)
-            else:
-                if option_text.lower() == option.lower():
-                    return self._click_menu_option(i)
-        
-        return False
-    
-    def _click_menu_option(self, index: int) -> bool:
-        """
-        Click a menu option by index.
-        
-        Args:
-            index: Option index (0-based)
-            
-        Returns:
-            True if click was performed
-        """
-        # This is a simplified implementation
-        # In practice, you'd need to detect the actual menu position
-        # and calculate the correct Y offset for each option
-        
-        # For now, just click and close menu
-        time.sleep(random.uniform(0.1, 0.3))
-        self.window.click()
-        
-        return True
-    
-    def close_menu(self) -> bool:
-        """
-        Close the right-click menu (usually by left-clicking elsewhere).
+        Close the right-click menu by moving mouse elsewhere.
         
         Returns:
             True if close was attempted
         """
-        if self.is_menu_open():
-            # Click somewhere safe to close menu
-            self.window.click()
-            time.sleep(random.uniform(0.1, 0.2))
+        if self.is_open:
+            if self.x is None or self.y is None or self.width is None or self.height is None:
+                return False
+            rand_region = Region(self.x, self.y - self.height + 5, self.width, self.height)
+            self.window.move_mouse_to(rand_region.random_point())
+            time.sleep(random.uniform(0.2, 0.4))
             return True
         return False
 

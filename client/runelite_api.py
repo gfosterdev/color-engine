@@ -224,6 +224,20 @@ class RuneLiteAPI:
         
         Returns:
             Dictionary with isOpen, size, x, y, width, height, entries
+
+        Example return value:
+            {
+                "isOpen": True,
+                "size": 5,
+                "x": 400,
+                "y": 300,
+                "width": 150,
+                "height": 120,
+                "entries": [
+                    {"option": "Walk here", "target": "", "type": 0},
+                    {"option": "Examine", "target": "Tree", "type": 100},
+                ]
+            }
         """
         result = self._get("menu")
         return cast(Optional[Dict[str, Any]], result)

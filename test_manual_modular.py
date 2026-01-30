@@ -308,57 +308,45 @@ class ModularTester:
         """
         Finds and tests right click menu functionality.
         """
-        osrs = self.init_osrs()
-        api = self.init_api()
+        from client.interactions import RightClickMenu
+        print("\nTesting right click menu...")
+        menu = RightClickMenu(self.window)
+        print(f"Menu is open: {menu.is_open}")
+        if not menu.is_open:
+            print("Opening menu...")
+            menu.open()
+            time.sleep(0.5)
+            print(f"Menu is open: {menu.is_open}")
+        
+        menu.populate()
+        if menu.is_open:
+            print("Menu entries:")
+            for entry in menu.get_entries():
+                print(f" - {entry}")
 
-        menu_state = osrs.open_right_click_menu()
-        time.sleep(1.0)
-
-        if menu_state:
-            # idx = input("What menu index: ")
-            idx = 1
-            menu_y = menu_state.get('y')
-            menu_x = menu_state.get('x')
-            menu_height = menu_state.get('height')
-            menu_width = menu_state.get('width')
-            entries = menu_state.get('entries', [])
-            if menu_y is None or menu_x is None or menu_height is None or menu_width is None or entries is None:
-                return None
-            item_count = len(entries) + 1  # +1 to account for header
-            print(f"Menu item count: {item_count}")
-            item_height = int(menu_height / item_count)
-            print(f"Item height: {item_height}")
-            if isinstance(idx, int):
-                idx = int(idx)
-                if not (idx > item_count or idx < 1):
-                    y = menu_y + (item_height * idx)
-                    point = Region(menu_x, y, menu_width, item_height)
-                    print(f"Clicking menu index {idx} at ({menu_x}, {y})")
-                    osrs.window.move_mouse_to(point.random_point())
-                    # osrs.window.move_mouse_to((point.x, point.y))
-                    # time.sleep(.5)
-                    # osrs.window.move_mouse_to((point.x + point.width, point.y))
-                    # time.sleep(.5)
-                    # osrs.window.move_mouse_to((point.x, point.y + point.height))
-                    # time.sleep(.5)
-                    # osrs.window.move_mouse_to((point.x + point.width, point.y + point.height))
-                    # time.sleep(.5)
-                else:
-                    print("Invalid index")
+            option = "Bank"
+            target = "Banker"
+            print(f"\nSelecting menu entry with option {option}")
+            entry = menu.get_entry(option, target)
+            if entry:
+                index = entry.get('index')
+                if not index:
+                    print(f"✗ Could not find index for entry {entry}")
+                    return
+                index = int(index)
+                print(f"Clicking entry: {entry}")
+                menu.click_entry(index)
+                time.sleep(.5)
+                print("✓ Clicked")
+        
+        menu.populate()
+        if menu.is_open:
+            print("Closing menu...")
+            menu.close()
+            time.sleep(0.5)
+            print(f"Menu is open: {menu.is_open}")
+    
         print("\nFinished right click menu test")
-
-
-        # menu_region = api.get_menu_region()
-        # if menu_region:
-        #     print(f"\n✓ Found right click menu at ({menu_region.x}, {menu_region.y}), size {menu_region.width}x{menu_region.height}")
-        #     osrs.window.move_mouse_to((menu_region.x, menu_region.y))
-        #     time.sleep(.5)
-        #     osrs.window.move_mouse_to((menu_region.x + menu_region.width, menu_region.y))
-        #     time.sleep(.5)
-        #     osrs.window.move_mouse_to((menu_region.x, menu_region.y + menu_region.height))
-        #     time.sleep(.5)
-        #     osrs.window.move_mouse_to((menu_region.x + menu_region.width, menu_region.y + menu_region.height))
-        #     time.sleep(.5)
 
 
     # =================================================================
