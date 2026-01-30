@@ -423,41 +423,6 @@ class NavigationManager:
         dy = world_y - current_y
         distance = math.sqrt(dx**2 + dy**2)
         
-        # Validate distance - if unreasonably far, OCR likely misread
-        if distance > 500:
-            print(f"⚠ Warning: Distance is {distance:.1f} tiles - likely OCR misread")
-            print("Attempting small movement to trigger coordinate re-read...")
-            
-            # Move a small distance to refresh OCR
-            small_offset_x = random.randint(-2, 2)
-            small_offset_y = random.randint(-2, 2)
-            
-            # Click nearby on minimap to move slightly
-            if self._click_minimap_offset(small_offset_x, small_offset_y):
-                # Wait for movement
-                time.sleep(random.uniform(1.5, 2.5))
-                
-                # Re-read coordinates
-                new_pos = self.read_world_coordinates()
-                if new_pos:
-                    current_x, current_y = new_pos
-                    dx = world_x - current_x
-                    dy = world_y - current_y
-                    distance = math.sqrt(dx**2 + dy**2)
-                    print(f"Re-read coordinates: ({current_x}, {current_y})")
-                    print(f"Updated distance: {distance:.1f} tiles")
-                    
-                    # If still unreasonable, abort
-                    if distance > 500:
-                        print("✗ Distance still unreasonable after re-read. Aborting navigation.")
-                        return False
-                else:
-                    print("✗ Failed to re-read coordinates. Aborting navigation.")
-                    return False
-            else:
-                print("✗ Failed to trigger movement for re-read. Aborting navigation.")
-                return False
-        
         print(f"Walking from ({current_x}, {current_y}) to ({world_x}, {world_y})")
         print(f"Distance: {distance:.1f} tiles")
         
@@ -548,7 +513,7 @@ class NavigationManager:
             # Wait for arrival with stuck detection
             time.sleep(random.uniform(0.8, 1.2))  # Initial movement delay
             
-            if not self.wait_until_arrived(wp_x, wp_y, tolerance=2, timeout=10):
+            if not self.wait_until_arrived(wp_x, wp_y, tolerance=2, timeout=30):
                 # Check if we're stuck
                 if self._is_stuck():
                     print("  ⚠ Stuck detected, attempting re-path...")
@@ -631,6 +596,15 @@ class NavigationManager:
         
         return chunked
     
+    def is_moving(self) -> bool:
+        """
+        Check if player is currently moving via API.
+        """
+        animation = self.api.get_animation()
+        if animation and animation.get("isMoving", False):
+            return True
+        return False
+
     def wait_until_arrived(self, target_x: int, target_y: int, tolerance: int = 2, timeout: float = 10.0) -> bool:
         """
         Wait until player arrives at target coordinates or gets stuck.
@@ -665,7 +639,7 @@ class NavigationManager:
             
             # Check for stuck condition every 3 seconds
             if time.time() - last_stuck_check >= 3.0:
-                if self._is_stuck():
+                if not self.is_moving():
                     print("Player appears stuck (no movement detected)")
                     return False
                 last_stuck_check = time.time()

@@ -202,6 +202,21 @@ class ModularTester:
         else:
             print("  (Mouse outside window)")
     
+    def test_move_mouse_to(self):
+        """Move mouse to specified position."""
+        if not self.ensure_window():
+            return
+        
+        try:
+            coords = input("\nEnter target position (x,y): ")
+            x, y = map(int, coords.split(','))
+            
+            print(f"Moving mouse to ({x}, {y})...")
+            self.window.move_mouse_to((x, y))
+            print("✓ Mouse moved")
+        except Exception as e:
+            print(f"Error: {e}")
+
     def test_find_color(self):
         """Find a specific color."""
         if not self.ensure_window():
@@ -1275,7 +1290,7 @@ class ModularTester:
         test_map = {
             'w': ("Window Info", self.test_window_info),
             'c': ("Capture Screenshot", self.test_capture_screenshot),
-            'm': ("Mouse Position & Color", self.test_mouse_position),
+            'm': ("Move mouse to position", self.test_move_mouse_to),
             'f': ("Find Color", self.test_find_color),
             'r': ("Camera Rotation", self.test_camera_rotation),
             'k': ("Click at Position", self.test_click_at_position),
@@ -1289,7 +1304,7 @@ class ModularTester:
         print("="*60)
         print("W - Window Info")
         print("C - Capture Screenshot")
-        print("M - Mouse Position & Color")
+        print("M - Move Mouse To Position")
         print("F - Find Color (input RGB)")
         print("R - Camera Rotation")
         print("K - Click at Position")
