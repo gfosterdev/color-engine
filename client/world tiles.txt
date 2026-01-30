@@ -10,3 +10,5 @@
 3216, 3424 -- varrock tele
 
 3161, 3486 -- GE
+3303, 3122 -- shanty pass
+2930, 3222 -- Rimmington

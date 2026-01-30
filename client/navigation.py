@@ -81,7 +81,7 @@ class NavigationManager:
         """
         default_config = {
             "variance_level": "moderate",  # conservative, moderate, aggressive
-            "repathing_chance": 0.2,       # 20% chance to re-path mid-journey
+            "repathing_chance": 0.05,       # 20% chance to re-path mid-journey
             "path_cache_size": 100,         # Max cached paths
             "region_cache_size": 50,        # Max cached collision regions
             "enable_pathfinding": True      # Use collision-aware pathfinding
@@ -484,7 +484,7 @@ class NavigationManager:
             print(f"\nWaypoint {i+1}/{len(chunked_waypoints)}: ({wp_x}, {wp_y})")
             
             # Random re-pathing chance (anti-ban)
-            if i > 0 and random.random() < self._pathfinding_config.get("repathing_chance", 0.2):
+            if i > 0 and random.random() < self._pathfinding_config.get("repathing_chance", 0.05):
                 print("  ↻ Dynamic re-pathing triggered")
                 # Re-calculate remaining path with new random seed
                 return self.walk_to_tile(world_x, world_y, plane, use_pathfinding=True)
