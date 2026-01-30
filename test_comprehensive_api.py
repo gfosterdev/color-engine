@@ -139,17 +139,10 @@ def test_inventory_equipment(api: RuneLiteAPI):
     print("📦 Inventory:")
     inv = api.get_inventory()
     if inv:
-        items = [item for item in inv if item.get('id', -1) != -1]
-        if items:
-            print(f"  {len(items)}/28 slots used\n")
-            for i, item in enumerate(items[:10], 1):  # Show first 10
-                qty = item.get('quantity', 1)
-                qty_str = f" x{qty}" if qty > 1 else ""
-                print(f"  {i:2}. ID {item.get('id'):5}{qty_str}")
-            if len(items) > 10:
-                print(f"  ... and {len(items)-10} more items")
-        else:
-            print("  Empty")
+        for i, item in enumerate(inv, 1):
+            qty = item.get('quantity', 1)
+            qty_str = f" x{qty}" if qty > 1 else ""
+            print(f"  {i}. ID {item.get('id')}{qty_str}")
     else:
         print("  ❌ Could not retrieve inventory")
     
@@ -179,6 +172,21 @@ def test_inventory_equipment(api: RuneLiteAPI):
     else:
         print("  Bank not open or empty")
 
+def test_inventory(api: RuneLiteAPI):
+    """Test inventory endpoint."""
+    print_header("🎒 INVENTORY TEST")
+    
+    # Inventory
+    print("📦 Inventory:")
+    index = int(input("Slot index: "))
+    slot = api.get_inventory_slot(index)
+    if slot:
+        print(f"  Requested Slot: {slot.get('requestedSlot', 'N/A')}")
+        print(f"  Empty:          {slot.get('empty', True)}")
+        print(f"  Item ID:       {slot.get('itemId', -1)}")
+        print(f"  Quantity:      {slot.get('quantity', 0)}")
+    else:
+        print("  ❌ Could not retrieve slot")
 
 def test_world_data(api: RuneLiteAPI):
     """Test NPCs, players, objects, and ground items."""
@@ -532,6 +540,7 @@ def print_menu():
     print("  9 - Menu State Test (displays current menu state)")
     print("  a - NPCs in Viewport Test")
     print("  v - Viewport Data Test")
+    print("  i - Inventory Slot Test")
     print("\n❌ Exit:")
     print("  0 - Quit")
     print("\n" + "=" * 80)
@@ -573,6 +582,7 @@ def main():
             '9': lambda: (test_menu(api), input("\n⚡ Press Enter to continue...")),
             'a': lambda: (test_npcs_in_viewport(api), input("\n⚡ Press Enter to continue...")),
             'v': lambda: (test_viewport_data(api), input("\n⚡ Press Enter to continue...")),
+            'i': lambda: (test_inventory(api), input("\n⚡ Press Enter to continue...")),
         }
 
         # Wait for key presses and dispatch immediately

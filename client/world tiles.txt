@@ -8,3 +8,5 @@
 3223, 3219 -- Lumbridge tele
 2965, 3376 -- falador tele
 3216, 3424 -- varrock tele
+
+3161, 3486 -- GE

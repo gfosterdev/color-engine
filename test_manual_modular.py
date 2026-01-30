@@ -584,10 +584,9 @@ class ModularTester:
     def test_inventory_status(self):
         """Check inventory status."""
         inv = self.init_inventory()
-        if not self.ensure_window():
-            return
         
-        count = inv.count_items()
+        inv.populate()
+        count = inv.count_filled()
         empty = inv.count_empty_slots()
         is_full = inv.is_full()
         is_empty = inv.is_empty()
@@ -598,6 +597,19 @@ class ModularTester:
         print(f"  Full:  {is_full}")
         print(f"  Empty: {is_empty}")
     
+    def test_inventory_regions(self):
+        inv = self.init_inventory()
+        for i, slot in enumerate(inv.slots):
+            print(f"Slot {i}")
+            self.window.move_mouse_to((slot.region.x, slot.region.y))
+            time.sleep(.2)
+            self.window.move_mouse_to((slot.region.x + slot.region.width, slot.region.y))
+            time.sleep(.2)
+            self.window.move_mouse_to((slot.region.x, slot.region.y + slot.region.height))
+            time.sleep(.2)
+            self.window.move_mouse_to((slot.region.x + slot.region.width, slot.region.y + slot.region.height))
+            time.sleep(.2)
+
     def test_inventory_open_check(self):
         """Check if inventory tab is open."""
         inv = self.init_inventory()
@@ -615,18 +627,13 @@ class ModularTester:
         time.sleep(0.3)
         print("✓ Tab opened (press F4 in-game)")
     
-    def test_click_inventory_slot_0(self):
+    def test_click_inventory_slot(self):
         """Click slot 0."""
         inv = self.init_inventory()
-        print("\nClicking inventory slot 0...")
-        inv.click_slot(0)
-        print("✓ Clicked")
-    
-    def test_click_inventory_slot_10(self):
-        """Click slot 10."""
-        inv = self.init_inventory()
-        print("\nClicking inventory slot 10...")
-        inv.click_slot(10)
+
+        slot = int(input("Inventory slot: "))
+        print(f"\nClicking inventory slot {slot}...")
+        inv.click_slot(slot)
         print("✓ Clicked")
     
     def test_find_inventory_item(self):
@@ -1348,9 +1355,8 @@ class ModularTester:
         test_map = {
             's': ("Inventory Status", self.test_inventory_status),
             'o': ("Check if Open", self.test_inventory_open_check),
-            't': ("Open Tab", self.test_open_inventory_tab),
-            '1': ("Click Slot 0", self.test_click_inventory_slot_0),
-            '2': ("Click Slot 10", self.test_click_inventory_slot_10),
+            't': ("Test slot regions", self.test_inventory_regions),
+            '1': ("Click Slot 0", self.test_click_inventory_slot),
             '3': ("Find Item by Color", self.test_find_inventory_item),
         }
         
@@ -1359,9 +1365,8 @@ class ModularTester:
         print("="*60)
         print("S - Inventory Status")
         print("O - Check if Open")
-        print("T - Open Tab")
-        print("1 - Click Slot 0")
-        print("2 - Click Slot 10")
+        print("T - Test slot regions")
+        print("1 - Click Slot")
         print("3 - Find Item by Color")
         print("\nESC - Back to Main Menu")
         print("="*60)

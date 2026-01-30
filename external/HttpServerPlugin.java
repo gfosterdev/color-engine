@@ -5,6 +5,8 @@ import com.google.gson.JsonObject;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+
+import java.awt.*;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.net.InetSocketAddress;
@@ -16,6 +18,8 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.inject.Inject;
 import net.runelite.api.*;
+import net.runelite.api.Menu;
+import net.runelite.api.Point;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.geometry.SimplePolygon;
@@ -54,6 +58,9 @@ public class HttpServerPlugin extends Plugin
 
         // Inventory & equipment
         server.createContext("/inv", handlerForInv(InventoryID.INVENTORY));
+        // Dynamic inventory slot endpoint, e.g. /inv/5
+        server.createContext("/inv/", this::handleInventorySlotDispatcher);
+
         server.createContext("/equip", handlerForInv(InventoryID.EQUIPMENT));
         server.createContext("/bank", this::handleBank);
 
@@ -430,6 +437,75 @@ public class HttpServerPlugin extends Plugin
         {
             RuneLiteAPI.GSON.toJson(npcsData, out);
         }
+    }
+
+    /** Dispatcher for dynamic /inv/{slot} routes. */
+    public void handleInventorySlotDispatcher(HttpExchange exchange) throws IOException
+    {
+        System.out.println("HIT EXCHANGE");
+        String path = exchange.getRequestURI().getPath();
+        // Expecting path like /inv/{slot}
+        String prefix = "/inv/";
+        if (!path.startsWith(prefix))
+        {
+            exchange.sendResponseHeaders(404, 0);
+            exchange.getResponseBody().close();
+            return;
+        }
+
+        String after = path.substring(prefix.length());
+        if (after.isEmpty())
+        {
+            exchange.sendResponseHeaders(400, 0);
+            exchange.getResponseBody().close();
+            return;
+        }
+
+        // Only consider the first path segment after /inv/
+        String[] parts = after.split("/");
+        String slotStr = parts[0];
+
+        int slot;
+        try
+        {
+            slot = Integer.parseInt(slotStr);
+        }
+        catch (NumberFormatException ex)
+        {
+            exchange.sendResponseHeaders(400, 0);
+            exchange.getResponseBody().close();
+            return;
+        }
+
+        handleInventorySlot(exchange, slot);
+    }
+
+    /** Handle a specific inventory slot. */
+    public void handleInventorySlot(HttpExchange exchange, int slot) throws IOException
+    {
+        System.out.println("HIT HANDLE INVENTORY SLOT: " + slot);
+        JsonObject slotData = invokeAndWait(() -> {
+            JsonObject data = new JsonObject();
+            data.addProperty("requestedSlot", slot);
+
+            ItemContainer inv = client.getItemContainer(InventoryID.INVENTORY);
+            int idx = slot - 1; // convert to 0-based index for ItemContainer
+            Item item = inv.getItem(idx);
+
+            if (item == null || item.getId() == -1)
+            {
+                data.addProperty("empty", true);
+                return data;
+            }
+
+            data.addProperty("empty", false);
+            data.addProperty("itemId", item.getId());
+            data.addProperty("quantity", item.getQuantity());
+
+            return data;
+        });
+
+        sendJsonResponse(exchange, slotData);
     }
 
     public void handlePlayers(HttpExchange exchange) throws IOException

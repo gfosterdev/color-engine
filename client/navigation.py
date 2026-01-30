@@ -639,7 +639,7 @@ class NavigationManager:
             
             # Check for stuck condition every 3 seconds
             if time.time() - last_stuck_check >= 3.0:
-                if not self.is_moving():
+                if self._is_stuck():
                     print("Player appears stuck (no movement detected)")
                     return False
                 last_stuck_check = time.time()

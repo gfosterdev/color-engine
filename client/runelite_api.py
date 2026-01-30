@@ -135,6 +135,16 @@ class RuneLiteAPI:
         result = self._get("inv")
         return cast(Optional[List[Dict[str, Any]]], result)
     
+    def get_inventory_slot(self, slot: int) -> Optional[Dict[str, Any]]:
+        """
+        Get inventory slot information.
+        
+        Returns:
+            Dictionary with requestedSlot, empty, itemId, quantity
+        """
+        result = self._get(f"inv/{slot}")
+        return cast(Optional[Dict[str, Any]], result)
+
     def get_equipment(self) -> Optional[List[Dict[str, Any]]]:
         """
         Get equipped items.

@@ -10,13 +10,16 @@ import cv2
 import numpy as np
 from util import Region
 from config.regions import INVENTORY_TAB_REGION
+from .runelite_api import RuneLiteAPI
 
 
 # Fixed mode inventory constants (positions for 28 slots in fixed client mode)
-INVENTORY_START_X = 579
-INVENTORY_START_Y = 253
-SLOT_WIDTH = 42
-SLOT_HEIGHT = 36
+INVENTORY_START_X = 565
+INVENTORY_START_Y = 215
+INVENTORY_Y_OFFSET = 12
+INVENTORY_X_OFFSET = 5
+SLOT_WIDTH = 38
+SLOT_HEIGHT = 25
 SLOTS_PER_ROW = 4
 TOTAL_SLOTS = 28
 
@@ -27,10 +30,11 @@ INVENTORY_TAB_COLOR = (127, 84, 60)  # Brown color when selected
 @dataclass
 class InventorySlot:
     """Represents a single inventory slot."""
-    index: int  # 0-27
+    index: int  # 1-28
     region: Region
     is_empty: bool = True
-    item_color: Optional[Tuple[int, int, int]] = None
+    item_id: Optional[int] = None
+    quantity: Optional[int] = None
     item_name: Optional[str] = None
     
     def center(self) -> Tuple[int, int]:
@@ -59,22 +63,43 @@ class InventoryManager:
         self.window = window
         self.slots: List[InventorySlot] = []
         self._initialize_slots()
+        self.api = RuneLiteAPI()
     
     def _initialize_slots(self):
         """Initialize all 28 inventory slot regions."""
         self.slots = []
         
-        for i in range(TOTAL_SLOTS):
-            row = i // SLOTS_PER_ROW
-            col = i % SLOTS_PER_ROW
+        for i in range(1, TOTAL_SLOTS + 1):
+            idx = i
+            row = (i - 1) // SLOTS_PER_ROW
+            col = (i - 1) % SLOTS_PER_ROW
             
-            x = INVENTORY_START_X + (col * SLOT_WIDTH)
-            y = INVENTORY_START_Y + (row * SLOT_HEIGHT)
+            xp = int(SLOT_WIDTH * 0.2)
+            xy = int(SLOT_HEIGHT * 0.2)
+            x = INVENTORY_START_X + (col * SLOT_WIDTH) + (col * INVENTORY_X_OFFSET)
+            y = INVENTORY_START_Y + (row * SLOT_HEIGHT) + (row * INVENTORY_Y_OFFSET)
+            width = SLOT_WIDTH - (xp * 2)
+            height = SLOT_HEIGHT - (xy * 2)
             
-            region = Region(x, y, SLOT_WIDTH, SLOT_HEIGHT)
-            slot = InventorySlot(index=i, region=region)
+            region = Region(x, y, width, height)
+            slot = InventorySlot(index=idx, region=region)
             self.slots.append(slot)
     
+    def populate(self):
+        """
+        Fills slot data from the RuneLite API.
+        """
+        slots = self.api.get_inventory()
+        if slots:
+            for i in range(1, TOTAL_SLOTS + 1):
+                item = slots[i - 1]
+                qty = item.get('quantity', 1)
+                id = item.get('id', -1)
+                self.slots[i - 1].index = i
+                self.slots[i - 1].is_empty = (id == -1)
+                self.slots[i - 1].item_id = id if id != -1 else None
+                self.slots[i - 1].quantity = qty if id != -1 else None
+
     def is_inventory_open(self) -> bool:
         """
         Check if the inventory tab is currently open.
@@ -82,18 +107,13 @@ class InventoryManager:
         Returns:
             True if inventory tab is selected
         """
-        if not self.window.window:
-            return False
-        
-        self.window.capture()
-        found = self.window.find_color_region(
-            INVENTORY_TAB_COLOR,
-            region=INVENTORY_TAB_REGION,
-            tolerance=20
-        )
-        
-        return found is not None
+        widgets = self.api.get_widgets()
+        if widgets:
+            inv = widgets.get('isInventoryOpen', False)
+            return inv
+        return False
     
+    # TODO
     def open_inventory(self) -> bool:
         """
         Open the inventory tab if not already open.
@@ -121,20 +141,20 @@ class InventoryManager:
         Check if a specific inventory slot is empty.
         
         Args:
-            slot_index: Slot index (0-27)
+            slot_index: Slot index (1-28)
             empty_color: RGB color of empty slot background
             
         Returns:
             True if slot appears empty
         """
-        if slot_index < 0 or slot_index >= TOTAL_SLOTS:
+        if slot_index < 1 or slot_index > TOTAL_SLOTS:
             return False
-        
+
         if not self.window.window:
             return False
-        
+
         self.window.capture()
-        slot = self.slots[slot_index]
+        slot = self.slots[slot_index - 1]
         
         # Extract the slot region
         img = self.window.screenshot
@@ -156,13 +176,10 @@ class InventoryManager:
         Returns:
             Number of empty slots (0-28)
         """
-        count = 0
-        for i in range(TOTAL_SLOTS):
-            if self.is_slot_empty(i):
-                count += 1
-        return count
+        x = [slot for slot in self.slots if slot.is_empty]
+        return len(x)
     
-    def count_items(self) -> int:
+    def count_filled(self) -> int:
         """
         Count the number of filled inventory slots.
         
@@ -189,58 +206,22 @@ class InventoryManager:
         """
         return self.count_empty_slots() == TOTAL_SLOTS
     
-    def find_item_by_color(self, item_color: Tuple[int, int, int], tolerance: int = 30) -> List[int]:
-        """
-        Find all slots containing an item with the specified color.
-        
-        Args:
-            item_color: RGB color to search for
-            tolerance: Color matching tolerance
-            
-        Returns:
-            List of slot indices containing the color
-        """
-        if not self.window.window:
-            return []
-        
-        self.window.capture()
-        matching_slots = []
-        
-        for slot in self.slots:
-            # Skip if slot is empty
-            if self.is_slot_empty(slot.index):
-                continue
-            
-            # Check if color exists in this slot
-            found = self.window.find_color_region(
-                item_color,
-                region=slot.region,
-                tolerance=tolerance
-            )
-            
-            if found:
-                matching_slots.append(slot.index)
-        
-        return matching_slots
-    
     def click_slot(self, slot_index: int, right_click: bool = False) -> bool:
         """
         Click on a specific inventory slot.
         
         Args:
-            slot_index: Slot index to click (0-27)
+            slot_index: Slot index to click (1-28)
             right_click: Whether to right-click instead of left-click
             
         Returns:
             True if click was performed
         """
-        if slot_index < 0 or slot_index >= TOTAL_SLOTS:
+        if slot_index < 1 or slot_index > TOTAL_SLOTS:
+            print("Invalid slot index")
             return False
-        
-        if not self.window.window:
-            return False
-        
-        slot = self.slots[slot_index]
+
+        slot = self.slots[slot_index - 1]
         self.window.move_mouse_to(slot.random_point())
         
         if right_click:
@@ -249,25 +230,6 @@ class InventoryManager:
             self.window.click()
         
         return True
-    
-    def click_first_item_with_color(self, item_color: Tuple[int, int, int], 
-                                     right_click: bool = False) -> bool:
-        """
-        Find and click the first item matching the given color.
-        
-        Args:
-            item_color: RGB color to search for
-            right_click: Whether to right-click
-            
-        Returns:
-            True if item was found and clicked
-        """
-        slots = self.find_item_by_color(item_color)
-        
-        if not slots:
-            return False
-        
-        return self.click_slot(slots[0], right_click=right_click)
     
     def get_slot_region(self, slot_index: int) -> Optional[Region]:
         """
@@ -279,8 +241,8 @@ class InventoryManager:
         Returns:
             Region object or None if invalid index
         """
-        if 0 <= slot_index < TOTAL_SLOTS:
-            return self.slots[slot_index].region
+        if 1 <= slot_index <= TOTAL_SLOTS:
+            return self.slots[slot_index - 1].region
         return None
 
 
