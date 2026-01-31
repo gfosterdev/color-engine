@@ -326,8 +326,8 @@ class ModularTester:
         """
         osrs = self.init_osrs()
         print("\nTesting right click menu...")
-        option = "Talk-To"
-        target = "Town Crier"
+        option = "Drop"
+        target = "Iron ore"
 
         osrs.click(option, target)
     
@@ -657,6 +657,17 @@ class ModularTester:
         except Exception as e:
             print(f"Error: {e}")
     
+    def test_drop_slot(self):
+        """
+        Drops item at slot.
+        """
+        osrs = self.init_osrs()
+
+        slot = int(input("Inventory slot to drop: "))
+        print(f"\nDropping inventory slot {slot}...")
+        success = osrs.drop_item(slot)
+        print("✓ Dropped" if success else "✗ Drop failed")
+
     # =================================================================
     # INTERFACE DETECTION TESTS
     # =================================================================
@@ -1359,6 +1370,7 @@ class ModularTester:
             't': ("Test slot regions", self.test_inventory_regions),
             '1': ("Click Slot 0", self.test_click_inventory_slot),
             '3': ("Find Item by Color", self.test_find_inventory_item),
+            'd': ("Drop Slot", self.test_drop_slot),
         }
         
         print("\n" + "="*60)
@@ -1369,6 +1381,7 @@ class ModularTester:
         print("T - Test slot regions")
         print("1 - Click Slot")
         print("3 - Find Item by Color")
+        print("D - Drop Slot")
         print("\nESC - Back to Main Menu")
         print("="*60)
         

@@ -204,6 +204,7 @@ class InventoryManager:
         """
         return self.count_empty_slots() == TOTAL_SLOTS
     
+    # Deprecated -- use osrs.inventory functions instead
     def click_slot(self, slot_index: int, right_click: bool = False) -> bool:
         """
         Click on a specific inventory slot.
@@ -229,19 +230,4 @@ class InventoryManager:
         
         return True
     
-    def get_slot_region(self, slot_index: int) -> Optional[Region]:
-        """
-        Get the region for a specific slot.
-        
-        Args:
-            slot_index: Slot index (0-27)
-            
-        Returns:
-            Region object or None if invalid index
-        """
-        if 1 <= slot_index <= TOTAL_SLOTS:
-            return self.slots[slot_index - 1].region
-        return None
-
-
 import random

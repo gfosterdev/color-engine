@@ -79,6 +79,40 @@ class OSRS:
                 time.sleep(random.uniform(0.1, 0.3))
                 print(f"Menu is open: {menu.is_open}")
 
+    def drop_item(self, slot_index: int) -> bool:
+        """
+        Drop an item from a specific inventory slot.
+        
+        Args:
+            slot_index: Slot index (1-28)
+        """
+        if not self.inventory.is_inventory_open():
+            self.inventory.open_inventory()
+            time.sleep(random.uniform(0.3, 0.5))
+        
+        # Popualate inventory data
+        self.inventory.populate()
+
+        slot = self.inventory.slots[slot_index - 1]
+        if slot.is_empty:
+            print(f"Slot {slot_index} is empty, cannot drop")
+            return False
+
+        # Move mouse to slot
+        self.window.move_mouse_to(slot.region.random_point())
+        time.sleep(random.uniform(0.2, 0.4))
+
+        # Validate "Drop" is in menu
+        if not self.validate_interact_text("Drop"):
+            print("Drop option not found in menu")
+            return False
+        
+        # Click "Drop" option (assumed to be first)
+        self.click("Drop", None)
+        
+        print("Item dropped successfully")
+        return True
+
     def login_from_profile(self) -> bool:
         """.
         Log in using password from profile configuration.
