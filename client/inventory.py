@@ -107,13 +107,11 @@ class InventoryManager:
         Returns:
             True if inventory tab is selected
         """
-        widgets = self.api.get_widgets()
-        if widgets:
-            inv = widgets.get('isInventoryOpen', False)
-            return inv
+        inventory = self.api.get_sidebar_tab("inventory")
+        if inventory:
+            return inventory.get('isOpen', False)
         return False
     
-    # TODO
     def open_inventory(self) -> bool:
         """
         Open the inventory tab if not already open.
