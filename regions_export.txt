@@ -1,1 +1,2 @@
-1  MINIMAP_COMPASS_REGION = Region(561, 39, 22, 21)  # Minimap compass
+UI_LOGOUT_BUTTON_REGION = Region(578, 424, 129, 20)  # Logout button
+UI_LOGOUT_WORLD_SWITCHER_REGION = Region(577, 373, 130, 22)  # World switcher button

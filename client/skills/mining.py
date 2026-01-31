@@ -205,7 +205,7 @@ class MiningBot(BotBase):
             current_state = self.state_machine.current_state
             
             # Check inventory status
-            inv_count = self.osrs.inventory.count_items()
+            inv_count = self.osrs.inventory.count_filled()
             is_full = self.osrs.inventory.is_full()
             
             print(f"State: {current_state.value} | Inventory: {inv_count}/28 | Fatigue: {self.anti_ban.get_fatigue_level()*100:.0f}%")

@@ -278,6 +278,29 @@ class RuneLiteAPI:
         result = self._get("widgets")
         return cast(Optional[Dict[str, Any]], result)
     
+    def get_sidebar_tabs(self) -> Optional[Dict[str, bool]]:
+        """
+        Get sidebar tab states.
+        
+        Returns:
+            Dictionary with inventory, music, prayer, equipment etc
+        """
+        result = self._get("sidebar")
+        return cast(Optional[Dict[str, bool]], result)
+
+    def get_sidebar_tab(self, tab_name: str) -> Optional[Dict[str, bool]]:
+        """
+        Get specific sidebar tab state.
+        
+        Args:
+            tab_name: Name of the sidebar tab (e.g. inventory, music, prayer)
+        
+        Returns:
+            True if tab is open, False if closed, None if unknown
+        """
+        result = self._get(f"sidebar/{tab_name}")
+        return cast(Optional[Dict[str, bool]], result)
+
     def get_performance_stats(self) -> Dict[str, float]:
         """
         Get request performance metrics.
@@ -346,7 +369,7 @@ class RuneLiteAPI:
         Get viewport data
 
         Returns:
-            Dictionary with width, height, xOffset, yOffset, canvasMousePosition
+            Dictionary with width, height, xOffset, yOffset, canvasMouseX, canvasMouseY
         """
 
         result = self._get("viewport")

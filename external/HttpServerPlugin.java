@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.net.InetSocketAddress;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
@@ -24,6 +25,7 @@ import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.geometry.SimplePolygon;
 import net.runelite.api.widgets.Widget;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.api.Perspective;
 import net.runelite.client.callback.ClientThread;
@@ -77,6 +79,8 @@ public class HttpServerPlugin extends Plugin
         server.createContext("/game", this::handleGameState);
         server.createContext("/menu", this::handleMenu);
         server.createContext("/widgets", this::handleWidgets);
+        server.createContext("/sidebar", this::handleSidebars);
+        server.createContext("/sidebar/", this::handleSidebarDispatcher);
 
         // Client state
         server.createContext("/viewport", this::handleViewport);
@@ -100,7 +104,8 @@ public class HttpServerPlugin extends Plugin
             data.addProperty("xOffset", client.getViewportXOffset());
             data.addProperty("yOffset", client.getViewportYOffset());
             Point canvasMousePos = client.getMouseCanvasPosition();
-            data.addProperty("canvasMousePosition", canvasMousePos != null ? canvasMousePos.toString() : "null");
+            data.addProperty("canvasMouseX", canvasMousePos != null ? canvasMousePos.getX() : -1);
+            data.addProperty("canvasMouseY", canvasMousePos != null ? canvasMousePos.getY() : -1);
 
             return data;
         });
@@ -442,7 +447,6 @@ public class HttpServerPlugin extends Plugin
     /** Dispatcher for dynamic /inv/{slot} routes. */
     public void handleInventorySlotDispatcher(HttpExchange exchange) throws IOException
     {
-        System.out.println("HIT EXCHANGE");
         String path = exchange.getRequestURI().getPath();
         // Expecting path like /inv/{slot}
         String prefix = "/inv/";
@@ -483,7 +487,6 @@ public class HttpServerPlugin extends Plugin
     /** Handle a specific inventory slot. */
     public void handleInventorySlot(HttpExchange exchange, int slot) throws IOException
     {
-        System.out.println("HIT HANDLE INVENTORY SLOT: " + slot);
         JsonObject slotData = invokeAndWait(() -> {
             JsonObject data = new JsonObject();
             data.addProperty("requestedSlot", slot);
@@ -703,6 +706,145 @@ public class HttpServerPlugin extends Plugin
         }
     }
 
+    public boolean isSidebarOpen(int sidebarID)
+    {
+        Widget sidebarWidget = client.getWidget(sidebarID);
+        return sidebarWidget != null && !sidebarWidget.isHidden();
+    }
+
+    /** Dispatcher for dynamic /sidebar/{sidebarName} routes. */
+    public void handleSidebarDispatcher(HttpExchange exchange) throws IOException
+    {
+        String path = exchange.getRequestURI().getPath();
+        // Expecting path like /inv/{slot}
+        String prefix = "/sidebar/";
+        if (!path.startsWith(prefix))
+        {
+            exchange.sendResponseHeaders(404, 0);
+            exchange.getResponseBody().close();
+            return;
+        }
+
+        String after = path.substring(prefix.length());
+        if (after.isEmpty())
+        {
+            exchange.sendResponseHeaders(400, 0);
+            exchange.getResponseBody().close();
+            return;
+        }
+
+        // Only consider the first path segment after /inv/
+        String[] parts = after.split("/");
+        String sidebarStr = parts[0];
+
+        handleInventorySlot(exchange, sidebarStr);
+    }
+
+    public void handleInventorySlot(HttpExchange exchange, String sidebarName) throws IOException
+    {
+        JsonObject sidebarData = invokeAndWait(() -> {
+            JsonObject data = new JsonObject();
+            data.addProperty("requestedSidebar", sidebarName);
+
+            Integer sidebarID = null;
+            String key = sidebarName != null ? sidebarName.toLowerCase() : "";
+            switch (key)
+            {
+                case "combat":
+                    sidebarID = InterfaceID.Toplevel.SIDE0;
+                    break;
+                case "skills":
+                    sidebarID = InterfaceID.Toplevel.SIDE1;
+                    break;
+                case "summary":
+                    sidebarID = InterfaceID.Toplevel.SIDE2;
+                    break;
+                case "inventory":
+                    sidebarID = InterfaceID.Toplevel.SIDE3;
+                    break;
+                case "equipment":
+                    sidebarID = InterfaceID.Toplevel.SIDE4;
+                    break;
+                case "prayer":
+                    sidebarID = InterfaceID.Toplevel.SIDE5;
+                    break;
+                case "magic":
+                    sidebarID = InterfaceID.Toplevel.SIDE6;
+                    break;
+                case "grouping":
+                    sidebarID = InterfaceID.Toplevel.SIDE7;
+                    break;
+                case "account":
+                    sidebarID = InterfaceID.Toplevel.SIDE8;
+                    break;
+                case "friends":
+                    sidebarID = InterfaceID.Toplevel.SIDE9;
+                    break;
+                case "logout":
+                    sidebarID = InterfaceID.Toplevel.SIDE10;
+                    break;
+                case "settings":
+                    sidebarID = InterfaceID.Toplevel.SIDE11;
+                    break;
+                case "emotes":
+                    sidebarID = InterfaceID.Toplevel.SIDE12;
+                    break;
+                case "music":
+                    sidebarID = InterfaceID.Toplevel.SIDE13;
+                    break;
+                default:
+                    sidebarID = null;
+                    break;
+            }
+
+            if (sidebarID == null)
+            {
+                data.addProperty("error", "Unknown sidebar name");
+                return data;
+            }
+
+            data.addProperty("isOpen", isSidebarOpen(sidebarID));
+
+            return data;
+        });
+
+        sendJsonResponse(exchange, sidebarData);
+    }
+
+    public void handleSidebars(HttpExchange exchange) throws IOException
+    {
+        JsonObject sidebarsData = invokeAndWait(() -> {
+            JsonObject data = new JsonObject();
+
+            // UI Inventory tabs
+            Map<String, Integer> uiItems = new java.util.HashMap<>();
+            uiItems.put("combat", InterfaceID.Toplevel.SIDE0);
+            uiItems.put("skills", InterfaceID.Toplevel.SIDE1);
+            uiItems.put("summary", InterfaceID.Toplevel.SIDE2);
+            uiItems.put("inventory", InterfaceID.Toplevel.SIDE3);
+            uiItems.put("equipment", InterfaceID.Toplevel.SIDE4);
+            uiItems.put("prayer", InterfaceID.Toplevel.SIDE5);
+            uiItems.put("magic", InterfaceID.Toplevel.SIDE6);
+            uiItems.put("grouping", InterfaceID.Toplevel.SIDE7);
+            uiItems.put("friends", InterfaceID.Toplevel.SIDE9);
+            uiItems.put("account", InterfaceID.Toplevel.SIDE8);
+            uiItems.put("logout", InterfaceID.Toplevel.SIDE10);
+            uiItems.put("settings", InterfaceID.Toplevel.SIDE11);
+            uiItems.put("emotes", InterfaceID.Toplevel.SIDE12);
+            uiItems.put("music", InterfaceID.Toplevel.SIDE13);
+
+            // Populate sidebar state properties from the map
+            for (java.util.Map.Entry<String, Integer> e : uiItems.entrySet())
+            {
+                data.addProperty(e.getKey(), isSidebarOpen(e.getValue()));
+            }
+
+            return data;
+        });
+
+        sendJsonResponse(exchange, sidebarsData);
+    }
+
     public void handleWidgets(HttpExchange exchange) throws IOException
     {
         JsonObject widgetsData = invokeAndWait(() -> {
@@ -710,12 +852,32 @@ public class HttpServerPlugin extends Plugin
 
             // Check common interfaces
             data.addProperty("isBankOpen", client.getWidget(WidgetInfo.BANK_CONTAINER) != null);
-            data.addProperty("isInventoryOpen", !Objects.requireNonNull(client.getWidget(WidgetInfo.INVENTORY)).isHidden());
-            data.addProperty("isLogoutPanelOpen", !Objects.requireNonNull(client.getWidget(WidgetInfo.LOGOUT_PANEL)).isHidden());
 
-            // Shop and dialogue detection removed due to API incompatibility
-            data.addProperty("isShopOpen", false);
-            data.addProperty("isDialogueOpen", false);
+            // UI Inventory tabs
+            Map<String, Integer> uiItems = new java.util.HashMap<>();
+            uiItems.put("combat", InterfaceID.Toplevel.SIDE0);
+            uiItems.put("skills", InterfaceID.Toplevel.SIDE1);
+            uiItems.put("summary", InterfaceID.Toplevel.SIDE2);
+            uiItems.put("inventory", InterfaceID.Toplevel.SIDE3);
+            uiItems.put("equipment", InterfaceID.Toplevel.SIDE4);
+            uiItems.put("prayer", InterfaceID.Toplevel.SIDE5);
+            uiItems.put("magic", InterfaceID.Toplevel.SIDE6);
+            uiItems.put("grouping", InterfaceID.Toplevel.SIDE7);
+            uiItems.put("friends", InterfaceID.Toplevel.SIDE9);
+            uiItems.put("account", InterfaceID.Toplevel.SIDE8);
+            uiItems.put("logout", InterfaceID.Toplevel.SIDE10);
+            uiItems.put("settings", InterfaceID.Toplevel.SIDE11);
+            uiItems.put("emotes", InterfaceID.Toplevel.SIDE12);
+            uiItems.put("music", InterfaceID.Toplevel.SIDE13);
+
+            // Login screen
+            uiItems.put("login_click_to_play", InterfaceID.WELCOME_SCREEN);
+
+            // Populate widget state properties from the map
+            for (java.util.Map.Entry<String, Integer> e : uiItems.entrySet())
+            {
+                data.addProperty(e.getKey(), isSidebarOpen(e.getValue()));
+            }
 
             return data;
         });

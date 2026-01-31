@@ -23,8 +23,8 @@ INTERACT_TEXT_REGION = Region(12, 28, 350, 30)  # Hover text at top left [VERIFI
 BANK_TITLE_REGION = Region(187, 40, 150, 25)  # Bank title area [VERIFIED]
 BANK_REARRANGE_MODE_REGION = Region(29, 318, 102, 21)  # Rearrange mode button [VERIFIED]
 BANK_SEARCH_REGION = Region(85, 45, 400, 20)  # Bank search box [UNVERIFIED]
-BANK_DEPOSIT_INVENTORY_REGION = Region(441, 326, 26, 28)  # Deposit inventory button [VERIFIED]
-BANK_DEPOSIT_WORN_ITEMS_REGION = Region(479, 329, 26, 24)  # Deposit worn items button [VERIFIED]
+BANK_DEPOSIT_INVENTORY_REGION = Region(430, 299, 26, 27)  # Deposit inventory button [VERIFIED]
+BANK_DEPOSIT_EQUIPMENT_REGION = Region(466, 300, 26, 26)  # Deposit worn items button [VERIFIED]
 BANK_TOGGLE_ITEM_REGION = Region(138, 342, 41, 14)  # Withdraw as item toggle [VERIFIED]
 BANK_TOGGLE_NOTE_REGION = Region(187, 342, 39, 13)  # Withdraw as note toggle [VERIFIED]
 
@@ -54,15 +54,6 @@ LEVEL_UP_REGION = Region(10, 10, 500, 100)  # Level up notification area [UNVERI
 
 
 # ============================================================================
-# Status Orb Regions
-# ============================================================================
-
-HEALTH_ORB_REGION = Region(527, 83, 28, 28)  # Health orb [UNVERIFIED]
-PRAYER_ORB_REGION = Region(527, 119, 28, 28)  # Prayer orb [UNVERIFIED]
-RUN_ORB_REGION = Region(555, 147, 28, 28)  # Run energy orb [UNVERIFIED]
-
-
-# ============================================================================
 # Combat Regions
 # ============================================================================
 
@@ -80,7 +71,7 @@ CHATBOX_REGION = Region(10, 470, 500, 120)  # Main chatbox area [UNVERIFIED]
 # Inventory Regions
 # ============================================================================
 
-INVENTORY_TAB_REGION = Region(648, 214, 30, 25)  # Inventory tab button [UNVERIFIED]
+INVENTORY_TAB_REGION = Region(632, 173, 20, 27)  # Inventory tab button [UNVERIFIED]
 
 
 # ============================================================================
@@ -96,10 +87,14 @@ LOGIN_CLICK_HERE_TO_PLAY_REGION = Region(287, 329, 210, 70)  # Click here to pla
 # UI Regions
 # ============================================================================
 
-UI_LOGOUT_ICON_REGION = Region(642, 498, 22, 27)  # Logout icon in game [VERIFIED]
-UI_LOGOUT_BUTTON_REGION = Region(589, 449, 133, 22)  # Logout button in menu [VERIFIED]
-UI_WORLD_SWITCHER_BUTTON_REGION = Region(589, 402, 129, 19)  # World switcher button [VERIFIED]
+UI_LOGOUT_ICON_REGION = Region(631, 471, 21, 25)  # Logout icon in game [VERIFIED]
+UI_SKILLS_TAB_REGION = Region(565, 172, 22, 22)  # Skills tab region [UNVERIFIED]
 
+UI_PRAYER_ORB_REGION = Region(547, 83, 17, 17)  # Prayer orb region
+UI_RUN_ORB_REGION = Region(555, 115, 22, 18)  # Run orb region
+
+UI_LOGOUT_BUTTON_REGION = Region(578, 424, 129, 20)  # Logout button
+UI_LOGOUT_WORLD_SWITCHER_REGION = Region(577, 373, 130, 22)  # World switcher button
 
 # ============================================================================
 # Overlay Regions
@@ -118,4 +113,4 @@ CAMERA_SCALE_REGION = Region(154, 459, 50, 20)  # Camera scale [VERIFIED]
 
 MINIMAP_REGION = Region(570, 14, 138, 138)  # Full minimap clickable area [VERIFIED]
 MINIMAP_CENTER = Region(642, 84, 2, 2)  # Player position reference point [VERIFIED]
-MINIMAP_COMPASS_REGION = Region(561, 39, 22, 21)  # Minimap compass [UNVERIFIED]
+MINIMAP_COMPASS_REGION = Region(550, 10, 20, 21)  # Minimap compass [UNVERIFIED]

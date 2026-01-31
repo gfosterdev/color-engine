@@ -295,7 +295,47 @@ def test_menu(api: RuneLiteAPI):
             print(f"  {i:2}. {option} {target}")
     else:
         print("❌ No menu entries available")
+
+def test_widgets(api: RuneLiteAPI):
+    print_header("📱 WIDGETS TEST")
+
+    widgets = api.get_widgets()
+    if widgets:
+        print("✅ Retrieved widget states:\n")
+        for key, value in widgets.items():
+            print(f"  {key:25}: {value}")
+    else:
+        print("❌ No widget data available")
+
+def test_sidebars(api: RuneLiteAPI):
+    """
+    Test sidebar tabs
+    """
+    print_header("📚 SIDEBAR TAB TEST")
     
+    sidebar = api.get_sidebar_tabs()
+    if not sidebar:
+        print("❌ No sidebar tab data available")
+        return
+    
+    for tab, is_open in sidebar.items():
+        status = "Open" if is_open else "Closed"
+        print(f"  {tab}: {status}")
+
+def test_sidebar(api: RuneLiteAPI):
+    """
+    Test sidebar tabs
+    """
+    print_header("📚 SIDEBAR TAB TEST")
+    
+    tab = input("Enter tab name to check (e.g., inventory, skills): ")
+    sidebar = api.get_sidebar_tab(tab)
+    if not sidebar:
+        print("❌ No sidebar tab data available")
+        return
+    
+    for k, v in sidebar.items():
+        print(f"  {k}: {v}")
 
 def test_game_state(api: RuneLiteAPI):
     """Test camera, game state, menu, and widgets."""
@@ -541,6 +581,9 @@ def print_menu():
     print("  a - NPCs in Viewport Test")
     print("  v - Viewport Data Test")
     print("  i - Inventory Slot Test")
+    print("  w - Test widgets")
+    print("  s - Test sidebar tabs")
+    print("  d - Test specific sidebar tab")
     print("\n❌ Exit:")
     print("  0 - Quit")
     print("\n" + "=" * 80)
@@ -583,6 +626,9 @@ def main():
             'a': lambda: (test_npcs_in_viewport(api), input("\n⚡ Press Enter to continue...")),
             'v': lambda: (test_viewport_data(api), input("\n⚡ Press Enter to continue...")),
             'i': lambda: (test_inventory(api), input("\n⚡ Press Enter to continue...")),
+            'w': lambda: (test_widgets(api), input("\n⚡ Press Enter to continue...")),
+            's': lambda: (test_sidebars(api), input("\n⚡ Press Enter to continue...")),
+            'd': lambda: (test_sidebar(api), input("\n⚡ Press Enter to continue...")),
         }
 
         # Wait for key presses and dispatch immediately

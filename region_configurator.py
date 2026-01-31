@@ -8,6 +8,7 @@ Use this tool to visually define regions by clicking two corners.
 import cv2
 import numpy as np
 from util import Window, Region
+from client.runelite_api import RuneLiteAPI
 import keyboard
 import time
 import ctypes
@@ -19,6 +20,7 @@ class RegionConfigurator:
     def __init__(self):
         self.window = Window()
         self.window.find(title="RuneLite - xJawj", exact_match=True)
+        self.api = RuneLiteAPI()
         
         if not self.window.window:
             raise RuntimeError("Could not find RuneLite window!")
@@ -31,20 +33,14 @@ class RegionConfigurator:
     
     def get_mouse_position(self):
         """Get current mouse position relative to window."""
-        class POINT(ctypes.Structure):
-            _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
+        viewport = self.api.get_viewport_data()
+        if not viewport:
+            print("Could not get viewport data from API")
+            return
+        x = int(viewport.get('canvasMouseX', -1))
+        y = int(viewport.get('canvasMouseY', -1))
         
-        point = POINT()
-        ctypes.windll.user32.GetCursorPos(ctypes.byref(point))
-        
-        w = self.window.window
-        if not w:
-            return 0, 0
-        
-        local_x = point.x - w['x']
-        local_y = point.y - w['y']
-        
-        return local_x, local_y
+        return x, y
     
     def capture_region_interactive(self):
         """Capture a region by clicking two corners."""
@@ -191,9 +187,9 @@ class RegionConfigurator:
         print(f"\n✓ Region '{name}' saved to session")
         
         # Ask if they want to test OCR
-        test_ocr = input("\nTest OCR on this region? (y/n): ").strip().lower()
-        if test_ocr == 'y':
-            self.test_region_ocr(region)
+        # test_ocr = input("\nTest OCR on this region? (y/n): ").strip().lower()
+        # if test_ocr == 'y':
+        #     self.test_region_ocr(region)
         
         # Show visualization with name
         self.visualize_region(region, name)

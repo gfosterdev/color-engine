@@ -297,8 +297,9 @@ class ModularTester:
         print(f"\nGetting canvas mouse position from API")
         viewport = api.get_viewport_data()
         if viewport:
-            canvasMousePosition = viewport.get('canvasMousePosition', "N/A")
-            print(f"✓ Canvas mouse position from API: {canvasMousePosition}")
+            x = viewport.get('canvasMouseX', -1)
+            y = viewport.get('canvasMouseY', -1)
+            print(f"✓ Canvas mouse position from API: {(x, y)}")
 
     def test_viewport_bounds(self):
         """Tests if viewport bounds are correct"""
