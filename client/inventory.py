@@ -14,12 +14,12 @@ from .runelite_api import RuneLiteAPI
 
 
 # Fixed mode inventory constants (positions for 28 slots in fixed client mode)
-INVENTORY_START_X = 565
-INVENTORY_START_Y = 215
-INVENTORY_Y_OFFSET = 12
-INVENTORY_X_OFFSET = 5
-SLOT_WIDTH = 38
-SLOT_HEIGHT = 25
+INVENTORY_START_X = 563
+INVENTORY_START_Y = 213
+INVENTORY_Y_OFFSET = 4
+INVENTORY_X_OFFSET = 6
+SLOT_WIDTH = 36
+SLOT_HEIGHT = 32
 SLOTS_PER_ROW = 4
 TOTAL_SLOTS = 28
 
@@ -76,10 +76,10 @@ class InventoryManager:
             
             xp = int(SLOT_WIDTH * 0.2)
             xy = int(SLOT_HEIGHT * 0.2)
-            x = INVENTORY_START_X + (col * SLOT_WIDTH) + (col * INVENTORY_X_OFFSET)
-            y = INVENTORY_START_Y + (row * SLOT_HEIGHT) + (row * INVENTORY_Y_OFFSET)
-            width = SLOT_WIDTH - (xp * 2)
-            height = SLOT_HEIGHT - (xy * 2)
+            x = INVENTORY_START_X + (col * SLOT_WIDTH) + (col * INVENTORY_X_OFFSET) + xp
+            y = INVENTORY_START_Y + (row * SLOT_HEIGHT) + (row * INVENTORY_Y_OFFSET) + xy
+            width = SLOT_WIDTH - (2 * xp)
+            height = SLOT_HEIGHT - (2 * xy)
             
             region = Region(x, y, width, height)
             slot = InventorySlot(index=idx, region=region)

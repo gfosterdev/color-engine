@@ -603,13 +603,13 @@ class ModularTester:
         for i, slot in enumerate(inv.slots):
             print(f"Slot {i}")
             self.window.move_mouse_to((slot.region.x, slot.region.y))
-            time.sleep(.2)
+            time.sleep(.1)
             self.window.move_mouse_to((slot.region.x + slot.region.width, slot.region.y))
-            time.sleep(.2)
+            time.sleep(.1)
             self.window.move_mouse_to((slot.region.x, slot.region.y + slot.region.height))
-            time.sleep(.2)
+            time.sleep(.1)
             self.window.move_mouse_to((slot.region.x + slot.region.width, slot.region.y + slot.region.height))
-            time.sleep(.2)
+            time.sleep(.1)
 
     def test_inventory_open_check(self):
         """Check if inventory tab is open."""
