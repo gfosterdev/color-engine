@@ -20,6 +20,7 @@ from config.regions import (
 )
 import time
 import random
+import keyboard
 
 # Color References
 BANK = (190, 25, 25)
@@ -112,6 +113,49 @@ class OSRS:
         
         print("Item dropped successfully")
         return True
+
+    def drop_items(self, item_id: int) -> int:
+        """
+        Drop all items matching a specific item ID from inventory.
+        
+        Args:
+            item_id: Item ID to drop
+        Returns:
+            Number of items dropped
+        """
+        if not self.inventory.is_inventory_open():
+            self.inventory.open_inventory()
+            time.sleep(random.uniform(0.3, 0.5))
+        
+        # Popualate inventory data
+        self.inventory.populate()
+
+        # Dropping many at once, hold shift
+        # keyboard.press('shift')
+        time.sleep(random.uniform(0.1, 0.2))
+        drop_count = 0
+        for slot in self.inventory.slots:
+            if slot.item_id == item_id:
+                # Move mouse to slot
+                self.window.move_mouse_to(slot.region.random_point())
+                time.sleep(random.uniform(0.05, 0.1))
+
+                # Validate "Drop" is in menu
+                if not self.validate_interact_text("Drop"):
+                    print("Drop option not found in menu")
+                    continue
+                
+                # Click "Drop" option (assumed to be first)
+                self.click("Drop", None)
+                
+                drop_count += 1
+                time.sleep(random.uniform(0.03, 0.05))
+        
+        # Release shift key
+        # keyboard.release('shift')
+
+        print(f"Dropped {drop_count} items with ID {item_id}")
+        return drop_count
 
     def login_from_profile(self) -> bool:
         """.

@@ -668,6 +668,17 @@ class ModularTester:
         success = osrs.drop_item(slot)
         print("✓ Dropped" if success else "✗ Drop failed")
 
+    def test_drop_item(self):
+        """
+        Drops all items with ID.
+        """
+        osrs = self.init_osrs()
+
+        item_id = int(input("Item ID to drop: "))
+        print(f"\nDropping all items with ID {item_id}...")
+        drop_count = osrs.drop_items(item_id)
+        print(f"✓ Dropped {drop_count} items" if drop_count > 0 else "✗ No items dropped")
+
     # =================================================================
     # INTERFACE DETECTION TESTS
     # =================================================================
@@ -1370,7 +1381,8 @@ class ModularTester:
             't': ("Test slot regions", self.test_inventory_regions),
             '1': ("Click Slot 0", self.test_click_inventory_slot),
             '3': ("Find Item by Color", self.test_find_inventory_item),
-            'd': ("Drop Slot", self.test_drop_slot),
+            's': ("Drop Slot", self.test_drop_slot),
+            'd': ("Drop all items", self.test_drop_item)
         }
         
         print("\n" + "="*60)
@@ -1381,7 +1393,8 @@ class ModularTester:
         print("T - Test slot regions")
         print("1 - Click Slot")
         print("3 - Find Item by Color")
-        print("D - Drop Slot")
+        print("S - Drop Slot")
+        print("D - Drop all items by ID")
         print("\nESC - Back to Main Menu")
         print("="*60)
         
