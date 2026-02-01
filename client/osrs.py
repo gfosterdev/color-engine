@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union, List
 from click import option
 from util import Window
 from util.types import Polygon
@@ -358,6 +358,102 @@ class OSRS:
         
         print("No bank objects found in viewport")
         return None
+
+    def find_in_viewport(self, entity_ids: Union[int, List[int]], entity_type: str = "object", 
+                        rotate_360: bool = True, timeout: float = 15.0) -> List[dict]:
+        """
+        Find NPCs or game objects in viewport, rotating camera 360 degrees if not found.
+        
+        Args:
+            entity_ids: Single ID or list of NPC/game object IDs to search for
+            entity_type: "npc" or "object" (default: "object")
+            rotate_360: If True, rotates camera 360 degrees to search. If False, only checks current view.
+            timeout: Maximum time in seconds to search
+            
+        Returns:
+            List of dictionaries with entity data (hull, name, id, etc.). Empty list if none found.
+        """
+        # Normalize to list
+        if isinstance(entity_ids, int):
+            entity_ids = [entity_ids]
+        
+        start_time = time.time()
+        rotations_attempted = 0
+        found_entities = []
+        
+        # Calculate rotations needed for ~360 degrees
+        # Each ~200 pixel drag rotates camera roughly 90 degrees
+        # So 4 rotations should give us a full 360-degree view
+        rotations_for_360 = 4
+        
+        # Randomly decide rotation direction (clockwise vs counter-clockwise)
+        # "right" = clockwise, "left" = counter-clockwise
+        rotate_direction = random.choice(["right", "left"])
+        
+        print(f"Searching for {entity_type}(s) with ID(s) {entity_ids}...")
+        if rotate_360:
+            print(f"Will rotate 360° ({'clockwise' if rotate_direction == 'right' else 'counter-clockwise'}) if not found immediately")
+        
+        while time.time() - start_time < timeout:
+            # Search for all entity IDs based on type
+            if entity_type.lower() == "npc":
+                all_entities = self.api.get_npcs_in_viewport()
+            else:  # Default to game object
+                all_entities = self.api.get_game_objects_in_viewport()
+            
+            if all_entities:
+                # Filter to only entities matching our IDs
+                matches = [e for e in all_entities if e.get('id') in entity_ids]
+                
+                if matches:
+                    # Add new matches that aren't already in our found list
+                    for match in matches:
+                        # Check if we already have this entity (by id and position)
+                        is_duplicate = any(
+                            found.get('id') == match.get('id') and 
+                            found.get('x') == match.get('x') and 
+                            found.get('y') == match.get('y')
+                            for found in found_entities
+                        )
+                        if not is_duplicate:
+                            found_entities.append(match)
+                            entity_name = match.get('name', 'Unknown')
+                            entity_id = match.get('id')
+                            print(f"✓ Found {entity_type}: {entity_name} (ID: {entity_id})")
+            
+            # If we found at least one, we can return
+            if found_entities:
+                print(f"Found {len(found_entities)} matching {entity_type}(s)")
+                return found_entities
+            
+            # If not found and rotation is enabled
+            if rotate_360 and rotations_attempted < rotations_for_360:
+                print(f"Not found. Rotating camera ({rotations_attempted + 1}/{rotations_for_360} - ~{(rotations_attempted + 1) * 90}°)...")
+                
+                # Randomize rotation distance around 200 pixels for ~90° rotation
+                # Vary slightly to make it less predictable
+                min_drag = random.randint(180, 220)
+                
+                # Rotate in consistent direction for full 360
+                self.window.rotate_camera(min_drag_distance=min_drag, direction=rotate_direction)
+                
+                # Wait for camera to settle and viewport to update
+                time.sleep(random.uniform(*TIMING.MEDIUM_DELAY))
+                
+                rotations_attempted += 1
+            elif not rotate_360:
+                # No rotation requested, exit after first check
+                break
+            else:
+                # Completed full 360 rotation without finding target
+                break
+        
+        if found_entities:
+            return found_entities
+        
+        rotation_msg = f" after 360° rotation" if rotate_360 and rotations_attempted >= rotations_for_360 else ""
+        print(f"✗ {entity_type.capitalize()}(s) with ID(s) {entity_ids} not found{rotation_msg}")
+        return []
 
     def validate_interact_text(self, expected_text):
         """

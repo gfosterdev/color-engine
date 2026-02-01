@@ -648,12 +648,8 @@ class ModularTester:
             r, g, b = map(int, rgb_input.split(','))
             
             print(f"Searching for item with color ({r}, {g}, {b})...")
-            slot = inv.find_item_by_color((r, g, b))
-            
-            if slot is not None:
-                print(f"✓ Found in slot {slot}")
-            else:
-                print("✗ Item not found")
+            # Note: This test requires implementing find_item_by_color in InventoryManager
+            print("✗ Method find_item_by_color not yet implemented")
         except Exception as e:
             print(f"Error: {e}")
     
@@ -787,10 +783,13 @@ class ModularTester:
         """Find bank with camera rotation."""
         osrs = self.init_osrs()
         print("\nFinding bank...")
-        bank_point = osrs.find_bank()
+        bank_polygon = osrs.find_bank()
         
-        if bank_point:
-            print(f"✓ Bank found at ({bank_point[0]}, {bank_point[1]})")
+        if bank_polygon:
+            # Get a random point from the polygon to display
+            point = bank_polygon.random_point_inside(osrs.window.GAME_AREA)
+            print(f"✓ Bank found (Polygon with {len(bank_polygon.points)} points)")
+            print(f"  Sample point: ({point[0]}, {point[1]})")
         else:
             print("✗ Bank not found")
     
@@ -1466,7 +1465,8 @@ class ModularTester:
             '4': ("Find Custom Color", self.test_gameobject_custom_color),
             '5': ("Right-Click Menu", self.test_gameobject_right_click),
             '6': ("Find NPCS in Viewport", self.test_npc_in_viewport),
-            '7': ("Find Game Objects in Viewport", self.test_game_object_in_viewport)
+            '7': ("Find Game Objects in Viewport", self.test_game_object_in_viewport),
+            '8': ("Find in Viewport (with rotation)", self.test_find_in_viewport_with_rotation)
         }
         
         print("\n" + "="*60)
@@ -1484,6 +1484,7 @@ class ModularTester:
         print("5 - Right-Click Menu Test")
         print("6 - Find NPCS in Viewport")
         print("7 - Find Game Objects in Viewport")
+        print("8 - Find in Viewport (with rotation)")
         print("\nESC - Back to Main Menu")
         print("="*60)
         
@@ -2228,6 +2229,77 @@ class ModularTester:
         else:
             print("❌ No NPCs in viewport or endpoint not available")
 
+    def test_find_in_viewport_with_rotation(self):
+        """Test find_in_viewport method with camera rotation."""
+        osrs = self.init_osrs()
+        from config.game_objects import BankObjects
+        from config.npcs import Bankers
+        
+        print("\n=== Testing find_in_viewport ===")
+        print("\nChoose what to search for:")
+        print("1 - Bank object (Varrock West)")
+        print("2 - All Banker NPCs")
+        print("3 - Iron rocks")
+        print("4 - All Bank objects")
+        print("5 - Custom ID(s)")
+        
+        # Wait for user choice
+        choice = None
+        entity_ids = None
+        entity_type = None
+        while choice is None:
+            if keyboard.is_pressed('1'):
+                entity_ids = 10583  # Varrock West bank booth
+                entity_type = "object"
+                choice = 1
+            elif keyboard.is_pressed('2'):
+                entity_ids = Bankers.BANKER  # All banker IDs
+                entity_type = "npc"
+                choice = 2
+            elif keyboard.is_pressed('3'):
+                entity_ids = 11364  # Iron rocks
+                entity_type = "object"
+                choice = 3
+            elif keyboard.is_pressed('4'):
+                entity_ids = BankObjects.all_interactive()  # All bank IDs
+                entity_type = "object"
+                choice = 4
+            elif keyboard.is_pressed('5'):
+                ids_input = input("\nEnter entity ID(s) (comma-separated): ")
+                entity_ids = [int(x.strip()) for x in ids_input.split(',')]
+                entity_type = input("Enter type (npc/object): ").lower()
+                choice = 5
+            elif keyboard.is_pressed('esc'):
+                return
+            time.sleep(0.1)
+        
+        time.sleep(0.3)  # Debounce
+        
+        if entity_ids is None or entity_type is None:
+            print("✗ No selection made")
+            return
+        
+        print(f"\nSearching for {entity_type}(s) with ID(s) {entity_ids}...")
+        results = osrs.find_in_viewport(entity_ids, entity_type, rotate_360=True, timeout=15.0)
+        
+        if results:
+            print(f"\n✅ Found {len(results)} matching {entity_type}(s)!\n")
+            for i, result in enumerate(results, 1):
+                print(f"{i}. {result.get('name', 'Unknown')} (ID: {result.get('id')})")
+                print(f"   Position: ({result.get('x')}, {result.get('y')})")
+            
+            # Move mouse to the first result if it has hull data
+            if results:
+                first = results[0]
+                hull = first.get('hull', None)
+                if hull and hull.get('points'):
+                    polygon = Polygon(hull['points'])
+                    click_point = polygon.random_point_inside(osrs.window.GAME_AREA)
+                    print(f"\n  Moving mouse to first result: {click_point}")
+                    osrs.window.move_mouse_to(click_point, in_canvas=True)
+        else:
+            print(f"\n❌ No matches found after searching with camera rotation")
+
 
     # =================================================================
     # MINING SKILL TESTS
@@ -2334,7 +2406,7 @@ class ModularTester:
         from config.game_objects import OreRocks
         
         print("\nSearching for ore rocks...")
-        objects = api.get_objects_in_viewport()
+        objects = api.get_game_objects_in_viewport()
         
         if objects:
             # Define common ore types to check
@@ -2380,16 +2452,17 @@ class ModularTester:
         print("\nTesting rock distance sorting...")
         
         # Get player position
-        player_pos = api.get_player_world_location()
-        if not player_pos:
+        coords = api.get_coords()
+        if not coords or 'world' not in coords:
             print("✗ Could not get player position")
             return
         
+        player_pos = coords['world']
         px, py = player_pos.get('x', 0), player_pos.get('y', 0)
         print(f"Player at: ({px}, {py})")
         
         # Get all ore rocks
-        objects = api.get_objects_in_viewport()
+        objects = api.get_game_objects_in_viewport()
         if not objects:
             print("✗ No objects in viewport")
             return
@@ -2461,12 +2534,11 @@ class ModularTester:
             
             print(f"✓ Bot initialized successfully")
             print(f"  Ore types: {[cfg['name'] for cfg in bot.rock_configs]}")
-            print(f"  Rock IDs: {bot.all_rock_ids}")
+            print(f"  Rock IDs: {bot.primary_ore['rock_ids']}")
             print(f"  Mine location: {bot.mine_location}")
             print(f"  Bank location: {bot.bank_location}")
             print(f"  Banking enabled: {bot.should_bank}")
             print(f"  Powermine enabled: {bot.powermine}")
-            print(f"  Pickaxe verification: {bot.verify_pickaxe}")
             print(f"  XP tracking: {bot.track_xp}")
             print(f"  Respawn detection: {bot.detect_respawn}")
             
@@ -2529,7 +2601,7 @@ class ModularTester:
         respawn_time = time.time()
         
         while time.time() - respawn_time < 10.0:
-            objects = api.get_objects_in_viewport()
+            objects = api.get_game_objects_in_viewport()
             if objects:
                 rocks = [obj for obj in objects if obj.get('id') in all_rock_ids]
                 if rocks:

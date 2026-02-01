@@ -572,14 +572,16 @@ class Window:
         """
         return self.GAME_AREA.contains(x, y)
 
-    def rotate_camera(self, min_drag_distance: int) -> bool:
+    def rotate_camera(self, min_drag_distance: int, left_to_right: bool = True, direction: Optional[str] = None) -> bool:
         """
-        Rotate camera by dragging middle mouse from a random point in any random direction.
+        Rotate camera by dragging middle mouse from a random point.
         The drag distance is at least min_drag_distance pixels, and the end point stays within the GAME_AREA.
         Duration and curve_intensity are randomized within class-defined bounds for natural movement.
         
         Args:
             min_drag_distance: Minimum drag distance in pixels
+            left_to_right: If True, favors horizontal drag (spins camera). If False, allows any direction.
+            direction: Explicit direction - "right" (clockwise) or "left" (counter-clockwise). Overrides left_to_right.
             
         Returns:
             True if successful, False if no window found or invalid parameters
@@ -594,12 +596,14 @@ class Window:
         duration = random.uniform(self.ROTATE_DURATION_MIN, self.ROTATE_DURATION_MAX)
         curve_intensity = random.uniform(self.ROTATE_CURVE_INTENSITY_MIN, self.ROTATE_CURVE_INTENSITY_MAX)
         
-        # Use GAME_AREA bounds for camera rotation
+        # Use 80% of GAME_AREA bounds for camera rotation (10% margin on each side)
         game_area = self.GAME_AREA
-        min_x = game_area.x
-        min_y = game_area.y
-        max_x = game_area.x + game_area.width - 1
-        max_y = game_area.y + game_area.height - 1
+        margin_x = int(game_area.width * 0.1)
+        margin_y = int(game_area.height * 0.1)
+        min_x = game_area.x + margin_x
+        min_y = game_area.y + margin_y
+        max_x = game_area.x + game_area.width - 1 - margin_x
+        max_y = game_area.y + game_area.height - 1 - margin_y
         
         # Try to find a valid start/end point combination
         max_tries = 100
@@ -608,8 +612,25 @@ class Window:
             start_x = random.randint(min_x, max_x)
             start_y = random.randint(min_y, max_y)
             
-            # Pick a random angle (0-360 degrees)
-            angle = random.uniform(0, 2 * math.pi)
+            # Pick a random angle
+            if direction == "right":
+                # Right direction (clockwise): -30° to +30°
+                angle = random.uniform(-math.pi/6, math.pi/6)
+            elif direction == "left":
+                # Left direction (counter-clockwise): 150° to 210°
+                angle = random.uniform(5*math.pi/6, 7*math.pi/6)
+            elif left_to_right:
+                # Favor horizontal movement (0° or 180° ±30°)
+                # Randomly choose left or right direction
+                if random.random() < 0.5:
+                    # Right direction: -30° to +30°
+                    angle = random.uniform(-math.pi/6, math.pi/6)
+                else:
+                    # Left direction: 150° to 210°
+                    angle = random.uniform(5*math.pi/6, 7*math.pi/6)
+            else:
+                # Any direction (0-360 degrees)
+                angle = random.uniform(0, 2 * math.pi)
             
             # Calculate end point based on angle and min distance
             # Try with the minimum distance first
