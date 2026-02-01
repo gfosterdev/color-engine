@@ -150,35 +150,6 @@ class NavigationManager:
             return (world.get("x", 0), world.get("y", 0))
         return None
     
-    # DEPRECATED: Use read_world_coordinates instead
-    def read_world_coordinates_ocr(self) -> Optional[Tuple[int, int]]:
-        """
-        Read current world coordinates from RuneLite overlay.
-        
-        Returns:
-            Tuple of (x, y) world coordinates, or None if reading failed
-        """
-        if not self.window.window:
-            return None
-        
-        self.window.capture()
-        text = self.window.read_text(COORD_WORLD_REGION, debug=False)
-        
-        if not text:
-            return None
-        
-        try:
-            # Expected format: "3222, 3218" or "3222,3218"
-            parts = text.replace(" ", "").split(",")
-            if len(parts) == 2:
-                x = int(parts[0])
-                y = int(parts[1])
-                return (x, y)
-        except (ValueError, IndexError):
-            pass
-        
-        return None
-    
     def read_scene_coordinates(self) -> Optional[Tuple[int, int]]:
         """
         Read scene coordinates from RuneLite API.
@@ -193,35 +164,6 @@ class NavigationManager:
             return (local.get("sceneX", 0), local.get("sceneY", 0))
         return None
 
-    # DEPRECATED: Use read_scene_coordinates instead
-    def read_scene_coordinates_ocr(self) -> Optional[Tuple[int, int]]:
-        """
-        Read current scene coordinates from RuneLite overlay.
-        
-        Returns:
-            Tuple of (x, y) scene coordinates, or None if reading failed
-        """
-        if not self.window.window:
-            return None
-        
-        self.window.capture()
-        text = self.window.read_text(COORD_SCENE_REGION, debug=False)
-        
-        if not text:
-            return None
-        
-        try:
-            # Expected format: "52, 48" or "52,48"
-            parts = text.replace(" ", "").split(",")
-            if len(parts) == 2:
-                x = int(parts[0])
-                y = int(parts[1])
-                return (x, y)
-        except (ValueError, IndexError):
-            pass
-        
-        return None
-    
     def read_camera_yaw(self) -> Optional[int]:
         """
         Read current camera yaw angle from RuneLite API.
@@ -233,37 +175,6 @@ class NavigationManager:
         data = self.api.get_camera()
         if data and "yaw" in data:
             return data["yaw"]
-        return None
-
-    # DEPRECATED: Use read_camera_yaw instead
-    def read_camera_yaw_ocr(self) -> Optional[int]:
-        """
-        Read current camera yaw angle from RuneLite overlay.
-        
-        RuneLite yaw format: 0-2048 units (0 = north, counter-clockwise)
-        Corrected mapping: 0=N, 512=W, 1024=S, 1536=E
-        
-        Returns:
-            Yaw angle as integer (0-2048), or None if reading failed
-        """
-        if not self.window.window:
-            return None
-        
-        self.window.capture()
-        text = self.window.read_text(CAMERA_YAW_REGION, debug=False)
-        
-        if not text:
-            return None
-        
-        try:
-            # Expected format: "1024" or similar integer
-            yaw = int(text.strip())
-            # Validate range
-            if 0 <= yaw <= 2048:
-                return yaw
-        except ValueError:
-            pass
-        
         return None
     
     def get_cardinal_direction(self, yaw: Optional[int] = None) -> str:

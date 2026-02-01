@@ -153,50 +153,56 @@ class InterfaceDetector:
     
     def get_health_percent(self) -> Optional[int]:
         """
-        Get current health percentage from health orb.
+        Get current health percentage from health orb using RuneLite API.
         
         Returns:
             Health percentage (0-100) or None if unable to detect
         """
-        # This would require OCR or pixel analysis of the health orb
-        # For now, return None as placeholder
-        # TODO: Implement health orb reading
+        player_data = self.api.get_player()
+        if player_data:
+            health = player_data.get('health', 0)
+            max_health = player_data.get('maxHealth', 1)
+            if max_health > 0:
+                return int((health / max_health) * 100)
         return None
     
     def get_prayer_percent(self) -> Optional[int]:
         """
-        Get current prayer percentage from prayer orb.
+        Get current prayer percentage from prayer orb using RuneLite API.
         
         Returns:
             Prayer percentage (0-100) or None if unable to detect
         """
-        # TODO: Implement prayer orb reading
+        player_data = self.api.get_player()
+        if player_data:
+            prayer = player_data.get('prayer', 0)
+            max_prayer = player_data.get('maxPrayer', 1)
+            if max_prayer > 0:
+                return int((prayer / max_prayer) * 100)
         return None
     
     def get_run_energy(self) -> Optional[int]:
         """
-        Get current run energy percentage.
+        Get current run energy percentage using RuneLite API.
         
         Returns:
             Run energy percentage (0-100) or None if unable to detect
         """
-        # TODO: Implement run energy reading
+        player_data = self.api.get_player()
+        if player_data:
+            return player_data.get('runEnergy', None)
         return None
     
     def is_in_combat(self) -> bool:
         """
-        Check if player is currently in combat.
-        
-        Can be detected by:
-        - Health bar changing
-        - Combat XP drops
-        - Target indicator
+        Check if player is currently in combat using RuneLite API.
         
         Returns:
             True if in combat
         """
-        # TODO: Implement combat detection
-        # Could check for red health bar changes or combat icons
+        combat_data = self.api.get_combat()
+        if combat_data:
+            return combat_data.get('inCombat', False)
         return False
     
     def close_interface(self) -> bool:

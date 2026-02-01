@@ -7,6 +7,7 @@ from client.interfaces import InterfaceDetector
 from client.interactions import RightClickMenu, KeyboardInput
 from client.navigation import NavigationManager
 from client.runelite_api import RuneLiteAPI
+from config.game_objects import BankObjects
 from config.regions import (
     INTERACT_TEXT_REGION,
     BANK_SEARCH_REGION,
@@ -21,9 +22,6 @@ from config.regions import (
 import time
 import random
 import keyboard
-
-# Color References
-BANK = (190, 25, 25)
 
 
 class OSRS:
@@ -182,31 +180,42 @@ class OSRS:
     
     def open_bank(self) -> bool:
         """
-        Open bank by clicking on bank booth/chest.
+        Open bank by clicking on bank booth/chest using RuneLite API.
 
         Returns:
             True if bank opened successfully
         """
-
         print("Attempting to open bank...")
-        if self.window.window:
-            self.window.capture()
-            found = self.window.find_color_region(BANK, debug=True)
-            if found:
-                print("Bank color found, moving mouse to it...")
-                self.window.move_mouse_to(found.random_point())
-                if self.validate_interact_text("Bank"):
-                    self.window.click()
-                    time.sleep(random.uniform(0.5, 1.0))
+        
+        # Try to find any bank object in viewport
+        all_bank_ids = BankObjects.all_interactive()
+        
+        for bank_id in all_bank_ids:
+            bank_obj = self.api.get_game_object_in_viewport(bank_id)
+            if bank_obj:
+                print(f"Found bank object: {bank_obj.get('name', 'Unknown')} (ID: {bank_id})")
+                
+                hull = bank_obj.get('hull', None)
+                if hull and hull.get('points'):
+                    polygon = Polygon(hull['points'])
+                    click_point = polygon.random_point_inside(self.window.GAME_AREA)
+                    self.window.move_mouse_to(click_point, in_canvas=True)
+                    time.sleep(random.uniform(0.2, 0.4))
                     
-                    # Wait for bank to open
-                    if self.interfaces.wait_for_bank_open(timeout=5.0):
-                        print("Bank opened successfully")
-                        return True
-                    else:
-                        print("Bank did not open in time")
-            else:
-                print("Bank color not found on screen.")
+                    if self.validate_interact_text("Bank"):
+                        self.window.click()
+                        time.sleep(random.uniform(0.5, 1.0))
+                        
+                        # Wait for bank to open
+                        if self.interfaces.wait_for_bank_open(timeout=5.0):
+                            print("Bank opened successfully")
+                            return True
+                        else:
+                            print("Bank did not open in time")
+                else:
+                    print(f"Bank object found but no convex hull data available")
+        
+        print("No bank objects found in viewport")
         return False
     
     def close_bank(self) -> bool:
@@ -234,12 +243,12 @@ class OSRS:
         
         return True
     
-    def deposit_item_by_color(self, item_color: tuple, quantity: str = "all") -> bool:
+    def deposit_item_by_id(self, item_id: int, quantity: str = "all") -> bool:
         """
-        Deposit a specific item from inventory by its color.
+        Deposit a specific item from inventory by its item ID.
         
         Args:
-            item_color: RGB tuple of the item
+            item_id: Item ID to deposit
             quantity: "all", "1", "5", "10", or "X"
             
         Returns:
@@ -254,26 +263,31 @@ class OSRS:
             self.inventory.open_inventory()
             time.sleep(random.uniform(0.3, 0.5))
         
-        # Find the item in inventory
-        slots = self.inventory.find_item_by_color(item_color)
+        # Populate inventory data from API
+        self.inventory.populate()
         
-        if not slots:
-            print(f"Item with color {item_color} not found in inventory")
+        # Find the item in inventory by ID
+        slot_index = None
+        for slot in self.inventory.slots:
+            if slot.item_id == item_id:
+                slot_index = slot.index
+                break
+        
+        if slot_index is None:
+            print(f"Item with ID {item_id} not found in inventory")
             return False
         
-        # Click the first item found
-        slot_index = slots[0]
+        # Move to slot and perform action
+        slot = self.inventory.slots[slot_index - 1]
+        self.window.move_mouse_to(slot.region.random_point())
+        time.sleep(random.uniform(0.2, 0.4))
         
         if quantity == "all":
             # Right-click and select "Deposit-All"
-            self.inventory.click_slot(slot_index, right_click=True)
-            time.sleep(random.uniform(0.2, 0.4))
-            # TODO: Implement menu option selection
-            # For now, just left-click (deposits 1)
-            self.inventory.click_slot(slot_index, right_click=False)
+            self.click("Deposit-All", None)
         else:
             # Left-click deposits 1
-            self.inventory.click_slot(slot_index, right_click=False)
+            self.window.click()
         
         time.sleep(random.uniform(0.3, 0.6))
         return True
@@ -335,13 +349,24 @@ class OSRS:
         
         return True
 
-    def find_bank(self):
-        """Find bank using camera rotation search."""
-        if self.window.window:
-            self.window.capture()
-            found = self.window.search(rgb=BANK, debug=True, rotation_amount=300)
-            if found:
-                return found.random_point()
+    def find_bank(self) -> Optional[Polygon]:
+        """
+        Find nearest bank object in viewport using RuneLite API.
+        
+        Returns:
+            Polygon of bank object convex hull, or None if not found
+        """
+        all_bank_ids = BankObjects.all_interactive()
+        
+        for bank_id in all_bank_ids:
+            bank_obj = self.api.get_game_object_in_viewport(bank_id)
+            if bank_obj:
+                hull = bank_obj.get('hull', None)
+                if hull and hull.get('points'):
+                    print(f"Found bank: {bank_obj.get('name', 'Unknown')} (ID: {bank_id})")
+                    return Polygon(hull['points'])
+        
+        print("No bank objects found in viewport")
         return None
 
     def validate_interact_text(self, expected_text):
@@ -357,19 +382,6 @@ class OSRS:
                     print(f"Found expected interact text: {option}")
                     return True
             print(f"Expected interact text '{expected_text}' not found in menu entries.")
-        return False
-
-    def validate_interact_text_ocr(self, expected_text):
-        """Validate hover text matches expected text."""
-        if self.window.window:
-            self.window.capture()
-            text = self.window.read_text(INTERACT_TEXT_REGION, debug=True)
-            if expected_text in text:
-                print(f"Found expected text: {expected_text}")
-                return True
-            else:
-                print(f"Expected text '{expected_text}' not found. Extracted text: {text}")
-                return False
         return False
     
     def click_npc(self, npc_id, action: str):
