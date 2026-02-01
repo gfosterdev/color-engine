@@ -2,13 +2,14 @@
 
 ## Project Overview
 
-This is a Python-based automation tool for Old School RuneScape (OSRS) using the RuneLite client. The project uses computer vision and color detection to interact with the game interface.
+This is a Python-based automation tool for Old School RuneScape (OSRS) using the RuneLite client. The project **primarily uses the RuneLite HTTP API** for game data and interaction, with color detection and OCR as fallback methods for UI elements not exposed via API.
 
 ## Technology Stack
 
 - **Python 3.x**
-- **Computer Vision**: OpenCV (cv2), NumPy
-- **OCR**: PaddleOCR (PaddlePaddle)
+- **RuneLite HTTP API**: Primary method for game data (player stats, inventory, NPCs, objects, etc.)
+- **Computer Vision**: OpenCV (cv2), NumPy (fallback for UI elements)
+- **OCR**: PaddleOCR (PaddlePaddle) (fallback for text recognition)
 - **Screen Capture**: PIL (ImageGrab)
 - **Mouse Control**: ctypes (Windows API)
 - **Keyboard Input**: keyboard library
@@ -18,18 +19,33 @@ This is a Python-based automation tool for Old School RuneScape (OSRS) using the
 - `main.py` - Entry point with example usage and testing functions
 - `test_manual_modular.py` - Interactive testing interface for all features
 - `config/regions.py` - Centralized region definitions for all UI elements
+- `config/game_objects.py` - **Game object IDs (banks, ores, trees, etc.)**
+- `config/npcs.py` - **NPC IDs (bankers, monsters, bosses, etc.)**
+- `config/items.py` - **Item IDs (ores, food, potions, tools, etc.)**
 - `config/profiles/` - Bot profile configurations with credentials and settings
 - `client/osrs.py` - High-level OSRS game interaction logic
-- `client/inventory.py` - Inventory management and item detection
-- `client/interfaces.py` - Interface state detection (bank, dialogue, etc.)
+- `client/runelite_api.py` - **RuneLite HTTP API wrapper**
+- `client/inventory.py` - Inventory management using API data
+- `client/interfaces.py` - Interface state detection using API
 - `client/interactions.py` - Game object interaction and keyboard input
-- `client/color_registry.py` - Centralized color definitions for game objects
+- `client/color_registry.py` - Color definitions (for user-configured markers only)
 - `client/skills/` - Skill-specific automation modules
 - `core/` - Core systems (anti-ban, state machine, task engine, config)
-- `util/window_util.py` - Window management, screen capture, color detection, OCR
+- `external/HttpServerPlugin.java` - **RuneLite plugin that exposes HTTP API**
+- `util/window_util.py` - Window management, screen capture, mouse control
 - `util/mouse_util.py` - Human-like mouse movement using Bezier curves
 
 ## Core Concepts
+
+### RuneLite HTTP API
+
+- **Primary data source**: Always check API first before using vision/OCR
+- **Available endpoints**: `/player`, `/combat`, `/inventory`, `/coords`, `/camera`, `/menu`, `/objects_in_viewport`, `/npcs_in_viewport`, `/interfaces`
+- **Game Object IDs**: Use centralized IDs from `config/game_objects.py` (BankObjects, OreRocks, Trees, etc.)
+- **NPC IDs**: Use centralized IDs from `config/npcs.py` (Bankers, Guards, Monsters, Bosses, etc.)
+- **Item IDs**: Use centralized IDs from `config/items.py` (Ores, Food, Potions, Tools, etc.)
+- **Convex hull data**: API provides polygon coordinates for accurate clicking
+- **Extending the API**: If needed data isn't exposed, add new endpoints to `external/HttpServerPlugin.java`
 
 ### Window Management
 
@@ -37,11 +53,11 @@ This is a Python-based automation tool for Old School RuneScape (OSRS) using the
 - Uses Windows API (user32.dll) for window detection and manipulation
 - Captures screenshots for analysis
 
-### Color Detection
+### Color Detection (Fallback)
 
-- Primary method: RGB color matching with tolerance
+- **Use only when API doesn't provide data** (e.g., user-configured tile markers)
 - Identifies game elements by their characteristic colors
-- Example: Bank booths use RGB(190, 25, 25)
+- Example: Custom ground markers use RGB values
 
 ### Region System
 
@@ -64,18 +80,21 @@ This is a Python-based automation tool for Old School RuneScape (OSRS) using the
     - Target click points within regions
 - Uses Windows user32 API for precise control
 
-### OCR (Optical Character Recognition)
+### OCR (Optical Character Recognition - Fallback)
 
+- **Use only when API doesn't provide data** (e.g., custom chat parsing)
 - PaddleOCR for reading in-game text
-- Used to validate interactions (e.g., "Bank" hover text)
 - Configured to disable OneDNN for compatibility
 
 ## Coding Conventions
 
 ### Style Guidelines
 
-- Use descriptive variable names (e.g., `INTERACT_TEXT_REGION`, `BANK`)
-- Define color constants in `client/color_registry.py` for game objects
+- **API-first approach**: Always check RuneLite API for data before using vision/OCR
+- **Use centralized IDs**: Import from `config.game_objects`, `config.npcs`, `config.items`
+- **Extend API when needed**: Add new endpoints to `external/HttpServerPlugin.java` if data isn't exposed
+- Use descriptive variable names (e.g., `INTERACT_TEXT_REGION`, `BankObjects.VARROCK_WEST`)
+- Define color constants in `client/color_registry.py` only for user markers
 - Define region constants in `config/regions.py` for UI elements
 - Use type hints for function parameters and returns
 - Import regions from centralized config instead of defining inline
@@ -84,11 +103,13 @@ This is a Python-based automation tool for Old School RuneScape (OSRS) using the
 
 - **OSRS class**: Main interface for game-specific actions
     - Manages Window instance
+    - Uses RuneLiteAPI for game data via `self.api`
     - Implements high-level actions (open_bank, login, find_bank)
-    - Validates interactions with OCR
+    - Uses OCR for validation only when API doesn't provide data
     - Can accept profile config for credentials
-- **InventoryManager class**: Handles inventory detection and interaction
-- **InterfaceDetector class**: Detects game interface states (bank, dialogue, etc.)
+- **RuneLiteAPI class**: Wrapper for all HTTP API calls
+- **InventoryManager class**: Handles inventory using API data
+- **InterfaceDetector class**: Detects game interface states using API
 - **Window class**: Low-level screen capture and interaction utilities
 - **MouseMover class**: Handles realistic mouse movement
 - **Region class**: Defines areas of interest on screen (centralized in config)
@@ -123,29 +144,43 @@ This is a Python-based automation tool for Old School RuneScape (OSRS) using the
 
 ## Common Patterns
 
-### Finding and Clicking Game Objects
+### Finding and Clicking Game Objects (API-First)
 
 ```python
-def interact_with_object(self):
-    if self.window.window:
-        self.window.capture()
-        found = self.window.find_color_region(COLOR_VALUE, debug=True)
-        if found:
-            self.window.move_mouse_to(found.random_point())
-            if self.validate_interact_text("ExpectedText"):
-                self.window.click()
-                return True
+from config.game_objects import BankObjects
+
+def find_and_click_bank(self):
+    """Find nearest bank using RuneLite API."""
+    # Get all objects in viewport
+    objects = self.api.get_objects_in_viewport()
+
+    # Filter for bank objects using centralized IDs
+    bank_ids = BankObjects.all_interactive()
+    banks = [obj for obj in objects if obj['id'] in bank_ids]
+
+    if banks:
+        # Get closest bank by distance
+        closest = min(banks, key=lambda x: x['distance'])
+        polygon = self.window.convex_hull_to_polygon(closest['convexHull'])
+        self.window.move_mouse_to(polygon.random_point())
+        self.window.click()
+        return True
     return False
 ```
 
 ### Defining New Game Elements
 
-1. Find the characteristic RGB color value
-2. Add to `client/color_registry.py`: `registry.register("element_name", (r, g, b), "type")`
-3. Add region to `config/regions.py` if text recognition is needed
-4. Create method in appropriate class (OSRS, InventoryManager, etc.)
-5. Use OCR validation when possible
-6. Import regions from `config.regions`
+1. **Check API first**: Verify if data is available via existing endpoints
+2. **If API has data**: Add IDs to appropriate config file:
+    - `config/game_objects.py` for game objects (banks, ores, trees)
+    - `config/npcs.py` for NPCs (monsters, merchants, bankers)
+    - `config/items.py` for items (food, tools, weapons)
+3. **If API missing data**: Extend `external/HttpServerPlugin.java` with new endpoint
+4. **Fallback only**: Use color detection if API extension is not feasible:
+    - Add to `client/color_registry.py`: `registry.register("element_name", (r, g, b), "type")`
+    - Add region to `config/regions.py` if text recognition needed
+5. Create method in appropriate class (OSRS, InventoryManager, etc.)
+6. Import IDs/regions from centralized config files
 
 ## Important Notes
 
@@ -165,23 +200,25 @@ def interact_with_object(self):
 ## When Implementing New Features
 
 1. **Check for existing functionality first**: Search the codebase to see if similar features already exist
-2. Define color constants for new game elements
-3. Create region definitions if text recognition is needed
-4. Implement methods in appropriate class (OSRS, InventoryManager, InterfaceDetector, etc.)
-5. **Use existing helper class methods** instead of reimplementing functionality
-6. Add debug flags for testing
-7. Use try-except blocks for robustness
-8. **Randomize all timing and movement parameters**:
+2. **Check RuneLite API first**: Verify if required data is available via API endpoints
+3. **If API missing data**: Consider adding new endpoint to `external/HttpServerPlugin.java`
+4. **Use centralized IDs**: Import from `config/game_objects.py`, `config/npcs.py`, or `config/items.py`
+5. Define region definitions if UI interaction needed (add to `config/regions.py`)
+6. Implement methods in appropriate class (OSRS, InventoryManager, InterfaceDetector, etc.)
+7. **Use existing helper class methods** instead of reimplementing functionality
+8. Add debug flags for testing
+9. Use try-except blocks for robustness
+10. **Randomize all timing and movement parameters**:
     - Use `random.uniform(min, max)` for delays instead of fixed values
     - Generate random points within regions for each interaction
     - Vary movement speeds with random multipliers
     - Add random pre/post-action delays
-9. **Always create a test in `test_manual_modular.py`**:
+11. **Always create a test in `test_manual_modular.py`**:
     - Add a new test method for the feature
     - Integrate it into the appropriate test menu category
     - If no suitable category exists, create a new one
     - Test methods should be interactive and provide clear feedback
-10. Test with the actual game client running
+12. Test with the actual game client running
 
 ## Dependencies to Install
 
