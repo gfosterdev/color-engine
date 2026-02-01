@@ -17,6 +17,7 @@ from config.regions import (
     LEVEL_UP_REGION,
     UI_LOGOUT_BUTTON_REGION
 )
+from config.timing import TIMING
 from .runelite_api import RuneLiteAPI
 import random
 
@@ -123,7 +124,7 @@ class InterfaceDetector:
         
         if self.is_dialogue_open():
             import time
-            time.sleep(random.uniform(0.5, 1.2))
+            time.sleep(random.uniform(*TIMING.MEDIUM_DELAY))
             self.window.move_mouse_to(DIALOGUE_CONTINUE_REGION.random_point())
             self.window.click()
             return True
@@ -220,7 +221,7 @@ class InterfaceDetector:
         import time
         
         keyboard.press_and_release('esc')
-        time.sleep(random.uniform(0.3, 0.6))
+        time.sleep(random.uniform(*TIMING.INTERFACE_CLOSE_DELAY))
         
         return True
     
@@ -259,7 +260,7 @@ class InterfaceDetector:
         while time.time() - start_time < timeout:
             if not interface_check_func():
                 return True
-            time.sleep(random.uniform(0.1, 0.3))
+            time.sleep(random.uniform(*TIMING.API_POLL_INTERVAL))
         
         return False
     
@@ -279,6 +280,6 @@ class InterfaceDetector:
         while time.time() - start_time < timeout:
             if self.is_bank_open():
                 return True
-            time.sleep(random.uniform(0.1, 0.3))
+            time.sleep(random.uniform(*TIMING.API_POLL_INTERVAL))
         
         return False

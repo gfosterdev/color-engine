@@ -19,6 +19,7 @@ from config.regions import (
     UI_LOGOUT_ICON_REGION,
     UI_LOGOUT_BUTTON_REGION
 )
+from config.timing import TIMING
 import time
 import random
 import keyboard
@@ -47,13 +48,11 @@ class OSRS:
         if can_left_click:
             print("Performing left click...")
             self.window.click()
-            time.sleep(random.uniform(0.1, 0.3))
             print("✓ Left clicked")
         else:
             if not menu.is_open:
                 print("Opening menu...")
                 menu.open()
-                time.sleep(random.uniform(0.1, 0.3))
                 print(f"Menu is open: {menu.is_open}")
             
             menu.populate()
@@ -68,14 +67,12 @@ class OSRS:
                     index = int(index)
                     print(f"Clicking entry: {entry}")
                     menu.click_entry(index)
-                    time.sleep(random.uniform(0.1, 0.3))
                     print("✓ Clicked")
             
             menu.populate()
             if menu.is_open:
                 print("Closing menu...")
                 menu.close()
-                time.sleep(random.uniform(0.1, 0.3))
                 print(f"Menu is open: {menu.is_open}")
 
     def drop_item(self, slot_index: int) -> bool:
@@ -87,7 +84,7 @@ class OSRS:
         """
         if not self.inventory.is_inventory_open():
             self.inventory.open_inventory()
-            time.sleep(random.uniform(0.3, 0.5))
+            time.sleep(random.uniform(*TIMING.INVENTORY_TAB_OPEN))
         
         # Popualate inventory data
         self.inventory.populate()
@@ -97,9 +94,8 @@ class OSRS:
             print(f"Slot {slot_index} is empty, cannot drop")
             return False
 
-        # Move mouse to slot
+        # Move mouse to slot (duration auto-calculated based on distance)
         self.window.move_mouse_to(slot.region.random_point())
-        time.sleep(random.uniform(0.2, 0.4))
 
         # Validate "Drop" is in menu
         if not self.validate_interact_text("Drop"):
@@ -123,20 +119,18 @@ class OSRS:
         """
         if not self.inventory.is_inventory_open():
             self.inventory.open_inventory()
-            time.sleep(random.uniform(0.3, 0.5))
+            time.sleep(random.uniform(*TIMING.INVENTORY_TAB_OPEN))
         
         # Popualate inventory data
         self.inventory.populate()
 
         # Dropping many at once, hold shift
         # keyboard.press('shift')
-        time.sleep(random.uniform(0.1, 0.2))
         drop_count = 0
         for slot in self.inventory.slots:
             if slot.item_id == item_id:
-                # Move mouse to slot
+                # Move mouse to slot (duration auto-calculated based on distance)
                 self.window.move_mouse_to(slot.region.random_point())
-                time.sleep(random.uniform(0.05, 0.1))
 
                 # Validate "Drop" is in menu
                 if not self.validate_interact_text("Drop"):
@@ -147,7 +141,7 @@ class OSRS:
                 self.click("Drop", None)
                 
                 drop_count += 1
-                time.sleep(random.uniform(0.03, 0.05))
+                time.sleep(random.uniform(*TIMING.GAME_TICK_DELAY))
         
         # Release shift key
         # keyboard.release('shift')
@@ -200,11 +194,10 @@ class OSRS:
                     polygon = Polygon(hull['points'])
                     click_point = polygon.random_point_inside(self.window.GAME_AREA)
                     self.window.move_mouse_to(click_point, in_canvas=True)
-                    time.sleep(random.uniform(0.2, 0.4))
                     
                     if self.validate_interact_text("Bank"):
                         self.window.click()
-                        time.sleep(random.uniform(0.5, 1.0))
+                        time.sleep(random.uniform(*TIMING.BANK_OPEN_WAIT))
                         
                         # Wait for bank to open
                         if self.interfaces.wait_for_bank_open(timeout=5.0):
@@ -225,7 +218,7 @@ class OSRS:
         
         print("Closing bank...")
         self.keyboard.press_key('esc')
-        time.sleep(random.uniform(0.3, 0.6))
+        time.sleep(random.uniform(*TIMING.INTERFACE_CLOSE_DELAY))
         
         return not self.interfaces.is_bank_open()
     
@@ -237,9 +230,8 @@ class OSRS:
         
         print("Depositing all items...")
         self.window.move_mouse_to(BANK_DEPOSIT_INVENTORY_REGION.random_point())
-        time.sleep(random.uniform(0.2, 0.4))
         self.window.click()
-        time.sleep(random.uniform(0.5, 0.8))
+        time.sleep(random.uniform(*TIMING.BANK_DEPOSIT_ACTION))
         
         return True
     
@@ -261,7 +253,7 @@ class OSRS:
         # Ensure inventory tab is open
         if not self.inventory.is_inventory_open():
             self.inventory.open_inventory()
-            time.sleep(random.uniform(0.3, 0.5))
+            time.sleep(random.uniform(*TIMING.INVENTORY_TAB_OPEN))
         
         # Populate inventory data from API
         self.inventory.populate()
@@ -280,7 +272,6 @@ class OSRS:
         # Move to slot and perform action
         slot = self.inventory.slots[slot_index - 1]
         self.window.move_mouse_to(slot.region.random_point())
-        time.sleep(random.uniform(0.2, 0.4))
         
         if quantity == "all":
             # Right-click and select "Deposit-All"
@@ -289,7 +280,7 @@ class OSRS:
             # Left-click deposits 1
             self.window.click()
         
-        time.sleep(random.uniform(0.3, 0.6))
+        time.sleep(random.uniform(*TIMING.BANK_DEPOSIT_ACTION))
         return True
     
     def withdraw_item(self, item_name: str, quantity: int = 1) -> bool:
@@ -311,7 +302,7 @@ class OSRS:
         
         # Use bank search
         if self.search_bank(item_name):
-            time.sleep(random.uniform(0.5, 0.8))
+            time.sleep(random.uniform(*TIMING.BANK_SEARCH_TYPE))
             # TODO: Click on the item in bank grid
             # This requires bank grid slot detection
             return True
@@ -335,17 +326,16 @@ class OSRS:
         
         # Click on search box
         self.window.move_mouse_to(BANK_SEARCH_REGION.random_point())
-        time.sleep(random.uniform(0.1, 0.3))
         self.window.click()
-        time.sleep(random.uniform(0.2, 0.4))
+        time.sleep(random.uniform(*TIMING.INTERFACE_TRANSITION))
         
         # Clear existing text
         self.keyboard.press_hotkey('ctrl', 'a')
-        time.sleep(random.uniform(0.05, 0.1))
+        time.sleep(random.uniform(*TIMING.MICRO_DELAY))
         
         # Type search text
         self.keyboard.type_text(search_text)
-        time.sleep(random.uniform(0.2, 0.4))
+        time.sleep(random.uniform(*TIMING.BANK_SEARCH_TYPE))
         
         return True
 
@@ -401,10 +391,9 @@ class OSRS:
             if points:
                 polygon = Polygon(points)
                 click_point = polygon.random_point_inside(self.window.GAME_AREA)
-                self.window.move_mouse_to(click_point, in_canvas =True, duration=random.uniform(0.1, 0.3))
-                time.sleep(random.uniform(0.05, 0.1))
+                self.window.move_mouse_to(click_point, in_canvas=True)
                 self.click(action, target)
-                time.sleep(random.uniform(0.5, 0.8))
+                time.sleep(random.uniform(*TIMING.NPC_INTERACT_DELAY))
                 return True
             
         return False
@@ -427,9 +416,8 @@ class OSRS:
                 polygon = Polygon(points)
                 click_point = polygon.random_point_inside(self.window.GAME_AREA)
                 self.window.move_mouse_to(click_point, in_canvas=True)
-                time.sleep(random.uniform(0.2, 0.4))
                 self.click(action, target)
-                time.sleep(random.uniform(0.5, 0.8))
+                time.sleep(random.uniform(*TIMING.OBJECT_INTERACT_DELAY))
                 return True
 
         return False
@@ -447,7 +435,6 @@ class OSRS:
             return menu_state
         print("Opening right click menu...")
         self.window.click(button='right')
-        time.sleep(random.uniform(0.2, 0.4))
 
         # Validate menu is open
         menu_state = self.api.get_menu()
@@ -509,40 +496,39 @@ class OSRS:
         print("Clicking 'Existing User' button...")
         self.window.capture()
         self.window.move_mouse_to(LOGIN_EXISTING_USER_BUTTON.random_point())
-        time.sleep(random.uniform(0.3, 0.6))
         self.window.click()
-        time.sleep(random.uniform(0.8, 1.5))
+        time.sleep(random.uniform(*TIMING.LOGIN_BUTTON_DELAY))
         
         # Type password
         print("Entering password...")
         self.keyboard.type_text(password)
-        time.sleep(random.uniform(0.3, 0.6))
+        time.sleep(random.uniform(*TIMING.INTERFACE_TRANSITION))
         
         # Click login button
         print("Clicking login button...")
         self.window.capture()
         self.window.move_mouse_to(LOGIN_BUTTON_REGION.random_point())
-        time.sleep(random.uniform(0.3, 0.6))
         self.window.click()
         
         # Wait and check for "Click here to play" screen
         print("Waiting for character selection screen...")
         max_attempts = 10
         for attempt in range(max_attempts):
-            time.sleep(random.uniform(1.0, 1.5))
+            time.sleep(random.uniform(*TIMING.LOGIN_VERIFY_DELAY))
 
             # Check if state is not LOGGING_IN
             game_state = self.api.get_game_state()
             if game_state and game_state.get("state", "") != "LOGGING_IN":
                 # Either logged in or incorrect details
                 if self.is_logged_in():
-                    time.sleep(random.uniform(1.5, 2.5))
+                    time.sleep(random.uniform(*TIMING.LOGIN_VERIFY_DELAY))
                     # Click to enter game
                     print("Clicking to enter game...")
                     self.window.move_mouse_to(LOGIN_CLICK_HERE_TO_PLAY_REGION.random_point())
-                    time.sleep(random.uniform(0.3, 0.6))
                     self.window.click()
-                    time.sleep(random.uniform(2.0, 3.0))
+                    # Extra delay for world load
+                    min_delay, max_delay = TIMING.LOGIN_BUTTON_DELAY
+                    time.sleep(random.uniform(min_delay + 1.0, max_delay + 2.0))
                     
                     print("Login successful!")
                     return True
@@ -574,9 +560,8 @@ class OSRS:
         print("Clicking logout icon...")
         self.window.capture()
         self.window.move_mouse_to(UI_LOGOUT_ICON_REGION.random_point())
-        time.sleep(random.uniform(0.2, 0.4))
         self.window.click()
-        time.sleep(random.uniform(0.5, 0.8))
+        time.sleep(random.uniform(*TIMING.LOGOUT_PANEL_DELAY))
         
         # Verify logout panel opened by checking for "Logout" text
         print("Verifying logout panel opened...")
@@ -592,9 +577,10 @@ class OSRS:
         # Click the logout button in the menu
         print("Clicking logout button...")
         self.window.move_mouse_to(UI_LOGOUT_BUTTON_REGION.random_point())
-        time.sleep(random.uniform(0.2, 0.4))
         self.window.click()
-        time.sleep(random.uniform(1.5, 2.5))
+        # Extra time for logout
+        min_delay, max_delay = TIMING.LOGIN_BUTTON_DELAY
+        time.sleep(random.uniform(min_delay + 0.5, max_delay + 1.0))
         
         # Verify we're back at login screen
         print("Verifying logout successful...")

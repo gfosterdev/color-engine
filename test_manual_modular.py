@@ -1376,7 +1376,7 @@ class ModularTester:
         self.current_menu = "inventory"
         
         test_map = {
-            's': ("Inventory Status", self.test_inventory_status),
+            'i': ("Inventory Status", self.test_inventory_status),
             'o': ("Check if Open", self.test_inventory_open_check),
             't': ("Test slot regions", self.test_inventory_regions),
             '1': ("Click Slot 0", self.test_click_inventory_slot),
@@ -1388,7 +1388,7 @@ class ModularTester:
         print("\n" + "="*60)
         print("INVENTORY MODULE TESTS")
         print("="*60)
-        print("S - Inventory Status")
+        print("I - Inventory Status")
         print("O - Check if Open")
         print("T - Test slot regions")
         print("1 - Click Slot")

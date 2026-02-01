@@ -14,6 +14,7 @@ from core.task_engine import Task, TaskQueue, TaskResult, TaskPriority
 from core.config import BotConfig, load_profile
 from core.anti_ban import AntiBanManager, AntiBanDecorator
 from core.bot_base import BotBase
+from config.timing import TIMING
 import time
 import random
 
@@ -57,7 +58,8 @@ class MineOreTask(Task):
         # Click the ore
         if self.interaction.interact_with_object(self.ore_object, validate_hover=True):
             # Wait for mining animation (randomized)
-            time.sleep(random.uniform(1.5, 3.0))
+            min_delay, max_delay = TIMING.MEDIUM_DELAY
+            time.sleep(random.uniform(min_delay + 1.0, max_delay + 2.0))  # Mining takes time
             return TaskResult(success=True, message="Mining ore")
         
         return TaskResult(
@@ -114,7 +116,7 @@ class BankOreTask(Task):
             )
         
         # Wait a moment
-        time.sleep(random.uniform(0.5, 1.0))
+        time.sleep(random.uniform(*TIMING.INTERFACE_TRANSITION))
         
         # Close bank
         if not self.osrs.close_bank():
@@ -235,13 +237,14 @@ class MiningBot(BotBase):
             elif current_state == BotState.ERROR:
                 # Try to recover
                 print("Error state detected, attempting recovery...")
-                time.sleep(random.uniform(2.0, 4.0))
+                min_delay, max_delay = TIMING.LARGE_DELAY
+                time.sleep(random.uniform(min_delay + 1.0, max_delay + 2.0))  # Give time to recover
                 self.state_machine.transition(BotState.RECOVERING, "Attempting recovery")
                 
             elif current_state == BotState.RECOVERING:
                 # Close any open interfaces
                 self.osrs.interfaces.close_interface()
-                time.sleep(random.uniform(1.0, 2.0))
+                time.sleep(random.uniform(*TIMING.MEDIUM_DELAY))
                 self.state_machine.transition(BotState.MINING, "Recovered")
             
             # Apply anti-ban action delay (includes fatigue simulation)
@@ -303,17 +306,17 @@ class MiningBot(BotBase):
         # Open inventory if not open
         if not self.osrs.inventory.is_inventory_open():
             self.osrs.inventory.open_inventory()
-            time.sleep(random.uniform(0.3, 0.5))
+            time.sleep(random.uniform(*TIMING.INVENTORY_TAB_OPEN))
         
         # Drop each item
         for i in range(28):
             if not self.osrs.inventory.is_slot_empty(i):
                 self.osrs.inventory.click_slot(i, right_click=True)
-                time.sleep(random.uniform(0.05, 0.15))
+                time.sleep(random.uniform(*TIMING.MICRO_DELAY))
                 # TODO: Select "Drop" from menu
                 # For now, just clicking
         
-        time.sleep(random.uniform(0.5, 1.0))
+        time.sleep(random.uniform(*TIMING.INTERFACE_TRANSITION))
     
     def _cleanup(self):
         """Cleanup operations after bot stops (implements BotBase abstract method)."""

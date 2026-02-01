@@ -8,8 +8,10 @@ from typing import List, Optional, Tuple, Dict
 from dataclasses import dataclass
 import cv2
 import numpy as np
+import random
 from util import Region
 from config.regions import INVENTORY_TAB_REGION
+from config.timing import TIMING
 from .runelite_api import RuneLiteAPI
 
 
@@ -69,10 +71,10 @@ class InventoryManager:
         """Initialize all 28 inventory slot regions."""
         self.slots = []
         
-        for i in range(1, TOTAL_SLOTS + 1):
-            idx = i
-            row = (i - 1) // SLOTS_PER_ROW
-            col = (i - 1) % SLOTS_PER_ROW
+        for i in range(TOTAL_SLOTS):
+            idx = i + 1
+            row = i // SLOTS_PER_ROW
+            col = i % SLOTS_PER_ROW
             
             xp = int(SLOT_WIDTH * 0.2)
             xy = int(SLOT_HEIGHT * 0.2)
@@ -92,7 +94,10 @@ class InventoryManager:
         slots = self.api.get_inventory()
         if slots:
             for i in range(1, TOTAL_SLOTS + 1):
-                item = slots[i - 1]
+                if (i - 1) < len(slots):
+                    item = slots[i - 1] or {}
+                else:
+                    item = {}
                 qty = item.get('quantity', 1)
                 id = item.get('id', -1)
                 self.slots[i - 1].index = i
@@ -129,7 +134,7 @@ class InventoryManager:
             
             # Wait briefly and check again
             import time
-            time.sleep(random.uniform(0.2, 0.4))
+            time.sleep(random.uniform(*TIMING.INVENTORY_TAB_OPEN))
             return self.is_inventory_open()
         
         return False

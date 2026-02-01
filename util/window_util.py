@@ -13,6 +13,7 @@ from .mouse_util import MouseMover
 import random
 import math
 import subprocess
+from config.timing import TIMING
 
 
 class Region:
@@ -340,7 +341,7 @@ class Window:
         
         return Region(int(x), int(y), int(w), int(h), filled_mask)
     
-    def move_mouse_to(self, coords: tuple[int, int], in_canvas: bool = True, duration: float = 0.25, 
+    def move_mouse_to(self, coords: tuple[int, int], in_canvas: bool = True, duration: Optional[float] = None, 
                       curve_intensity: float = 1.0) -> bool:
         """
         Move mouse to coordinates relative to the found window.
@@ -348,7 +349,7 @@ class Window:
         Args:
             coords: Tuple of (x, y) coordinates relative to window (0, 0 = top-left corner)
             in_canvas: If True, coordinates are relative to the game canvas within the window
-            duration: Time to complete movement in seconds
+            duration: Time to complete movement in seconds (None = auto-calculate based on distance)
             curve_intensity: How curved the path should be
             
         Returns:
@@ -365,6 +366,15 @@ class Window:
         if in_canvas:
             screen_x += self.CANVAS_OFFSET['x']
             screen_y += self.CANVAS_OFFSET['y']
+        
+        # Calculate duration based on distance if not specified
+        if duration is None:
+            current_x, current_y = self.mouse.get_position()
+            distance = math.sqrt((screen_x - current_x)**2 + (screen_y - current_y)**2)
+            duration = min(
+                TIMING.MAX_MOVE_DURATION,
+                max(TIMING.MIN_MOVE_DURATION, distance / TIMING.PIXELS_PER_SECOND)
+            )
         
         self.mouse.move_to(screen_x, screen_y, duration, curve_intensity)
         return True

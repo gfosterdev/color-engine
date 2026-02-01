@@ -20,6 +20,7 @@ from config.regions import (
     MINIMAP_CENTER,
     MINIMAP_COMPASS_REGION
 )
+from config.timing import TIMING
 from .runelite_api import RuneLiteAPI
 
 # Lazy imports for pathfinding (only loaded when needed)
@@ -225,7 +226,7 @@ class NavigationManager:
         self.window.click_at(*compass_point)
         
         # Camera snaps instantly, just brief pause for click to register
-        time.sleep(random.uniform(0.2, 0.3))
+        time.sleep(random.uniform(*TIMING.INTERFACE_TRANSITION))
         
         # Verify it worked
         yaw = self.read_camera_yaw()
@@ -293,9 +294,8 @@ class NavigationManager:
             print(f"  Distance from center: {distance_from_center:.1f}px, radius: {minimap_radius:.1f}px")
             return False
         
-        # Execute click
+        # Execute click (mouse movement has built-in delay)
         self.window.move_mouse_to((int(target_x), int(target_y)))
-        time.sleep(random.uniform(0.05, 0.15))
         self.window.click()
         
         return True
@@ -422,7 +422,7 @@ class NavigationManager:
                 return False
             
             # Wait for arrival with stuck detection
-            time.sleep(random.uniform(0.8, 1.2))  # Initial movement delay
+            time.sleep(random.uniform(*TIMING.MEDIUM_DELAY))  # Initial movement delay
             
             if not self.wait_until_arrived(wp_x, wp_y, tolerance=2, timeout=30):
                 # Check if we're stuck
@@ -554,10 +554,10 @@ class NavigationManager:
         while time.time() - start_time < timeout:
             if not self.is_moving():
                 # Confirm with second check to avoid animation lag
-                time.sleep(0.1)
+                time.sleep(random.uniform(*TIMING.MICRO_DELAY))
                 if not self.is_moving():
                     return True
-            time.sleep(random.uniform(0.2, 0.4))
+            time.sleep(random.uniform(*TIMING.API_POLL_INTERVAL))
         
         return False
 
@@ -615,7 +615,7 @@ class NavigationManager:
         if pos1 is None:
             return False
         
-        time.sleep(random.uniform(0.3, 0.5))
+        time.sleep(random.uniform(*TIMING.SMALL_DELAY))
         
         pos2 = self.read_world_coordinates()
         if pos2 is None:

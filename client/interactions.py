@@ -11,6 +11,7 @@ import keyboard
 import time
 import random
 
+from config.timing import TIMING
 from .runelite_api import RuneLiteAPI
 
 # Right-click menu detection regions
@@ -83,7 +84,7 @@ class RightClickMenu:
             True if menu is detected as open after action
         """
         self.window.mouse.click(button='right')
-        time.sleep(random.uniform(0.2, 0.4))
+        time.sleep(random.uniform(*TIMING.MENU_OPEN_DELAY))
         self.populate()
         return self.is_open if self.is_open is not None else False
 
@@ -144,16 +145,7 @@ class RightClickMenu:
         if not (idx > item_count or idx < 1):
             y = self.y + (item_height * idx)
             point = Region(self.x, y + 4, self.width, item_height - 8)
-            # self.window.move_mouse_to((point.x, point.y))
-            # time.sleep(random.uniform(0.1, 0.3))
-            # self.window.move_mouse_to((point.x + point.width, point.y))
-            # time.sleep(random.uniform(0.1, 0.3))
-            # self.window.move_mouse_to((point.x, point.y + point.height))
-            # time.sleep(random.uniform(0.1, 0.3))
-            # self.window.move_mouse_to((point.x + point.width, point.y + point.height))
-            # time.sleep(random.uniform(0.1, 0.3))
             self.window.move_mouse_to(point.random_point())
-            time.sleep(random.uniform(0.1, 0.3))
             self.window.click()
             return True
         else:
@@ -186,7 +178,7 @@ class RightClickMenu:
                 return False
             rand_region = Region(self.x, self.y - self.height + 5, self.width, self.height)
             self.window.move_mouse_to(rand_region.random_point())
-            time.sleep(random.uniform(0.2, 0.4))
+            time.sleep(random.uniform(*TIMING.MENU_CLOSE_DELAY))
             return True
         return False
 
@@ -197,15 +189,18 @@ class KeyboardInput:
     """
     
     @staticmethod
-    def type_text(text: str, delay_min: float = 0.05, delay_max: float = 0.15) -> None:
+    def type_text(text: str, delay_min: Optional[float] = None, delay_max: Optional[float] = None) -> None:
         """
         Type text with human-like delays between keystrokes.
         
         Args:
             text: Text to type
-            delay_min: Minimum delay between keys
-            delay_max: Maximum delay between keys
+            delay_min: Minimum delay between keys (uses TIMING config if None)
+            delay_max: Maximum delay between keys (uses TIMING config if None)
         """
+        if delay_min is None or delay_max is None:
+            delay_min, delay_max = TIMING.KEYSTROKE_DELAY
+        
         for char in text:
             keyboard.write(char)
             time.sleep(random.uniform(delay_min, delay_max))
@@ -217,10 +212,10 @@ class KeyboardInput:
         
         Args:
             key: Key to press (e.g., 'f1', 'esc', 'enter')
-            hold_time: How long to hold the key (random if None)
+            hold_time: How long to hold the key (uses TIMING config if None)
         """
         if hold_time is None:
-            hold_time = random.uniform(0.05, 0.12)
+            hold_time = random.uniform(*TIMING.KEY_HOLD_DURATION)
         
         keyboard.press(key)
         time.sleep(hold_time)
@@ -235,7 +230,7 @@ class KeyboardInput:
             keys: Keys to press together (e.g., 'ctrl', 'c')
         """
         keyboard.press(*keys)
-        time.sleep(random.uniform(0.05, 0.1))
+        time.sleep(random.uniform(*TIMING.HOTKEY_DELAY))
         keyboard.release(*keys)
     
     @staticmethod
@@ -247,7 +242,7 @@ class KeyboardInput:
             tab_key: Tab to open ('f1' through 'f7')
         """
         KeyboardInput.press_key(tab_key)
-        time.sleep(random.uniform(0.2, 0.4))
+        time.sleep(random.uniform(*TIMING.TAB_KEY_DELAY))
 
 
 class GameObjectInteraction:
@@ -312,9 +307,8 @@ class GameObjectInteraction:
         if not found:
             return False
         
-        # Move mouse to object
+        # Move mouse to object (duration auto-calculated)
         self.window.move_mouse_to(found.random_point())
-        time.sleep(random.uniform(0.1, 0.3))
         
         # Validate hover text if required
         if validate_hover and game_object.hover_text:
@@ -329,14 +323,13 @@ class GameObjectInteraction:
         if action:
             # Right-click and select action
             self.window.mouse.click(button='right')
-            time.sleep(random.uniform(0.2, 0.4))
+            time.sleep(random.uniform(*TIMING.MENU_OPEN_DELAY))
             
             if self.menu.wait_for_menu():
                 return self.menu.select_option(action)
         else:
-            # Left-click
+            # Left-click (has built-in delays)
             self.window.click()
-            time.sleep(random.uniform(0.1, 0.2))
             return True
         
         return False
@@ -368,28 +361,31 @@ class GameObjectInteraction:
                 # Rotate camera (min_drag_distance is required parameter)
                 min_drag = random.randint(100, 200)
                 self.window.rotate_camera(min_drag_distance=min_drag)
-                time.sleep(random.uniform(0.5, 1.0))
+                time.sleep(random.uniform(*TIMING.MEDIUM_DELAY))
             
-            time.sleep(random.uniform(0.3, 0.6))
+            time.sleep(random.uniform(*TIMING.SMALL_DELAY))
         
         return None
     
     def spam_click_object(self, game_object: GameObject, 
                          clicks: int = 3,
-                         delay_min: float = 0.1,
-                         delay_max: float = 0.3) -> bool:
+                         delay_min: Optional[float] = None,
+                         delay_max: Optional[float] = None) -> bool:
         """
         Spam click an object multiple times (useful for depleting resources).
         
         Args:
             game_object: GameObject to click
             clicks: Number of clicks to perform
-            delay_min: Minimum delay between clicks
-            delay_max: Maximum delay between clicks
+            delay_min: Minimum delay between clicks (uses TIMING config if None)
+            delay_max: Maximum delay between clicks (uses TIMING config if None)
             
         Returns:
             True if at least one click was successful
         """
+        if delay_min is None or delay_max is None:
+            delay_min, delay_max = TIMING.SMALL_DELAY
+        
         success = False
         
         for _ in range(clicks):
