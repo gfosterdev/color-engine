@@ -9,7 +9,7 @@ pathfinding with collision awareness.
 import math
 import time
 import random
-from typing import Optional, Tuple, List, cast
+from typing import Optional, Tuple, List, Dict, Any, cast
 from collections import deque
 from util import Window
 from config.regions import (
@@ -463,6 +463,8 @@ class NavigationManager:
         Uses greedy algorithm to skip intermediate waypoints when possible,
         resulting in fewer total clicks for more human-like navigation.
         
+        Searches backwards from max_distance to prioritize furthest reachable waypoints.
+        
         Args:
             waypoints: Full list of path waypoints
             current_pos: Current player position
@@ -481,26 +483,47 @@ class NavigationManager:
         chunked = []
         last_pos = current_pos
         i = 0
+        min_useful_distance = 3  # Skip waypoints closer than 3 tiles
         
         while i < len(waypoints):
-            # Greedy search: find farthest reachable waypoint from current position
             farthest_index = i
+            farthest_distance = 0.0
             
-            # Look ahead to find the farthest waypoint within minimap range
-            for j in range(i, len(waypoints)):
+            # Search backwards from max_distance to find furthest reachable waypoint
+            # This ensures we always try to maximize click distance first
+            for j in range(len(waypoints) - 1, i - 1, -1):
                 dx = waypoints[j][0] - last_pos[0]
                 dy = waypoints[j][1] - last_pos[1]
                 dist = math.sqrt(dx**2 + dy**2)
                 
+                # Found a waypoint within range - take it if it's the furthest so far
                 if dist <= max_distance:
-                    farthest_index = j
-                else:
-                    # Exceeded minimap range, stop looking
-                    break
+                    if dist > farthest_distance:
+                        farthest_index = j
+                        farthest_distance = dist
+                        # If we found a good distant waypoint, use it
+                        if dist >= min_useful_distance:
+                            break
             
-            # Add the farthest reachable waypoint
-            chunked.append(waypoints[farthest_index])
-            last_pos = waypoints[farthest_index]
+            # If no waypoint was found beyond minimum distance, take the closest valid one
+            if farthest_distance < min_useful_distance and farthest_index == i:
+                # Search forward for first waypoint within range
+                for j in range(i, len(waypoints)):
+                    dx = waypoints[j][0] - last_pos[0]
+                    dy = waypoints[j][1] - last_pos[1]
+                    dist = math.sqrt(dx**2 + dy**2)
+                    
+                    if dist <= max_distance:
+                        farthest_index = j
+                        farthest_distance = dist
+                        break
+            
+            # Add the selected waypoint
+            selected_wp = waypoints[farthest_index]
+            chunked.append(selected_wp)
+            print(f"  → Selected waypoint at distance: {farthest_distance:.1f} tiles")
+            
+            last_pos = selected_wp
             
             # Move to next segment (skip all intermediate waypoints)
             i = farthest_index + 1
@@ -515,64 +538,84 @@ class NavigationManager:
         if animation and animation.get("isMoving", False):
             return True
         return False
-
-    def wait_until_arrived(self, target_x: int, target_y: int, tolerance: int = 2, timeout: float = 10.0) -> bool:
+    
+    def wait_until_stopped(self, timeout: float = 5.0) -> bool:
         """
-        Wait until player arrives at target coordinates or gets stuck.
+        Wait until player stops moving using API animation check.
+        
+        Args:
+            timeout: Maximum wait time in seconds (default: 5)
+            
+        Returns:
+            True if player stopped moving, False if timeout
+        """
+        start_time = time.time()
+        
+        while time.time() - start_time < timeout:
+            if not self.is_moving():
+                # Confirm with second check to avoid animation lag
+                time.sleep(0.1)
+                if not self.is_moving():
+                    return True
+            time.sleep(random.uniform(0.2, 0.4))
+        
+        return False
+
+    def wait_until_arrived(self, target_x: int, target_y: int, tolerance: int = 2, timeout: float = 15.0) -> bool:
+        """
+        Wait until player arrives at target coordinates.
+        
+        Strategy: Wait for movement to complete (player stops), then check if arrived.
+        This is more logical since a single click will always result in stopping eventually.
         
         Args:
             target_x: Target world x coordinate
             target_y: Target world y coordinate
             tolerance: Distance tolerance in tiles (default: 2)
-            timeout: Maximum wait time in seconds (default: 10)
+            timeout: Maximum wait time for movement to stop (default: 15s for ~12 tile click)
             
         Returns:
-            True if arrived within tolerance, False if timeout or stuck
+            True if arrived within tolerance, False if stopped elsewhere or timeout
         """
-        start_time = time.time()
-        last_stuck_check = start_time
-        distance = float('inf')  # Initialize distance
+        # Wait for player to stop moving from the minimap click
+        # Max distance ~12 tiles at ~0.6s/tile = ~7-8s typical, 15s timeout is safe
+        if not self.wait_until_stopped(timeout=timeout):
+            print(f"  ⚠ Player still moving after {timeout}s timeout (possible API/game issue)")
+            return False
         
-        while time.time() - start_time < timeout:
-            # Read current position
-            current_pos = self.read_world_coordinates()
-            if current_pos is None:
-                print("Warning: Could not read coordinates during arrival check")
-                time.sleep(random.uniform(0.5, 0.8))
-                continue
-            
-            current_x, current_y = current_pos
-            
-            # Check if arrived
-            distance = math.sqrt((target_x - current_x)**2 + (target_y - current_y)**2)
-            if distance <= tolerance:
-                return True
-            
-            # Check for stuck condition every 3 seconds
-            if time.time() - last_stuck_check >= 3.0:
-                if self._is_stuck():
-                    print("Player appears stuck (no movement detected)")
-                    return False
-                last_stuck_check = time.time()
-            
-            # Wait before next check
-            time.sleep(random.uniform(0.8, 1.2))
+        # Movement complete - check if we arrived at destination
+        current_pos = self.read_world_coordinates()
+        if current_pos is None:
+            print("  ⚠ Could not read coordinates after movement stopped")
+            return False
         
-        print(f"Timeout waiting for arrival (still {distance:.1f} tiles away)")
-        return False
+        current_x, current_y = current_pos
+        distance = math.sqrt((target_x - current_x)**2 + (target_y - current_y)**2)
+        
+        if distance <= tolerance:
+            return True
+        else:
+            print(f"  ⚠ Stopped at ({current_x}, {current_y}) - distance from target: {distance:.1f} tiles")
+            return False
     
     def is_player_moving(self) -> bool:
         """
         Check if player is currently moving by comparing coordinates over time.
+        Uses API first, falls back to position polling if needed.
         
         Returns:
-            True if player position changed in last 0.6 seconds
+            True if player position changed in last 0.3-0.6 seconds
         """
+        # Try API first (faster and more reliable)
+        if self.is_moving():
+            return True
+        
+        # Fallback: position polling (sometimes animation state lags)
         pos1 = self.read_world_coordinates()
         if pos1 is None:
             return False
         
-        time.sleep(0.6)
+        time.sleep(random.uniform(0.3, 0.5))
         
         pos2 = self.read_world_coordinates()
         if pos2 is None:
@@ -616,6 +659,29 @@ class NavigationManager:
         
         # Stuck if no movement for 3+ seconds
         return time_span >= 3.0
+    
+    def get_animation_state(self) -> Optional[Dict[str, Any]]:
+        """
+        Get detailed animation state from API.
+        
+        Returns:
+            Dictionary with animationId, poseAnimation, isAnimating, isMoving
+            or None if API call failed
+        """
+        return self.api.get_animation()
+    
+    def is_animating(self) -> bool:
+        """
+        Check if player is performing any animation (combat, skilling, emote, etc).
+        Different from is_moving() which only checks movement.
+        
+        Returns:
+            True if player is animating
+        """
+        animation = self.api.get_animation()
+        if animation and animation.get("isAnimating", False):
+            return True
+        return False
     
     def get_pathfinding_stats(self) -> dict:
         """

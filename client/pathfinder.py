@@ -12,6 +12,7 @@ Features:
 - 8-directional movement (N, S, E, W, NE, NW, SE, SW)
 """
 
+import math
 import random
 import time
 from collections import deque
@@ -386,6 +387,9 @@ class VariancePathfinder:
         Uses greedy algorithm: looks ahead as far as possible and skips to farthest
         visible tile, making paths look more natural around large obstacles.
         
+        Uses tile distance for lookahead instead of waypoint count to ensure
+        maximum click distance optimization.
+        
         Args:
             path: Original path with potentially many intermediate waypoints
             variance_config: Configuration containing lookahead_distance parameter
@@ -398,20 +402,50 @@ class VariancePathfinder:
         
         simplified = [path[0]]  # Always keep start
         current_index = 0
-        lookahead_distance = variance_config.get("lookahead_distance", 12)
+        max_lookahead_distance = variance_config.get("lookahead_distance", 12)  # Tiles, not waypoints
         
         while current_index < len(path) - 1:
-            # Look ahead to find farthest visible tile
-            max_lookahead = min(len(path) - 1, current_index + lookahead_distance)
+            current_x, current_y, current_z = path[current_index]
             farthest_visible = current_index + 1  # Default to next tile
+            farthest_distance = 0.0
             
-            # Greedy search: find farthest tile with clear line-of-sight
-            for lookahead_index in range(max_lookahead, current_index, -1):
+            # Search backwards from end of path to find furthest visible tile within distance
+            for lookahead_index in range(len(path) - 1, current_index, -1):
+                look_x, look_y, look_z = path[lookahead_index]
+                
+                # Calculate actual tile distance
+                dx = look_x - current_x
+                dy = look_y - current_y
+                tile_distance = math.sqrt(dx**2 + dy**2)
+                
+                # Skip waypoints beyond lookahead range
+                if tile_distance > max_lookahead_distance:
+                    continue
+                
+                # Check line-of-sight to this waypoint
                 if self._has_line_of_sight(path[current_index], path[lookahead_index]):
-                    farthest_visible = lookahead_index
-                    break
+                    if tile_distance > farthest_distance:
+                        farthest_visible = lookahead_index
+                        farthest_distance = tile_distance
+                        # Found a good distant waypoint with clear line-of-sight
+                        break
             
-            # Add farthest visible waypoint
+            # If line-of-sight failed for all waypoints, find furthest walkable tile
+            # within a smaller distance (6 tiles) instead of defaulting to next tile
+            if farthest_visible == current_index + 1 and farthest_distance < 2.0:
+                for lookahead_index in range(len(path) - 1, current_index, -1):
+                    look_x, look_y, look_z = path[lookahead_index]
+                    dx = look_x - current_x
+                    dy = look_y - current_y
+                    tile_distance = math.sqrt(dx**2 + dy**2)
+                    
+                    # Look for furthest waypoint within 6 tiles as fallback
+                    if tile_distance <= 6.0 and tile_distance > farthest_distance:
+                        farthest_visible = lookahead_index
+                        farthest_distance = tile_distance
+                        break
+            
+            # Add farthest visible/walkable waypoint
             simplified.append(path[farthest_visible])
             current_index = farthest_visible
         
