@@ -2229,6 +2229,350 @@ class ModularTester:
             print("❌ No NPCs in viewport or endpoint not available")
 
 
+    # =================================================================
+    # MINING SKILL TESTS
+    # =================================================================
+    
+    def test_mining_pickaxe_verification(self):
+        """Test pickaxe equipped verification."""
+        api = self.init_api()
+        from config.items import Tools
+        
+        print("\nChecking for equipped pickaxe...")
+        equipment = api.get_equipment()
+        
+        if equipment:
+            print(f"✓ Retrieved {len(equipment)} equipped items")
+            # Slot 3 is weapon slot
+            weapon = next((item for item in equipment if item.get('slot') == 3), None)
+            
+            if weapon:
+                weapon_id = weapon.get('id')
+                weapon_name = weapon.get('name', 'Unknown')
+                print(f"  Weapon slot (3): {weapon_name} (ID: {weapon_id})")
+                
+                pickaxe_ids = [
+                    Tools.BRONZE_PICKAXE, Tools.IRON_PICKAXE, Tools.STEEL_PICKAXE,
+                    Tools.MITHRIL_PICKAXE, Tools.ADAMANT_PICKAXE, Tools.RUNE_PICKAXE,
+                    Tools.DRAGON_PICKAXE, Tools.CRYSTAL_PICKAXE
+                ]
+                
+                if weapon_id in pickaxe_ids:
+                    print(f"  ✓ Pickaxe detected: {weapon_name}")
+                else:
+                    print(f"  ✗ Not a pickaxe")
+            else:
+                print("  ✗ No weapon equipped")
+        else:
+            print("✗ Could not retrieve equipment data")
+    
+    def test_mining_xp_tracking(self):
+        """Test mining XP stat tracking."""
+        api = self.init_api()
+        
+        print("\nRetrieving Mining stats...")
+        stats = api.get_stats()
+        
+        if stats:
+            mining = next((s for s in stats if s['stat'] == 'Mining'), None)
+            if mining:
+                print(f"✓ Mining Stats:")
+                print(f"  Level: {mining['level']}")
+                print(f"  Current XP: {mining['xp']:,}")
+                print(f"  XP to next level: {mining['xpToNextLevel']:,}")
+                print(f"  Next level at: {mining['nextLevelAt']:,}")
+                
+                # Calculate percentage to next level
+                current_xp = mining['xp']
+                xp_to_next = mining['xpToNextLevel']
+                next_level_xp = mining['nextLevelAt']
+                level_start_xp = next_level_xp - (xp_to_next + current_xp - next_level_xp)
+                level_progress = ((current_xp - level_start_xp) / (next_level_xp - level_start_xp)) * 100
+                print(f"  Progress: {level_progress:.1f}%")
+            else:
+                print("✗ Mining stat not found")
+        else:
+            print("✗ Could not retrieve stats")
+    
+    def test_mining_animation_detection(self):
+        """Test mining animation detection."""
+        api = self.init_api()
+        
+        print("\nMonitoring player animation (10 seconds)...")
+        print("Start mining now!")
+        
+        start_time = time.time()
+        mining_detected = False
+        mining_animation_id = 628
+        
+        while time.time() - start_time < 10.0:
+            player_data = api.get_player()
+            if player_data:
+                is_animating = player_data.get('isAnimating', False)
+                animation_id = player_data.get('animation', -1)
+                
+                if is_animating:
+                    if animation_id == mining_animation_id:
+                        if not mining_detected:
+                            print(f"✓ Mining animation detected! (ID: {animation_id})")
+                            mining_detected = True
+                    else:
+                        print(f"  Animating: {animation_id}")
+                else:
+                    if mining_detected:
+                        print("  Mining animation stopped")
+                        mining_detected = False
+            
+            time.sleep(0.2)
+        
+        print("\nMonitoring complete")
+    
+    def test_find_ore_rocks(self):
+        """Test finding ore rocks in viewport."""
+        api = self.init_api()
+        osrs = self.init_osrs()
+        from config.game_objects import OreRocks
+        
+        print("\nSearching for ore rocks...")
+        objects = api.get_objects_in_viewport()
+        
+        if objects:
+            # Define common ore types to check
+            ore_types = {
+                "Iron": OreRocks.IRON,
+                "Copper": OreRocks.COPPER,
+                "Tin": OreRocks.TIN,
+                "Coal": OreRocks.COAL,
+                "Mithril": OreRocks.MITHRIL,
+                "Adamantite": OreRocks.ADAMANTITE,
+                "Runite": OreRocks.RUNITE,
+            }
+            
+            found_ores = {}
+            
+            for obj in objects:
+                obj_id = obj.get('id')
+                for ore_name, ore_ids in ore_types.items():
+                    if obj_id in ore_ids:
+                        if ore_name not in found_ores:
+                            found_ores[ore_name] = []
+                        found_ores[ore_name].append(obj)
+            
+            if found_ores:
+                print(f"✓ Found {sum(len(v) for v in found_ores.values())} ore rocks:")
+                for ore_name, rocks in found_ores.items():
+                    print(f"\n  {ore_name} ({len(rocks)} rocks):")
+                    for rock in rocks:
+                        x, y = rock.get('x', 0), rock.get('y', 0)
+                        wx, wy = rock.get('worldX', 0), rock.get('worldY', 0)
+                        print(f"    Screen: ({x}, {y}) | World: ({wx}, {wy})")
+            else:
+                print("✗ No ore rocks found in viewport")
+        else:
+            print("✗ No objects in viewport")
+    
+    def test_rock_distance_sorting(self):
+        """Test world-coordinate-based rock prioritization."""
+        api = self.init_api()
+        from config.game_objects import OreRocks
+        import math
+        
+        print("\nTesting rock distance sorting...")
+        
+        # Get player position
+        player_pos = api.get_player_world_location()
+        if not player_pos:
+            print("✗ Could not get player position")
+            return
+        
+        px, py = player_pos.get('x', 0), player_pos.get('y', 0)
+        print(f"Player at: ({px}, {py})")
+        
+        # Get all ore rocks
+        objects = api.get_objects_in_viewport()
+        if not objects:
+            print("✗ No objects in viewport")
+            return
+        
+        # Filter for iron rocks (or any common ore)
+        all_rock_ids = OreRocks.IRON + OreRocks.COPPER + OreRocks.TIN
+        rocks = [obj for obj in objects if obj.get('id') in all_rock_ids]
+        
+        if not rocks:
+            print("✗ No ore rocks found")
+            return
+        
+        print(f"\nFound {len(rocks)} rocks. Sorting by distance...")
+        
+        # Calculate distances
+        for rock in rocks:
+            rx, ry = rock.get('worldX', 0), rock.get('worldY', 0)
+            distance = math.sqrt((rx - px)**2 + (ry - py)**2)
+            rock['distance_2d'] = distance
+        
+        # Sort by distance
+        rocks.sort(key=lambda r: r.get('distance_2d', float('inf')))
+        
+        print("\nRocks sorted by distance:")
+        for i, rock in enumerate(rocks, 1):
+            rx, ry = rock.get('worldX', 0), rock.get('worldY', 0)
+            dist = rock.get('distance_2d', 0)
+            rock_id = rock.get('id')
+            print(f"  {i}. World: ({rx}, {ry}) | Distance: {dist:.1f} tiles | ID: {rock_id}")
+    
+    def test_location_resolution(self):
+        """Test location name to coordinates resolution."""
+        from config.locations import MiningLocations, BankLocations
+        
+        print("\nTesting location resolution...")
+        
+        test_locations = [
+            ("varrock_west_mine", MiningLocations),
+            ("varrock_west", BankLocations),
+            ("lumbridge_swamp_west", MiningLocations),
+            ("al_kharid_mine", MiningLocations),
+            ("edgeville", BankLocations),
+        ]
+        
+        for location_str, location_class in test_locations:
+            location_upper = location_str.upper().replace(" ", "_")
+            coord = location_class.find_by_name(location_upper)
+            
+            if coord:
+                print(f"✓ {location_str}: {coord}")
+            else:
+                print(f"✗ {location_str}: Not found")
+        
+        # Show all mining locations
+        print("\nAll mining locations:")
+        all_mines = MiningLocations.all()
+        for name, coords in all_mines.items():
+            print(f"  {name}: {coords}")
+    
+    def test_mining_bot_initialization(self):
+        """Test mining bot initialization."""
+        print("\nTesting mining bot initialization...")
+        
+        try:
+            from client.skills.mining import MiningBot
+            
+            print("Creating mining bot instance...")
+            bot = MiningBot("iron_miner_varrock")
+            
+            print(f"✓ Bot initialized successfully")
+            print(f"  Ore types: {[cfg['name'] for cfg in bot.rock_configs]}")
+            print(f"  Rock IDs: {bot.all_rock_ids}")
+            print(f"  Mine location: {bot.mine_location}")
+            print(f"  Bank location: {bot.bank_location}")
+            print(f"  Banking enabled: {bot.should_bank}")
+            print(f"  Powermine enabled: {bot.powermine}")
+            print(f"  Pickaxe verification: {bot.verify_pickaxe}")
+            print(f"  XP tracking: {bot.track_xp}")
+            print(f"  Respawn detection: {bot.detect_respawn}")
+            
+        except Exception as e:
+            print(f"✗ Initialization failed: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def test_ore_respawn_detection(self):
+        """Test ore respawn detection (requires mining)."""
+        api = self.init_api()
+        from config.game_objects import OreRocks
+        
+        print("\nTesting ore respawn detection...")
+        print("This test monitors for ore respawn after mining.")
+        print("Make sure you're near ore rocks and start mining!")
+        
+        all_rock_ids = OreRocks.IRON + OreRocks.COPPER + OreRocks.TIN
+        mining_animation_id = 628
+        
+        print("\nWaiting for mining to start...")
+        mining_started = False
+        timeout = 15.0
+        start_time = time.time()
+        
+        # Wait for mining animation
+        while time.time() - start_time < timeout:
+            player_data = api.get_player()
+            if player_data:
+                is_animating = player_data.get('isAnimating', False)
+                animation_id = player_data.get('animation', -1)
+                
+                if is_animating and animation_id == mining_animation_id:
+                    print("✓ Mining detected!")
+                    mining_started = True
+                    break
+            
+            time.sleep(0.2)
+        
+        if not mining_started:
+            print("✗ Mining not detected within timeout")
+            return
+        
+        # Wait for mining to stop
+        print("\nWaiting for ore to be depleted...")
+        while True:
+            player_data = api.get_player()
+            if player_data:
+                is_animating = player_data.get('isAnimating', False)
+                animation_id = player_data.get('animation', -1)
+                
+                if not is_animating or animation_id != mining_animation_id:
+                    print("✓ Mining stopped (ore depleted)")
+                    break
+            
+            time.sleep(0.2)
+        
+        # Monitor for respawn
+        print("\nMonitoring for ore respawn (10 seconds)...")
+        respawn_time = time.time()
+        
+        while time.time() - respawn_time < 10.0:
+            objects = api.get_objects_in_viewport()
+            if objects:
+                rocks = [obj for obj in objects if obj.get('id') in all_rock_ids]
+                if rocks:
+                    elapsed = time.time() - respawn_time
+                    print(f"✓ Ore respawned! (after {elapsed:.1f} seconds)")
+                    return
+            
+            time.sleep(0.3)
+        
+        print("✗ No respawn detected within timeout")
+    
+    def run_mining_tests(self):
+        """Run mining skill testing menu."""
+        self.current_menu = "mining"
+        
+        test_map = {
+            'p': ("Pickaxe Verification", self.test_mining_pickaxe_verification),
+            'x': ("XP Tracking", self.test_mining_xp_tracking),
+            'a': ("Animation Detection", self.test_mining_animation_detection),
+            'r': ("Find Ore Rocks", self.test_find_ore_rocks),
+            'd': ("Rock Distance Sorting", self.test_rock_distance_sorting),
+            'l': ("Location Resolution", self.test_location_resolution),
+            'b': ("Mining Bot Initialization", self.test_mining_bot_initialization),
+            's': ("Ore Respawn Detection", self.test_ore_respawn_detection),
+        }
+        
+        print("\n" + "="*60)
+        print("MINING SKILL TESTS")
+        print("="*60)
+        print("P - Pickaxe Verification (equipment check)")
+        print("X - XP Tracking (mining stats)")
+        print("A - Animation Detection (mining animation)")
+        print("R - Find Ore Rocks (API object detection)")
+        print("D - Rock Distance Sorting (world coordinates)")
+        print("L - Location Resolution (config lookup)")
+        print("B - Mining Bot Initialization (full bot setup)")
+        print("S - Ore Respawn Detection (requires mining)")
+        print("\nESC - Back to Main Menu")
+        print("="*60)
+        
+        self._run_submenu(test_map)
+
+
     def _run_submenu(self, test_map):
         """Run a submenu with tests."""
         # Wait for menu selection key to be released
@@ -2269,6 +2613,7 @@ class ModularTester:
             '9': ("Color Registry", self.run_registry_tests),
             '0': ("Navigation", self.run_navigation_tests),
             'p': ("Pathfinding", self.run_pathfinding_tests),
+            'm': ("Mining Skill", self.run_mining_tests),
         }
         
         def print_main_menu():
@@ -2285,7 +2630,8 @@ class ModularTester:
             print("8 - Login/Authentication Tests")
             print("9 - Color Registry Tests")
             print("0 - Navigation Tests")
-            print("P - Pathfinding Tests (NEW)")
+            print("P - Pathfinding Tests")
+            print("M - Mining Skill Tests (NEW)")
             print("\nESC - Exit")
             print("="*60)
         

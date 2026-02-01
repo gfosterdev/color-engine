@@ -45,11 +45,18 @@
 	},
 	"skill_settings": {
 		"skill": "mining",
-		"ore_type": "iron_ore",
+		"ore_type": "iron",
 		"banking": true,
 		"powermine": false,
-		"location": "varrock_west",
-		"rocks": ["iron_ore"],
-		"bank_location": "varrock_west_bank"
+		"location": "varrock_west_mine",
+		"rocks": ["iron"],
+		"bank_location": "varrock_west",
+		"validation": {
+			"verify_pickaxe": true,
+			"track_xp": true,
+			"detect_respawn": true,
+			"use_animation_detection": true,
+			"respawn_timeout": 10.0
+		}
 	}
 }

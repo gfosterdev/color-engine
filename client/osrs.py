@@ -590,3 +590,44 @@ class OSRS:
         else:
             print("Logout verification failed. Not at login screen.")
             return False
+
+    def get_equipped_tool_id(self, slot: int = 3) -> Optional[int]:
+        """
+        Get the item ID of the equipped tool in a specific slot.
+        
+        Args:
+            slot: Equipment slot (default 3 for weapon/tool)
+                  Common slots: 3=weapon, 0=head, 4=body, etc.
+        
+        Returns:
+            Item ID if something is equipped, None otherwise
+        """
+        equipment = self.api.get_equipment()
+        if not equipment:
+            return None
+        
+        # Equipment API returns list of equipped items
+        for item in equipment:
+            if item.get('slot') == slot:
+                return item.get('id')
+        
+        return None
+
+    def verify_tool_equipped(self, required_tool_ids: list[int], slot: int = 3) -> bool:
+        """
+        Verify that one of the required tools is equipped in the specified slot.
+        
+        Args:
+            required_tool_ids: List of acceptable tool item IDs
+            slot: Equipment slot to check (default 3 for weapon/tool)
+        
+        Returns:
+            True if a required tool is equipped, False otherwise
+        """
+        equipped_id = self.get_equipped_tool_id(slot)
+        if equipped_id in required_tool_ids:
+            print(f"✓ Required tool equipped (ID: {equipped_id})")
+            return True
+        else:
+            print(f"✗ No required tool equipped in slot {slot}")
+            return False

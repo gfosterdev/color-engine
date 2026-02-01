@@ -1,139 +1,34 @@
 """
-Mining skill bot implementation.
+Mining skill bot implementation using reusable utility components.
 
 Autonomous mining bot that mines ore, banks when inventory is full,
-and returns to mining location.
+and returns to mining location using RuneLite API for object detection
+and pathfinding for navigation.
 """
 
-from typing import Optional, List
+from typing import Optional, Dict
 from client.osrs import OSRS
-from client.color_registry import get_color, ColorRegistry
-from client.interactions import GameObject, GameObjectInteraction
-from core.state_machine import StateMachine, BotState
-from core.task_engine import Task, TaskQueue, TaskResult, TaskPriority
-from core.config import BotConfig, load_profile
-from core.anti_ban import AntiBanManager, AntiBanDecorator
-from core.bot_base import BotBase
+from core.skill_bot_base import SkillBotBase
+from core.state_machine import BotState
+from core.config import load_profile
 from config.timing import TIMING
+from config.skill_mappings import MINING_RESOURCES, get_all_tool_ids
+from config.locations import MiningLocations, BankLocations
+from util.types import Polygon
 import time
 import random
 
 
-class MineOreTask(Task):
-    """Task to mine a single ore."""
-    
-    def __init__(self, osrs: OSRS, ore_object: GameObject, interaction: GameObjectInteraction):
-        super().__init__("Mine Ore", TaskPriority.NORMAL)
-        self.osrs = osrs
-        self.ore_object = ore_object
-        self.interaction = interaction
-        self.timeout = 10.0
-    
-    def validate_preconditions(self) -> TaskResult:
-        """Check if we can mine (inventory not full)."""
-        if self.osrs.inventory.is_full():
-            return TaskResult(
-                success=False,
-                message="Inventory is full, cannot mine",
-                retry_recommended=False
-            )
-        return TaskResult(success=True)
-    
-    def execute(self) -> TaskResult:
-        """Find and click on ore."""
-        # Wait for ore to appear
-        found = self.interaction.wait_for_object(
-            self.ore_object,
-            timeout=5.0,
-            search_rotation=True
-        )
-        
-        if not found:
-            return TaskResult(
-                success=False,
-                message=f"Could not find {self.ore_object.name}",
-                retry_recommended=True
-            )
-        
-        # Click the ore
-        if self.interaction.interact_with_object(self.ore_object, validate_hover=True):
-            # Wait for mining animation (randomized)
-            min_delay, max_delay = TIMING.MEDIUM_DELAY
-            time.sleep(random.uniform(min_delay + 1.0, max_delay + 2.0))  # Mining takes time
-            return TaskResult(success=True, message="Mining ore")
-        
-        return TaskResult(
-            success=False,
-            message="Failed to click ore",
-            retry_recommended=True
-        )
-
-
-class BankOreTask(Task):
-    """Task to bank all ore."""
-    
-    def __init__(self, osrs: OSRS):
-        super().__init__("Bank Ore", TaskPriority.HIGH)
-        self.osrs = osrs
-        self.timeout = 30.0
-    
-    def validate_preconditions(self) -> TaskResult:
-        """Check if inventory has items to bank."""
-        if self.osrs.inventory.is_empty():
-            return TaskResult(
-                success=False,
-                message="Inventory is empty, nothing to bank",
-                retry_recommended=False
-            )
-        return TaskResult(success=True)
-    
-    def execute(self) -> TaskResult:
-        """Open bank and deposit all items."""
-        # Find and open bank
-        if not self.osrs.interfaces.is_bank_open():
-            bank_point = self.osrs.find_bank()
-            
-            if not bank_point:
-                return TaskResult(
-                    success=False,
-                    message="Could not find bank",
-                    retry_recommended=True
-                )
-            
-            if not self.osrs.open_bank():
-                return TaskResult(
-                    success=False,
-                    message="Failed to open bank",
-                    retry_recommended=True
-                )
-        
-        # Deposit all items
-        if not self.osrs.deposit_all():
-            return TaskResult(
-                success=False,
-                message="Failed to deposit items",
-                retry_recommended=True
-            )
-        
-        # Wait a moment
-        time.sleep(random.uniform(*TIMING.INTERFACE_TRANSITION))
-        
-        # Close bank
-        if not self.osrs.close_bank():
-            return TaskResult(
-                success=False,
-                message="Failed to close bank",
-                retry_recommended=True
-            )
-        
-        return TaskResult(success=True, message="Successfully banked items")
-
-
-class MiningBot(BotBase):
+class MiningBot(SkillBotBase):
     """
-    Autonomous mining bot.
+    Autonomous mining bot using RuneLite API and reusable skill bot components.
     
-    Mines specified ore type, banks when inventory is full, and repeats.
+    Features:
+    - Extends SkillBotBase for common gathering bot functionality
+    - Uses ResourceManager for rock prioritization and depletion tracking
+    - Uses SkillTracker for XP monitoring
+    - Uses RespawnDetector for efficient ore respawn detection
+    - Supports multiple ore types with automatic distance-based selection
     """
     
     def __init__(self, profile_name: str = "iron_miner_varrock"):
@@ -143,204 +38,193 @@ class MiningBot(BotBase):
         Args:
             profile_name: Configuration profile to load
         """
-        super().__init__()  # Initialize BotBase
-        self.config = load_profile(profile_name)
-        self.osrs = OSRS()
-        self.interaction = GameObjectInteraction(self.osrs.window)
-        self.state_machine = StateMachine(BotState.IDLE)
-        self.task_queue = TaskQueue("mining")
-        self.registry = ColorRegistry()
+        config = load_profile(profile_name)
+        osrs = OSRS(config)
+        
+        # Initialize base class
+        super().__init__(osrs, config.skill_settings)
+        
+        self.config = config
         
         # Get ore configuration
-        self.ore_type = self.config.skill_settings.get("ore_type", "iron_ore")
+        ore_type = self.config.skill_settings.get("ore_type", "iron")
+        
+        # Support multiple rocks from profile
+        rock_types = self.config.skill_settings.get("rocks", [ore_type])
+        self.rock_configs = []
+        
+        for rock_name in rock_types:
+            rock_clean = rock_name.lower().replace("_ore", "").replace("_", "")
+            if rock_clean in MINING_RESOURCES:
+                resource = MINING_RESOURCES[rock_clean]
+                self.rock_configs.append({
+                    "rock_ids": resource['object_ids'],
+                    "item_id": resource['item_id'],
+                    "name": resource['display_name'],
+                    "animation_id": resource['mining_animation_id'],
+                    "respawn_time": resource['respawn_time']
+                })
+        
+        if not self.rock_configs:
+            raise ValueError(f"No valid ore types found in profile. Available: {list(MINING_RESOURCES.keys())}")
+        
+        # Primary ore config
+        self.primary_ore = self.rock_configs[0]
+        print(f"Configured ores: {[cfg['name'] for cfg in self.rock_configs]}")
+        
+        # Get behavior settings
         self.should_bank = self.config.skill_settings.get("banking", True)
         self.powermine = self.config.skill_settings.get("powermine", False)
         
-        # Create ore object
-        ore_color = self.registry.get_color(self.ore_type)
-        if not ore_color:
-            raise ValueError(f"Ore type '{self.ore_type}' not found in color registry")
+        # Resolve locations from config
+        mine_location_str = self.config.skill_settings.get("location", "varrock_west_mine")
+        bank_location_str = self.config.skill_settings.get("bank_location", "varrock_west_bank")
         
-        self.ore_object = GameObject(
-            name=self.ore_type,
-            color=ore_color,
-            object_type="ore",
-            hover_text=self.ore_type.replace("_", " ").title()
-        )
+        self.mine_location = MiningLocations.find_by_name(mine_location_str.upper().replace(" ", "_"))
+        self.bank_location = BankLocations.find_by_name(bank_location_str.upper().replace(" ", "_"))
         
-        # Initialize anti-ban system
-        self.anti_ban = AntiBanManager(
-            window=self.osrs.window,
-            config=self.config.anti_ban,
-            break_config=self.config.breaks,
-            osrs_client=self.osrs
-        )
+        if not self.mine_location:
+            raise ValueError(f"Could not resolve mining location: {mine_location_str}")
+        if self.should_bank and not self.bank_location:
+            raise ValueError(f"Banking enabled but could not resolve bank location: {bank_location_str}")
         
-        # Initialize anti-ban decorator for wrapping actions
-        self.anti_ban_decorator = AntiBanDecorator(self.anti_ban)
+        print(f"Mine location: {self.mine_location}")
+        print(f"Bank location: {self.bank_location}")
         
         # Statistics
         self.ores_mined = 0
         self.banking_trips = 0
-        self.start_time = time.time()
     
-    def _run_loop(self):
-        """Main bot loop (called by BotBase.start())."""
-        print(f"Starting mining bot for {self.ore_type}...")
-        print(f"Configuration: Bank={self.should_bank}, Powermine={self.powermine}")
-        
-        self.start_time = time.time()
-        self.state_machine.transition(BotState.STARTING, "Bot started")
-        
-        while self.running:
-            # Check if break is needed
-            if self.anti_ban.should_take_break():
-                self.state_machine.transition(BotState.BREAK, "Taking scheduled break")
-                self.anti_ban.take_break()
-                self.state_machine.transition(BotState.MINING, "Resuming after break")
-            
-            # Perform random idle action occasionally
-            if self.anti_ban.should_perform_idle_action():
-                print("Performing idle action...")
-                self.anti_ban.perform_idle_action()
-            
-            current_state = self.state_machine.current_state
-            
-            # Check inventory status
-            inv_count = self.osrs.inventory.count_filled()
-            is_full = self.osrs.inventory.is_full()
-            
-            print(f"State: {current_state.value} | Inventory: {inv_count}/28 | Fatigue: {self.anti_ban.get_fatigue_level()*100:.0f}%")
-            
-            # State-based logic
-            if current_state == BotState.STARTING:
-                # Transition to mining
-                self.state_machine.transition(BotState.MINING, "Ready to mine")
-            
-            elif current_state == BotState.MINING:
-                # Check if inventory is full
-                if is_full:
-                    if self.should_bank:
-                        self.state_machine.transition(BotState.BANKING, "Inventory full")
-                    elif self.powermine:
-                        # Drop all items
-                        self._drop_all_items()
-                else:
-                    # Mine ore
-                    self._mine_ore()
-            
-            elif current_state == BotState.BANKING:
-                # Bank items
-                self._bank_items()
-                self.state_machine.transition(BotState.MINING, "Returned to mining")
-            
-            elif current_state == BotState.ERROR:
-                # Try to recover
-                print("Error state detected, attempting recovery...")
-                min_delay, max_delay = TIMING.LARGE_DELAY
-                time.sleep(random.uniform(min_delay + 1.0, max_delay + 2.0))  # Give time to recover
-                self.state_machine.transition(BotState.RECOVERING, "Attempting recovery")
-                
-            elif current_state == BotState.RECOVERING:
-                # Close any open interfaces
-                self.osrs.interfaces.close_interface()
-                time.sleep(random.uniform(*TIMING.MEDIUM_DELAY))
-                self.state_machine.transition(BotState.MINING, "Recovered")
-            
-            # Apply anti-ban action delay (includes fatigue simulation)
-            self.anti_ban.apply_action_delay()
-            
-            # Occasional tab switching
-            self.anti_ban.randomize_tab_switching()
-            
-            # Attention shifts
-            self.anti_ban.perform_attention_shift()
+    # =============================================================================
+    # ABSTRACT METHOD IMPLEMENTATIONS (required by SkillBotBase)
+    # =============================================================================
     
-    def _mine_ore(self):
-        """Mine a single ore."""
-        # Wrap mining action with anti-ban behaviors
-        def mine_action():
-            task = MineOreTask(self.osrs, self.ore_object, self.interaction)
-            result = task.run()
+    def _gather_resource(self):
+        """
+        Mine one ore using resource manager and respawn detector.
+        Implements SkillBotBase abstract method.
+        """
+        if not self.resource_manager:
+            print("Resource manager not initialized")
+            return
+        
+        # Find nearest rock using resource manager
+        nearest_rock = self.resource_manager.find_nearest_node(exclude_depleted=True)
+        
+        if not nearest_rock:
+            print("No rocks available")
+            time.sleep(1)
+            return
+        
+        # Determine ore name
+        rock_id = nearest_rock.get('id')
+        ore_name = "Ore"
+        for cfg in self.rock_configs:
+            if rock_id in cfg["rock_ids"]:
+                ore_name = cfg["name"]
+                break
+        
+        # Get convex hull polygon for clicking
+        if 'convexHull' not in nearest_rock:
+            print("Rock missing convex hull data")
+            return
+        
+        polygon = self.osrs.window.convex_hull_to_polygon(nearest_rock['convexHull'])
+        
+        # Move mouse to random point on rock
+        self.osrs.window.move_mouse_to(polygon.random_point())
+        time.sleep(random.uniform(0.1, 0.3))
+        
+        # Validate "Mine" option
+        if not self.osrs.validate_interact_text("Mine"):
+            print("Mine option not found")
+            return
+        
+        # Click rock
+        self.osrs.window.click()
+        print(f"Mining {ore_name}...")
+        
+        # Mark rock as depleted
+        self.resource_manager.mark_node_depleted(nearest_rock['x'], nearest_rock['y'])
+        
+        # Wait for ore depletion using respawn detector
+        if self.detect_respawn and self.respawn_detector and rock_id:
+            self.respawn_detector.wait_for_respawn(
+                rock_id,
+                nearest_rock['x'],
+                nearest_rock['y'],
+                max_wait=10.0,
+                use_animation=self.use_animation
+            )
+        else:
+            # Simple delay if not using detection
+            time.sleep(random.uniform(1.5, 3.0))
+        
+        self.ores_mined += 1
+        print(f"✓ Mined ore (Total: {self.ores_mined})")
+    
+    def _get_skill_name(self) -> str:
+        """Get skill name. Implements SkillBotBase abstract method."""
+        return "Mining"
+    
+    def _get_tool_ids(self) -> list[int]:
+        """Get pickaxe item IDs. Implements SkillBotBase abstract method."""
+        return get_all_tool_ids('mining')
+    
+    def _get_resource_info(self) -> Dict:
+        """Get primary ore resource info. Implements SkillBotBase abstract method."""
+        return {
+            'object_ids': self.primary_ore['rock_ids'],
+            'item_id': self.primary_ore['item_id'],
+            'animation_id': self.primary_ore.get('animation_id', 628),
+            'respawn_time': self.primary_ore.get('respawn_time', (5, 10))
+        }
+    
+    # =============================================================================
+    # CUSTOM METHODS
+    # =============================================================================
+    
+    def _handle_banking(self):
+        """Override banking to use ore-specific item ID."""
+        # Check if at bank
+        if not self.osrs.interfaces.is_bank_open():
+            # Walk to bank
+            print("Walking to bank...")
+            bank_location = self.config.skill_settings.get('bank_location', 'varrock_west_bank')
             
-            # Track task result for failure detection
-            self._track_task_result("mine_ore", result.success)
-            
-            if result.success:
-                self.ores_mined += 1
-                print(f"Mined {self.ores_mined} ores")
+            if self.osrs.open_bank(location_name=bank_location):
+                print("✓ Bank opened")
             else:
-                print(f"Mining failed: {result.message}")
-                
-                # If can't find ore after retries, might be stuck
-                if "Could not find" in result.message:
-                    self.state_machine.transition(BotState.ERROR, "Ore not found")
+                print("✗ Failed to open bank")
+                time.sleep(2)
+                return
         
-        # Execute with anti-ban wrapper
-        self.anti_ban_decorator.wrap_action(mine_action)()
+        # Deposit all ores
+        for cfg in self.rock_configs:
+            item_id = cfg['item_id']
+            if self.osrs.inventory.deposit_all(item_id):
+                print(f"✓ Deposited {cfg['name']}")
+        
+        time.sleep(random.uniform(*TIMING.BANK_DEPOSIT_ACTION))
+        
+        # Close bank
+        self.osrs.interfaces.close_interface()
+        time.sleep(random.uniform(*TIMING.INTERFACE_CLOSE_DELAY))
+        
+        self.banking_trips += 1
+        
+        # Return to gathering
+        self.current_state = BotState.MINING
     
-    def _bank_items(self):
-        """Bank all items."""
-        # Wrap banking action with anti-ban behaviors
-        def bank_action():
-            task = BankOreTask(self.osrs)
-            result = task.run()
-            
-            # Track task result for failure detection
-            self._track_task_result("bank_items", result.success)
-            
-            if result.success:
-                self.banking_trips += 1
-                print(f"Banking trip #{self.banking_trips} completed")
-            else:
-                print(f"Banking failed: {result.message}")
-                self.state_machine.transition(BotState.ERROR, "Banking failed")
+    def stop(self):
+        """Override stop to print mining-specific statistics."""
+        super().stop()
         
-        # Execute with anti-ban wrapper
-        self.anti_ban_decorator.wrap_action(bank_action)()
-    
-    def _drop_all_items(self):
-        """Drop all items (for powermining)."""
-        print("Powermining: Dropping all items...")
-        
-        # Open inventory if not open
-        if not self.osrs.inventory.is_inventory_open():
-            self.osrs.inventory.open_inventory()
-            time.sleep(random.uniform(*TIMING.INVENTORY_TAB_OPEN))
-        
-        # Drop each item
-        for i in range(28):
-            if not self.osrs.inventory.is_slot_empty(i):
-                self.osrs.inventory.click_slot(i, right_click=True)
-                time.sleep(random.uniform(*TIMING.MICRO_DELAY))
-                # TODO: Select "Drop" from menu
-                # For now, just clicking
-        
-        time.sleep(random.uniform(*TIMING.INTERFACE_TRANSITION))
-    
-    def _cleanup(self):
-        """Cleanup operations after bot stops (implements BotBase abstract method)."""
-        self.state_machine.transition(BotState.STOPPING, "Bot stopping")
-        self._print_statistics()
-        self.state_machine.transition(BotState.IDLE, "Bot stopped")
-    
-    def _print_statistics(self):
-        """Print bot statistics."""
-        runtime = time.time() - self.start_time
-        runtime_minutes = runtime / 60.0
-        
-        print("\n" + "="*50)
-        print("MINING BOT STATISTICS")
-        print("="*50)
-        print(f"Ore Type: {self.ore_type}")
-        print(f"Ores Mined: {self.ores_mined}")
+        # Print additional mining stats
+        print(f"\nOres Mined: {self.ores_mined}")
         print(f"Banking Trips: {self.banking_trips}")
-        print(f"Runtime: {runtime_minutes:.1f} minutes")
-        if runtime_minutes > 0:
-            print(f"Ores/Hour: {(self.ores_mined / runtime_minutes * 60):.1f}")
-        print(f"Actions Performed: {self.anti_ban.action_count}")
-        print(f"Final Fatigue: {self.anti_ban.get_fatigue_level()*100:.0f}%")
-        print("="*50)
+        if self.resource_manager:
+            print(f"Depleted Rocks Tracked: {self.resource_manager.get_depleted_count()}")
 
 
 # Example usage
