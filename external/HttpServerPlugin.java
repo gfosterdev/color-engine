@@ -285,6 +285,9 @@ public class HttpServerPlugin extends Plugin
             Scene scene = client.getScene();
             Tile[][][] tiles = scene.getTiles();
             int plane = client.getPlane();
+            
+            // Track seen game objects to avoid duplicates based on id, worldX, worldY
+            java.util.Set<String> seenObjects = new java.util.HashSet<>();
 
             for (int x = 0; x < 104; x++)
             {
@@ -299,11 +302,22 @@ public class HttpServerPlugin extends Plugin
                     {
                         if (gameObject == null) continue;
 
+                        WorldPoint wp = gameObject.getWorldLocation();
+                        
+                        // Create unique key from id, worldX, worldY
+                        String objectKey = gameObject.getId() + "_" + wp.getX() + "_" + wp.getY();
+                        
+                        // Skip if we've already added this object
+                        if (seenObjects.contains(objectKey)) {
+                            continue;
+                        }
+                        seenObjects.add(objectKey);
+
                         Point point = Perspective.localToCanvas(client, gameObject.getLocalLocation(), plane);
                         JsonObject objData = new JsonObject();
                         objData.addProperty("id", gameObject.getId());
-                        objData.addProperty("worldX", gameObject.getWorldLocation().getX());
-                        objData.addProperty("worldY", gameObject.getWorldLocation().getY());
+                        objData.addProperty("worldX", wp.getX());
+                        objData.addProperty("worldY", wp.getY());
                         objData.addProperty("x", point.getX());
                         objData.addProperty("y", point.getY());
 
@@ -348,7 +362,7 @@ public class HttpServerPlugin extends Plugin
 
     public void handleFindNearest(HttpExchange exchange) throws IOException
     {
-        // Parse query parameters: /find_nearest?id=1234&type=npc
+        // Parse query parameters: /find_nearest?ids=1234,5678&type=npc
         String query = exchange.getRequestURI().getQuery();
         if (query == null)
         {
@@ -367,14 +381,14 @@ public class HttpServerPlugin extends Plugin
             }
         }
 
-        if (!params.containsKey("id") || !params.containsKey("type"))
+        if (!params.containsKey("ids") || !params.containsKey("type"))
         {
             exchange.sendResponseHeaders(400, 0);
             exchange.getResponseBody().close();
             return;
         }
 
-        int targetId;
+        int[] targetIds;
         String searchType = params.get("type").toLowerCase();
         
         if (!searchType.equals("npc") && !searchType.equals("object"))
@@ -386,7 +400,12 @@ public class HttpServerPlugin extends Plugin
         
         try
         {
-            targetId = Integer.parseInt(params.get("id"));
+            String[] idStrings = params.get("ids").split(",");
+            targetIds = new int[idStrings.length];
+            for (int i = 0; i < idStrings.length; i++)
+            {
+                targetIds[i] = Integer.parseInt(idStrings[i].trim());
+            }
         }
         catch (NumberFormatException ex)
         {
@@ -401,20 +420,40 @@ public class HttpServerPlugin extends Plugin
 
             WorldPoint playerPos = localPlayer.getWorldLocation();
             JsonObject data = new JsonObject();
-            data.addProperty("searchId", targetId);
+            
+            // Convert targetIds array to JsonArray for response
+            JsonArray searchIdsArray = new JsonArray();
+            for (int id : targetIds)
+            {
+                searchIdsArray.add(id);
+            }
+            data.add("searchIds", searchIdsArray);
             data.addProperty("searchType", searchType);
             data.addProperty("found", false);
 
             if (searchType.equals("npc"))
             {
-                // Search for NPCs
+                // Search for NPCs matching any of the target IDs
                 NPC closestNPC = null;
                 int closestNPCDistance = Integer.MAX_VALUE;
                 List<NPC> npcList = client.getNpcs();
 
                 for (NPC npc : npcList)
                 {
-                    if (npc == null || npc.getId() != targetId) continue;
+                    if (npc == null) continue;
+                    
+                    // Check if NPC ID matches any of the target IDs
+                    boolean matches = false;
+                    for (int targetId : targetIds)
+                    {
+                        if (npc.getId() == targetId)
+                        {
+                            matches = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!matches) continue;
 
                     WorldPoint npcPos = npc.getWorldLocation();
                     int distance = npcPos.distanceTo(playerPos);
@@ -432,6 +471,7 @@ public class HttpServerPlugin extends Plugin
                     data.addProperty("found", true);
                     data.addProperty("type", "npc");
                     data.addProperty("name", closestNPC.getName());
+                    data.addProperty("id", closestNPC.getId());
                     data.addProperty("worldX", npcPos.getX());
                     data.addProperty("worldY", npcPos.getY());
                     data.addProperty("plane", npcPos.getPlane());
@@ -440,7 +480,7 @@ public class HttpServerPlugin extends Plugin
             }
             else if (searchType.equals("object"))
             {
-                // Search for game objects
+                // Search for game objects matching any of the target IDs
                 GameObject closestObject = null;
                 int closestObjectDistance = Integer.MAX_VALUE;
                 Scene scene = client.getScene();
@@ -456,7 +496,20 @@ public class HttpServerPlugin extends Plugin
 
                         for (GameObject gameObject : tile.getGameObjects())
                         {
-                            if (gameObject == null || gameObject.getId() != targetId) continue;
+                            if (gameObject == null) continue;
+                            
+                            // Check if object ID matches any of the target IDs
+                            boolean matches = false;
+                            for (int targetId : targetIds)
+                            {
+                                if (gameObject.getId() == targetId)
+                                {
+                                    matches = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (!matches) continue;
 
                             WorldPoint objPos = gameObject.getWorldLocation();
                             int distance = objPos.distanceTo(playerPos);
@@ -475,6 +528,7 @@ public class HttpServerPlugin extends Plugin
                     WorldPoint objPos = closestObject.getWorldLocation();
                     data.addProperty("found", true);
                     data.addProperty("type", "object");
+                    data.addProperty("id", closestObject.getId());
                     data.addProperty("worldX", objPos.getX());
                     data.addProperty("worldY", objPos.getY());
                     data.addProperty("plane", objPos.getPlane());
@@ -493,6 +547,9 @@ public class HttpServerPlugin extends Plugin
         JsonArray npcsData = invokeAndWait(() -> {
             JsonArray npcs = new JsonArray();
             List<NPC> npcList = client.getNpcs();
+            
+            // Track seen NPCs to avoid duplicates based on id, worldX, worldY
+            java.util.Set<String> seenNPCs = new java.util.HashSet<>();
 
             for (NPC npc : npcList)
             {
@@ -503,6 +560,15 @@ public class HttpServerPlugin extends Plugin
                 Point point = Perspective.localToCanvas(client, lp, wp.getPlane());
                 if (isPointInViewport(point))
                 {
+                    // Create unique key from id, worldX, worldY
+                    String npcKey = npc.getId() + "_" + wp.getX() + "_" + wp.getY();
+                    
+                    // Skip if we've already added this NPC
+                    if (seenNPCs.contains(npcKey)) {
+                        continue;
+                    }
+                    seenNPCs.add(npcKey);
+                    
                     JsonObject npcData = new JsonObject();
                     npcData.addProperty("name", npc.getName());
                     npcData.addProperty("id", npc.getId());

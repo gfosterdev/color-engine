@@ -342,32 +342,52 @@ class RuneLiteAPI:
         result = self._get("npcs_in_viewport")
         return cast(Optional[List[Dict[str, Any]]], result)
 
-    def get_npc_in_viewport(self, npc_id, world_x: Optional[int] = None, world_y: Optional[int] = None) -> Optional[Dict[str, Any]]:
+    def get_entity_in_viewport(self, entity_ids: Union[int, List[int]], entity_type: str, world_x: Optional[int] = None, world_y: Optional[int] = None, selection: str = "random") -> Optional[Dict[str, Any]]:
         """
-        Get NPC in viewport if it exists.
-        If more than one exists and no coordinates provided, returns a random one.
-        If coordinates are provided, returns the NPC at that location.
+        Get entity (NPC or game object) in viewport if it exists.
+        If more than one exists and no coordinates provided, returns based on selection mode.
+        If coordinates are provided, returns the entity at that location.
         
         Args:
-            npc_id: NPC ID to search for
+            entity_ids: Entity ID or list of entity IDs to search for (NPC ID or game object ID)
+            entity_type: Type of entity - either "npc" or "object"
             world_x: Optional world X coordinate to filter by
             world_y: Optional world Y coordinate to filter by
+            selection: Selection mode - "random" (default) or "nearest"
 
         Returns:
-            Dictionary with name, id, x, y, hull or None if not found
+            Dictionary with id, name, x, y, hull or None if not found
         """
-        result = self._get("npcs_in_viewport")
+        if entity_type not in ["npc", "object"]:
+            raise ValueError(f"entity_type must be 'npc' or 'object', got '{entity_type}'")
+        
+        if selection not in ["random", "nearest"]:
+            raise ValueError(f"selection must be 'random' or 'nearest', got '{selection}'")
+        
+        # Normalize to list
+        if isinstance(entity_ids, int):
+            entity_ids = [entity_ids]
+        
+        # Get appropriate viewport data based on entity type
+        if entity_type == "npc":
+            result = self._get("npcs_in_viewport")
+        else:  # object
+            result = self._get("objects_in_viewport")
+        
         result = cast(Optional[List[Dict[str, Any]]], result)
         if result and len(result) > 0:
-            filtered = [npc for npc in result if npc.get('id') == npc_id]
+            filtered = [entity for entity in result if entity.get('id') in entity_ids]
             
             # If coordinates provided, filter by exact location
             if world_x is not None and world_y is not None:
-                filtered = [npc for npc in filtered if npc.get('worldX') == world_x and npc.get('worldX') == world_y]
+                filtered = [entity for entity in filtered if entity.get('worldX') == world_x and entity.get('worldY') == world_y]
             
             if len(filtered) > 0:
-                import random
-                return random.choice(filtered)
+                if selection == "nearest":
+                    return self.get_nearest_entity_from_list(filtered)
+                else:  # random
+                    import random
+                    return random.choice(filtered)
         return None
 
     def get_game_objects_in_viewport(self) -> Optional[List[Dict[str, Any]]]:
@@ -379,37 +399,6 @@ class RuneLiteAPI:
         """
         result = self._get("objects_in_viewport")
         return cast(Optional[List[Dict[str, Any]]], result)
-
-    def get_game_object_in_viewport(self, obj_id, world_x: Optional[int] = None, world_y: Optional[int] = None) -> Optional[Dict[str, Any]]:
-        """
-        Get game object if it exists in the viewport.
-        If more than one exists and no coordinates provided, returns a random one.
-        If coordinates are provided, returns the object at that location.
-        
-        Args:
-            obj_id: Game object ID to search for
-            world_x: Optional world X coordinate to filter by
-            world_y: Optional world Y coordinate to filter by
-        
-        Returns:
-            Dictionary with id, name, x, y or None if not found
-        """
-        result = self._get("objects_in_viewport")
-        result = cast(Optional[List[Dict[str, Any]]], result)
-        if result and len(result) > 0:
-            filtered = [obj for obj in result if obj.get('id') == obj_id]
-            print(f"filtered length: {len(filtered)}")
-            
-            # If coordinates provided, filter by exact location
-            if world_x is not None and world_y is not None:
-                filtered = [obj for obj in filtered if obj.get('worldX') == world_x and obj.get('worldY') == world_y]
-                print(f"filtered length: {len(filtered)}")
-                print(f"filtered items: {filtered}")
-            
-            if len(filtered) > 0:
-                import random
-                return random.choice(filtered)
-        return None
 
     def get_viewport_data(self) -> Optional[Dict[str, Any]]:
         """
@@ -450,21 +439,22 @@ class RuneLiteAPI:
         result = self._get(f"camera_rotation?x={world_x}&y={world_y}&plane={plane}")
         return cast(Optional[Dict[str, Any]], result)
     
-    def get_nearest_by_id(self, entity_id: int, entity_type: str) -> Optional[Dict[str, Any]]:
+    def get_nearest_by_id(self, entity_ids: Union[int, List[int]], entity_type: str) -> Optional[Dict[str, Any]]:
         """
-        Find the nearest game object or NPC by ID and return its world coordinates.
+        Find the nearest game object or NPC by ID(s) and return its world coordinates.
         
         Args:
-            entity_id: The game object ID or NPC ID to search for
+            entity_ids: The game object ID(s) or NPC ID(s) to search for (single int or list)
             entity_type: Type of entity to search for - either "npc" or "object"
             
         Returns:
             Dictionary with:
                 - found (bool): Whether entity was found
-                - searchId (int): The ID that was searched for
+                - searchIds (list): The IDs that were searched for
                 - searchType (str): The type that was searched ("npc" or "object")
                 - type (str): "npc" or "object" if found
                 - name (str): Entity name (NPCs only)
+                - id (int): The ID of the found entity
                 - worldX (int): World X coordinate
                 - worldY (int): World Y coordinate
                 - plane (int): World plane
@@ -474,5 +464,57 @@ class RuneLiteAPI:
         """
         if entity_type not in ["npc", "object"]:
             raise ValueError(f"entity_type must be 'npc' or 'object', got '{entity_type}'")
-        result = self._get(f"find_nearest?id={entity_id}&type={entity_type}")
+        
+        # Normalize to list
+        if isinstance(entity_ids, int):
+            entity_ids = [entity_ids]
+        
+        # Convert list to comma-separated string for query parameter
+        ids_str = ','.join(map(str, entity_ids))
+        
+        result = self._get(f"find_nearest?ids={ids_str}&type={entity_type}")
         return cast(Optional[Dict[str, Any]], result)
+    
+    def get_nearest_entity_from_list(self, entities: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """
+        Find the nearest entity from a list of entity dictionaries.
+        Calculates distance from player coordinates to each entity.
+        
+        Args:
+            entities: List of entity dictionaries (must contain 'worldX' and 'worldY' or 'x' and 'y')
+            
+        Returns:
+            The nearest entity dict with 'distance' field added, or None if list is empty or player coords unavailable
+        """
+        if not entities:
+            return None
+        
+        # Get player coordinates
+        coords = self.get_coords()
+        if not coords or 'world' not in coords:
+            return None
+        
+        px, py = coords['world']['x'], coords['world']['y']
+        
+        # Calculate distances for each entity
+        import math
+        for entity in entities:
+            # Support both 'worldX/worldY' and 'x/y' field names
+            ex = entity.get('worldX', entity.get('x'))
+            ey = entity.get('worldY', entity.get('y'))
+            
+            if ex is None or ey is None:
+                continue
+            
+            dx = ex - px
+            dy = ey - py
+            entity['distance'] = math.sqrt(dx*dx + dy*dy)
+        
+        # Filter out entities without distance (missing coordinates)
+        entities_with_distance = [e for e in entities if 'distance' in e]
+        
+        if not entities_with_distance:
+            return None
+        
+        # Return nearest
+        return min(entities_with_distance, key=lambda e: e['distance'])

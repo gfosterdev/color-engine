@@ -14,7 +14,6 @@ from core.config import load_profile
 from config.timing import TIMING
 from config.skill_mappings import MINING_RESOURCES, get_all_tool_ids
 from config.locations import MiningLocations, BankLocations
-from util.types import Polygon
 import time
 import random
 
@@ -25,7 +24,7 @@ class MiningBot(SkillBotBase):
     
     Features:
     - Extends SkillBotBase for common gathering bot functionality
-    - Uses ResourceManager for rock prioritization and depletion tracking
+    - Uses API-based object detection for rock finding
     - Uses SkillTracker for XP monitoring
     - Uses RespawnDetector for efficient ore respawn detection
     - Supports multiple ore types with automatic distance-based selection
@@ -101,22 +100,23 @@ class MiningBot(SkillBotBase):
     
     def _gather_resource(self):
         """
-        Mine one ore using resource manager and respawn detector.
+        Mine one ore using API and respawn detector.
         Implements SkillBotBase abstract method.
         """
-        if not self.resource_manager:
-            print("Resource manager not initialized")
-            return
+        # Get all rock IDs we're looking for
+        rock_ids = []
+        for cfg in self.rock_configs:
+            rock_ids.extend(cfg["rock_ids"])
         
-        # Find nearest rock using resource manager
-        nearest_rock = self.resource_manager.find_nearest_node(exclude_depleted=True)
+        # Find nearest rock in viewport
+        nearest_rock = self.osrs.find_entity(rock_ids, "object")
         
         if not nearest_rock:
             print("No rocks available")
             time.sleep(1)
             return
         
-        # Determine ore name
+        # Determine ore name for logging
         rock_id = nearest_rock.get('id')
         ore_name = "Ore"
         for cfg in self.rock_configs:
@@ -124,28 +124,12 @@ class MiningBot(SkillBotBase):
                 ore_name = cfg["name"]
                 break
         
-        # Get convex hull polygon for clicking
-        if 'convexHull' not in nearest_rock:
-            print("Rock missing convex hull data")
-            return
-        
-        polygon = self.osrs.window.convex_hull_to_polygon(nearest_rock['convexHull'])
-        
-        # Move mouse to random point on rock
-        self.osrs.window.move_mouse_to(polygon.random_point())
-        time.sleep(random.uniform(0.1, 0.3))
-        
-        # Validate "Mine" option
-        if not self.osrs.validate_interact_text("Mine"):
-            print("Mine option not found")
-            return
-        
-        # Click rock
-        self.osrs.window.click()
         print(f"Mining {ore_name}...")
         
-        # Mark rock as depleted
-        self.resource_manager.mark_node_depleted(nearest_rock['x'], nearest_rock['y'])
+        # Click the rock (handles all interaction logic)
+        if not self.osrs.click_entity(nearest_rock, "object", "Mine"):
+            print("Failed to click rock")
+            return
         
         # Wait for ore depletion using respawn detector
         if self.detect_respawn and self.respawn_detector and rock_id:
@@ -223,8 +207,6 @@ class MiningBot(SkillBotBase):
         # Print additional mining stats
         print(f"\nOres Mined: {self.ores_mined}")
         print(f"Banking Trips: {self.banking_trips}")
-        if self.resource_manager:
-            print(f"Depleted Rocks Tracked: {self.resource_manager.get_depleted_count()}")
 
 
 # Example usage

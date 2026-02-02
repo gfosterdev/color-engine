@@ -10,7 +10,6 @@ import random
 from core.state_machine import BotState
 from core.anti_ban import AntiBanManager
 from client.skill_tracker import SkillTracker
-from client.resource_manager import ResourceManager
 from client.respawn_detector import RespawnDetector
 from config.timing import TIMING
 
@@ -51,7 +50,6 @@ class SkillBotBase(ABC):
         
         # Components - will be initialized in setup()
         self.skill_tracker: Optional[SkillTracker] = None
-        self.resource_manager: Optional[ResourceManager] = None
         self.respawn_detector: Optional[RespawnDetector] = None
         
         # Anti-ban (optional if config not provided)
@@ -92,20 +90,13 @@ class SkillBotBase(ABC):
                 print("✗ Failed to initialize XP tracking")
                 return False
         
-        # Initialize resource manager
-        resource_info = self._get_resource_info()
-        if not resource_info:
-            print("✗ Failed to get resource configuration")
-            return False
-        
-        self.resource_manager = ResourceManager(
-            self.osrs,
-            resource_info['object_ids'],
-            resource_info.get('respawn_time', (5, 10))
-        )
-        
         # Initialize respawn detector
         if self.detect_respawn:
+            resource_info = self._get_resource_info()
+            if not resource_info:
+                print("✗ Failed to get resource configuration")
+                return False
+            
             animation_id = resource_info.get('animation_id', -1)
             self.respawn_detector = RespawnDetector(
                 self.api,

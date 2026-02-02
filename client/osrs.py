@@ -187,7 +187,7 @@ class OSRS:
         all_bank_ids = BankObjects.all_interactive()
         
         for bank_id in all_bank_ids:
-            bank_obj = self.api.get_game_object_in_viewport(bank_id)
+            bank_obj = self.api.get_entity_in_viewport(bank_id, "object")
             if bank_obj:
                 print(f"Found bank object: {bank_obj.get('name', 'Unknown')} (ID: {bank_id})")
                 
@@ -351,7 +351,7 @@ class OSRS:
         all_bank_ids = BankObjects.all_interactive()
         
         for bank_id in all_bank_ids:
-            bank_obj = self.api.get_game_object_in_viewport(bank_id)
+            bank_obj = self.api.get_entity_in_viewport(bank_id, "object")
             if bank_obj:
                 hull = bank_obj.get('hull', None)
                 if hull and hull.get('points'):
@@ -378,26 +378,33 @@ class OSRS:
             print(f"Expected interact text '{expected_text}' not found in menu entries.")
         return False
     
-    def click_npc(self, npc_id_or_entity: Union[int, dict], action: str):
+    def click_entity(self, entity_id_or_dict: Union[int, dict], entity_type: str, action: str) -> bool:
         """
-        Click on an NPC by its ID or using an already-retrieved entity.
+        Click on a game entity (NPC or object) by its ID or using an already-retrieved entity.
         
         Args:
-            npc_id_or_entity: Either an NPC ID (int) or an entity dict from get_npc_in_viewport
-            action: Action to perform (e.g., "Attack", "Talk-to", "Pickpocket")
+            entity_id_or_dict: Either an entity ID (int) or an entity dict from get_entity_in_viewport
+            entity_type: Type of entity - either "npc" or "object"
+            action: Action to perform (e.g., "Attack", "Mine", "Chop", "Bank")
+            
+        Returns:
+            True if successfully clicked, False otherwise
         """
-        # If it's an int, fetch the NPC; if it's a dict, use it directly
-        if isinstance(npc_id_or_entity, int):
-            npc = self.api.get_npc_in_viewport(npc_id_or_entity)
-            if not npc:
-                print(f"NPC with ID {npc_id_or_entity} not found in viewport.")
+        if entity_type not in ["npc", "object"]:
+            raise ValueError(f"entity_type must be 'npc' or 'object', got '{entity_type}'")
+        
+        # If it's an int, fetch the entity; if it's a dict, use it directly
+        if isinstance(entity_id_or_dict, int):
+            entity = self.api.get_entity_in_viewport(entity_id_or_dict, entity_type)
+            if not entity:
+                print(f"{entity_type.capitalize()} with ID {entity_id_or_dict} not found in viewport.")
                 return False
         else:
-            npc = npc_id_or_entity
+            entity = entity_id_or_dict
         
-        target = npc.get('name', None)
+        target = entity.get('name', None)
 
-        hull = npc.get('hull', None)
+        hull = entity.get('hull', None)
         if hull:
             points = hull.get('points', None)
             if points:
@@ -405,53 +412,24 @@ class OSRS:
                 click_point = polygon.random_point_inside(self.window.GAME_AREA)
                 self.window.move_mouse_to(click_point, in_canvas=True)
                 self.click(action, target)
-                time.sleep(random.uniform(*TIMING.NPC_INTERACT_DELAY))
+                
+                # Use appropriate delay based on entity type
+                delay = TIMING.NPC_INTERACT_DELAY if entity_type == "npc" else TIMING.OBJECT_INTERACT_DELAY
+                time.sleep(random.uniform(*delay))
                 return True
             
         return False
-
-    def click_game_object(self, obj_id_or_entity: Union[int, dict], action: str):
-        """
-        Click on a game object by its ID or using an already-retrieved entity.
-        
-        Args:
-            obj_id_or_entity: Either an object ID (int) or an entity dict from get_game_object_in_viewport
-            action: Action to perform (e.g., "Mine", "Chop", "Bank")
-        """
-        # If it's an int, fetch the object; if it's a dict, use it directly
-        if isinstance(obj_id_or_entity, int):
-            game_object = self.api.get_game_object_in_viewport(obj_id_or_entity)
-            if not game_object:
-                print(f"Game object with ID {obj_id_or_entity} not found in viewport.")
-                return False
-        else:
-            game_object = obj_id_or_entity
-        
-        target = game_object.get('name', None)
-
-        hull = game_object.get('hull', None)
-        if hull:
-            points = hull.get('points', None)
-            if points:
-                polygon = Polygon(points)
-                click_point = polygon.random_point_inside(self.window.GAME_AREA)
-                self.window.move_mouse_to(click_point, in_canvas=True)
-                self.click(action, target)
-                time.sleep(random.uniform(*TIMING.OBJECT_INTERACT_DELAY))
-                return True
-
-        return False
     
-    def find_entity(self, entity_id: int, entity_type: str) -> Optional[dict]:
+    def find_entity(self, entity_ids: Union[int, List[int]], entity_type: str) -> Optional[dict]:
         """
-        Find an entity (game object or NPC) by ID, using camera adjustment if needed.
+        Find an entity (game object or NPC) by ID(s), using camera adjustment if needed.
         
-        First checks if the entity exists in the viewport. If not found, searches for
-        the nearest entity of that ID and adjusts the camera to point at it, then
+        First checks if any matching entity exists in the viewport. If not found, searches for
+        the nearest entity matching any of the IDs and adjusts the camera to point at it, then
         verifies it's in the viewport.
         
         Args:
-            entity_id: The game object ID or NPC ID to search for
+            entity_ids: Game object ID(s) or NPC ID(s) to search for (single int or list)
             entity_type: Type of entity - either "npc" or "object"
             
         Returns:
@@ -460,23 +438,24 @@ class OSRS:
         if entity_type not in ["npc", "object"]:
             raise ValueError(f"entity_type must be 'npc' or 'object', got '{entity_type}'")
         
+        # Normalize to list
+        if isinstance(entity_ids, int):
+            entity_ids = [entity_ids]
+        
         # First check if entity already in viewport
-        print(f"[find_entity] Checking if {entity_type} {entity_id} exists in viewport...")
-        if entity_type == "npc":
-            entity = self.api.get_npc_in_viewport(entity_id)
-        else:  # object
-            entity = self.api.get_game_object_in_viewport(entity_id)
+        print(f"[find_entity] Checking if {entity_type} {entity_ids} exists in viewport...")
+        entity = self.api.get_entity_in_viewport(entity_ids=entity_ids, entity_type=entity_type, selection="nearest")
         
         if entity:
             print(f"[find_entity] ✓ {entity_type.capitalize()} found in viewport")
             return entity
         
-        # Not in viewport, find nearest entity
+        # Not in viewport, find nearest entity in current world, not viewport
         print(f"[find_entity] {entity_type.capitalize()} not in viewport, searching for nearest...")
-        nearest = self.api.get_nearest_by_id(entity_id, entity_type)
+        nearest = self.api.get_nearest_by_id(entity_ids, entity_type)
         
         if not nearest or not nearest.get('found', False):
-            print(f"[find_entity] ✗ No {entity_type} with ID {entity_id} found nearby")
+            print(f"[find_entity] ✗ No {entity_type} with IDs {entity_ids} found nearby")
             return None
         
         # Extract coordinates
@@ -503,10 +482,7 @@ class OSRS:
         
         # Verify entity is now in viewport - pass world coords to get the specific entity
         time.sleep(random.uniform(0.3, 0.5))  # Brief delay for render
-        if entity_type == "npc":
-            entity = self.api.get_npc_in_viewport(entity_id, world_x, world_y)
-        else:  # object
-            entity = self.api.get_game_object_in_viewport(entity_id, world_x, world_y)
+        entity = self.api.get_entity_in_viewport(entity_ids, entity_type, world_x, world_y)
         
         if entity:
             print(f"[find_entity] ✓ {entity_type.capitalize()} now visible in viewport")

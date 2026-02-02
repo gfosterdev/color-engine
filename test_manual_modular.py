@@ -858,7 +858,7 @@ class ModularTester:
         api = self.init_api()
         osrs = self.init_osrs()
 
-        bank_booth = api.get_game_object_in_viewport(10583)
+        bank_booth = api.get_entity_in_viewport(10583, "object")
         print(f"\n Bank booth data: {bank_booth}")
         if bank_booth:
             x = bank_booth.get('x', -1)
@@ -885,7 +885,7 @@ class ModularTester:
             return
         
 
-        game_object = api.get_game_object_in_viewport(obj_id)
+        game_object = api.get_entity_in_viewport(obj_id, "object")
         print(f"\n Game Object data: {game_object}")
         if game_object:
             x = game_object.get('x', -1)
@@ -926,7 +926,7 @@ class ModularTester:
             return
         
 
-        npc_object = api.get_npc_in_viewport(npc_id)
+        npc_object = api.get_entity_in_viewport(npc_id, "npc")
         print(f"\n NPC data: {npc_object}")
         if npc_object:
             x = npc_object.get('x', -1)
@@ -970,7 +970,7 @@ class ModularTester:
             return
         
         print(f"\nClicking on NPC id {npc_id}...")
-        success = osrs.click_npc(npc_id, action)
+        success = osrs.click_entity(npc_id, "npc", action)
         print("✓ Click successful" if success else "✗ Click failed")
 
     def test_click_on_gameobject(self):
@@ -995,7 +995,7 @@ class ModularTester:
             return
         
         print(f"\nClicking on game object id {obj_id}...")
-        success = osrs.click_game_object(obj_id, action)
+        success = osrs.click_entity(obj_id, "object", action)
         print("✓ Click successful" if success else "✗ Click failed")
 
     def test_find_nearest_by_id(self):
@@ -1088,11 +1088,8 @@ class ModularTester:
                 print(f"Attempting to click: {action} on {type_input} {entity_id}")
                 print(f"{'='*60}\n")
                 
-                # Use appropriate click method based on entity type
-                if type_input == "npc":
-                    success = osrs.click_npc(entity, action)
-                else:  # object
-                    success = osrs.click_game_object(entity, action)
+                # Click the entity
+                success = osrs.click_entity(entity, type_input, action)
                 
                 if success:
                     print(f"\n✓ Click successful")
