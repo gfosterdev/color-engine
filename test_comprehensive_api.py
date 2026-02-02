@@ -347,6 +347,7 @@ def test_game_state(api: RuneLiteAPI):
     if camera:
         print(f"  Yaw:   {camera.get('yaw', 0)}")
         print(f"  Pitch: {camera.get('pitch', 0)}")
+        print(f"  Scale: {camera.get('scale', 0)}")
         print(f"  Position: ({camera.get('x')}, {camera.get('y')}, {camera.get('z')})")
     else:
         print("  ❌ No camera data")

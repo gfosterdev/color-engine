@@ -40,12 +40,14 @@ class ResourceManager:
         self.last_cleanup = time.time()
         self.cleanup_interval = 30  # seconds
     
-    def find_nearest_node(self, exclude_depleted: bool = True) -> Optional[Dict]:
+    def find_nearest_node(self, exclude_depleted: bool = True, rotate_360: bool = True) -> Optional[Dict]:
         """
         Find the nearest resource node based on world coordinates.
+        Automatically rotates camera 360° to search if not found in current view.
         
         Args:
             exclude_depleted: If True, exclude recently depleted nodes
+            rotate_360: If True, rotates camera 360° to search for resources
         
         Returns:
             Game object dict with distance info, or None if no nodes found
@@ -62,12 +64,12 @@ class ResourceManager:
         player_pos = coords['world']
         player_x, player_y = player_pos['x'], player_pos['y']
         
-        # Get all resource nodes in viewport
-        all_objects = self.api.get_game_objects_in_viewport()
-        resource_nodes = [
-            obj for obj in all_objects 
-            if obj.get('id') in self.resource_object_ids
-        ]
+        # Use find_in_viewport to search (with optional camera rotation)
+        resource_nodes = self.osrs.find_in_viewport(
+            entity_ids=self.resource_object_ids,
+            entity_type="object",
+            rotate_360=rotate_360
+        )
         
         if not resource_nodes:
             print("✗ No resource nodes found in viewport")

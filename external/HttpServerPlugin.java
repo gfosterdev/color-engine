@@ -76,6 +76,7 @@ public class HttpServerPlugin extends Plugin
 
         // Game state
         server.createContext("/camera", this::handleCamera);
+        server.createContext("/camera_rotation", this::handleCameraRotation);
         server.createContext("/game", this::handleGameState);
         server.createContext("/menu", this::handleMenu);
         server.createContext("/widgets", this::handleWidgets);
@@ -644,6 +645,7 @@ public class HttpServerPlugin extends Plugin
             JsonObject data = new JsonObject();
             data.addProperty("yaw", client.getCameraYaw());
             data.addProperty("pitch", client.getCameraPitch());
+            data.addProperty("scale", client.getScale());
             data.addProperty("x", client.getCameraX());
             data.addProperty("y", client.getCameraY());
             data.addProperty("z", client.getCameraZ());
@@ -652,6 +654,231 @@ public class HttpServerPlugin extends Plugin
         });
 
         sendJsonResponse(exchange, cameraData);
+    }
+
+    public void handleCameraRotation(HttpExchange exchange) throws IOException
+    {
+        // Parse query parameters: /camera_rotation?x=3222&y=3218&plane=0
+        String query = exchange.getRequestURI().getQuery();
+        if (query == null)
+        {
+            exchange.sendResponseHeaders(400, 0);
+            exchange.getResponseBody().close();
+            return;
+        }
+
+        Map<String, String> params = new java.util.HashMap<>();
+        for (String param : query.split("&"))
+        {
+            String[] pair = param.split("=");
+            if (pair.length == 2)
+            {
+                params.put(pair[0], pair[1]);
+            }
+        }
+
+        if (!params.containsKey("x") || !params.containsKey("y"))
+        {
+            exchange.sendResponseHeaders(400, 0);
+            exchange.getResponseBody().close();
+            return;
+        }
+
+        int targetX, targetY, targetPlane;
+        try
+        {
+            targetX = Integer.parseInt(params.get("x"));
+            targetY = Integer.parseInt(params.get("y"));
+            targetPlane = params.containsKey("plane") ? Integer.parseInt(params.get("plane")) : 0;
+        }
+        catch (NumberFormatException ex)
+        {
+            exchange.sendResponseHeaders(400, 0);
+            exchange.getResponseBody().close();
+            return;
+        }
+
+        JsonObject rotationData = invokeAndWait(() -> {
+            Player localPlayer = client.getLocalPlayer();
+            if (localPlayer == null) return null;
+
+            WorldPoint playerPos = localPlayer.getWorldLocation();
+            WorldPoint targetTile = new WorldPoint(targetX, targetY, targetPlane);
+
+            JsonObject data = new JsonObject();
+
+            // Check if tile is visible in viewport
+            LocalPoint localTarget = LocalPoint.fromWorld(client, targetTile);
+            boolean isVisible = false;
+            Point screenPoint = null;
+
+            if (localTarget != null)
+            {
+                screenPoint = Perspective.localToCanvas(client, localTarget, targetPlane);
+                if (screenPoint != null)
+                {
+                    isVisible = isPointInViewport(screenPoint);
+                    data.addProperty("screenX", screenPoint.getX());
+                    data.addProperty("screenY", screenPoint.getY());
+                }
+            }
+
+            data.addProperty("visible", isVisible);
+
+            // Get current camera state
+            int currentYaw = client.getCameraYaw();
+            int currentPitch = client.getCameraPitch();
+            int currentScale = client.getScale();
+            data.addProperty("currentYaw", currentYaw);
+            data.addProperty("currentPitch", currentPitch);
+            data.addProperty("currentScale", currentScale);
+
+            // Get viewport dimensions and center
+            int viewportWidth = client.getViewportWidth();
+            int viewportHeight = client.getViewportHeight();
+            int centerX = viewportWidth / 2;
+            int centerY = viewportHeight / 2;
+            data.addProperty("viewportCenterX", centerX);
+            data.addProperty("viewportCenterY", centerY);
+
+            // Calculate target yaw/pitch/scale to center the tile
+            int targetYaw;
+            int targetPitch;
+            int targetScale;
+            
+            // Calculate distance for scale calculation
+            int dx = targetX - playerPos.getX();
+            int dy = targetY - playerPos.getY();
+            double distanceToTarget = Math.sqrt(dx * dx + dy * dy);
+            
+            if (isVisible && screenPoint != null)
+            {
+                // Tile is visible - calculate adjustments to center it
+                int offsetX = screenPoint.getX() - centerX;
+                int offsetY = screenPoint.getY() - centerY;
+                data.addProperty("offsetFromCenterX", offsetX);
+                data.addProperty("offsetFromCenterY", offsetY);
+                
+                // Convert pixel offsets to camera angle adjustments
+                // These conversion factors are empirically tuned for OSRS camera behavior
+                // Positive offsetX = tile is right of center, need to rotate camera right (increase yaw)
+                // Positive offsetY = tile is below center, need to tilt camera down (increase pitch)
+                double pixelsPerYawUnit = 3.0;
+                double pixelsPerPitchUnit = 2.5;
+                
+                int yawAdjustment = (int)(offsetX / pixelsPerYawUnit);
+                int pitchAdjustment = (int)(offsetY / pixelsPerPitchUnit);
+                
+                targetYaw = (currentYaw + yawAdjustment) % 2048;
+                if (targetYaw < 0) targetYaw += 2048;
+                
+                targetPitch = currentPitch + pitchAdjustment;
+                targetPitch = Math.max(128, Math.min(383, targetPitch));
+                
+                data.addProperty("usingCenteredCalculation", true);
+            }
+            else
+            {
+                // Tile not visible - calculate yaw to face tile and pitch based on distance
+                // Calculate angle in radians (atan2 returns -π to π)
+                double angleRadians = Math.atan2(dy, dx);
+                
+                // Convert to OSRS yaw units (0-2048)
+                // OSRS: 0 = North, 512 = West, 1024 = South, 1536 = East (clockwise from North)
+                // Standard atan2: 0 = East, π/2 = North, π = West, -π/2 = South
+                // Rotate coordinate system by π/2 to change origin from East to North
+                double adjustedRadians = angleRadians - Math.PI / 2;
+                targetYaw = (int)((adjustedRadians * 2048) / (2 * Math.PI)) % 2048;
+                if (targetYaw < 0) targetYaw += 2048;
+                
+                // Calculate pitch based on distance
+                // For ground tiles: closer = look down more, farther = look more horizontal
+                // Pitch range: 128 (looking straight down) to 383 (horizontal)
+                // Lower pitch values = camera tilted down more to see ground
+                if (distanceToTarget < 5)
+                {
+                    targetPitch = 200;  // Very close, look down steeply
+                }
+                else if (distanceToTarget < 10)
+                {
+                    targetPitch = 240;  // Close, look down moderately
+                }
+                else if (distanceToTarget < 15)
+                {
+                    targetPitch = 280;  // Medium-close distance
+                }
+                else if (distanceToTarget < 20)
+                {
+                    targetPitch = 320;  // Medium-far distance
+                }
+                else
+                {
+                    targetPitch = 360;  // Far, look mostly horizontal
+                }
+                targetPitch = Math.max(128, Math.min(383, targetPitch));
+                
+                data.addProperty("usingCenteredCalculation", false);
+                data.addProperty("dx", dx);
+                data.addProperty("dy", dy);
+                data.addProperty("angleRadians", angleRadians);
+            }
+            
+            // Calculate target scale based on distance (same for both cases)
+            // Zoom out more aggressively to ensure tiles are visible
+            // Closer tiles = moderate zoom (400-500), farther tiles = zoomed out (300)
+            targetScale = (int)(550 - (distanceToTarget * 20));
+            if (distanceToTarget > 12)
+            {
+                targetScale = 300;  // Max zoom out for distant tiles
+            }
+            targetScale = Math.max(300, Math.min(650, targetScale));
+            
+            // Output target values
+            data.addProperty("targetYaw", targetYaw);
+            data.addProperty("targetPitch", targetPitch);
+            data.addProperty("targetScale", targetScale);
+
+            // Calculate deltas from current state
+            int clockwise = (targetYaw - currentYaw + 2048) % 2048;
+            int counterClockwise = (currentYaw - targetYaw + 2048) % 2048;
+            int yawDistance = (clockwise <= counterClockwise) ? clockwise : -counterClockwise;
+            int pitchDistance = targetPitch - currentPitch;
+            int scaleDelta = targetScale - currentScale;
+            
+            data.addProperty("yawDistance", yawDistance);
+            data.addProperty("pitchDistance", pitchDistance);
+            data.addProperty("scaleDelta", scaleDelta);
+
+            // Convert to drag pixels for mouse control using empirical ratios
+            // Ratios: 253px per 512 yaw units, 69px per 128 pitch units
+            // Apply minimum threshold (8px) to ensure small adjustments execute
+            // IMPORTANT: Middle-mouse drag is inverted
+            // Positive dragPixelsX = drag left to rotate camera right (clockwise)
+            // Negative dragPixelsX = drag right to rotate camera left (counter-clockwise)
+            // Positive dragPixelsY = drag down (pitch down), negative = drag up (pitch up)
+            
+            // Calculate drag using empirical ratio
+            int dragPixelsX = (int)((yawDistance / 512.0) * 253);
+            int dragPixelsY = (int)((pitchDistance / 128.0) * 69);
+            
+            // Apply minimum threshold to ensure small adjustments execute (game threshold ~5px)
+            if (yawDistance != 0 && Math.abs(dragPixelsX) < 8) {
+                dragPixelsX = yawDistance > 0 ? 8 : -8;
+            }
+            if (pitchDistance != 0 && Math.abs(dragPixelsY) < 8) {
+                dragPixelsY = pitchDistance > 0 ? 8 : -8;
+            }
+            
+            // Invert horizontal for middle-mouse behavior (drag right = camera left)
+            dragPixelsX = -dragPixelsX;
+            
+            data.addProperty("dragPixelsX", dragPixelsX);
+            data.addProperty("dragPixelsY", dragPixelsY);
+
+            return data;
+        });
+
+        sendJsonResponse(exchange, rotationData);
     }
 
     public void handleGameState(HttpExchange exchange) throws IOException

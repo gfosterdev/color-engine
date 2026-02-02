@@ -2127,6 +2127,830 @@ class ModularTester:
         print("5. Update nav.minimap_scale with result")
         print("\nFor now, scale is estimated at 4.0 pixels/tile")
     
+    def test_rotate_camera_to_tile(self):
+        """Test rotating camera to make a specific tile visible."""
+        osrs = self.init_osrs()
+        
+        print("\n=== Rotate Camera to Tile Test ===")
+        
+        # Get current position
+        coords_data = osrs.api.get_coords()
+        if not coords_data:
+            print("✗ Could not read current position")
+            return
+        
+        current_x = coords_data['world']['x']
+        current_y = coords_data['world']['y']
+        current_plane = coords_data['world']['plane']
+        
+        print(f"Current position: ({current_x}, {current_y}, plane={current_plane})")
+        
+        # Prompt for target coordinates
+        print("\nEnter target coordinates:")
+        print(f"Press ENTER to test with default (+10, +10) from current position")
+        print("Or type coordinates in format: x,y")
+        print("Example: 3222,3218")
+        
+        try:
+            coords_input = input("Coordinates: ").strip()
+            
+            if coords_input:
+                # Parse custom coordinates
+                parts = coords_input.split(',')
+                target_x = int(parts[0].strip())
+                target_y = int(parts[1].strip())
+                target_plane = current_plane
+                print(f"\nUsing custom coordinates: ({target_x}, {target_y})")
+            else:
+                # Use default offset
+                target_x = current_x + 10
+                target_y = current_y + 10
+                target_plane = current_plane
+                print(f"\nUsing default: +10 tiles east, +10 tiles north from current position")
+        except (ValueError, IndexError) as e:
+            print(f"✗ Invalid input format: {e}")
+            print("Using default offset instead")
+            target_x = current_x + 10
+            target_y = current_y + 10
+            target_plane = current_plane
+        
+        print(f"Target: ({target_x}, {target_y}, plane={target_plane})")
+        
+        # Show current camera state
+        camera = osrs.api.get_camera()
+        if camera:
+            print(f"\nCurrent camera:")
+            print(f"  Yaw: {camera.get('yaw')} / 2048")
+            print(f"  Pitch: {camera.get('pitch')} / 512")
+        
+        # Get rotation calculation from API
+        print("\nCalculating required rotation...")
+        rotation_data = osrs.api.get_camera_rotation_to_tile(target_x, target_y, target_plane)
+        
+        if not rotation_data:
+            print("✗ Failed to get rotation data from API")
+            return
+        
+        print(f"\nRotation data from API:")
+        print(f"  Tile currently visible: {rotation_data.get('visible')}")
+        print(f"  Current yaw: {rotation_data.get('currentYaw')}")
+        print(f"  Target yaw: {rotation_data.get('targetYaw')}")
+        print(f"  Yaw distance: {rotation_data.get('yawDistance')} units ({rotation_data.get('direction')})")
+        print(f"  Yaw pixels: ~{rotation_data.get('yawPixels')}px")
+        print(f"  Current pitch: {rotation_data.get('currentPitch')}")
+        print(f"  Target pitch: {rotation_data.get('targetPitch')}")
+        print(f"  Pitch distance: {rotation_data.get('pitchDistance')} units ({rotation_data.get('pitchDirection')})")
+        print(f"  Pitch pixels: ~{rotation_data.get('pitchPixels')}px")
+        
+        if rotation_data.get('visible'):
+            print("\n✓ Tile is already visible! No rotation needed.")
+            if 'screenX' in rotation_data and 'screenY' in rotation_data:
+                print(f"  Screen position: ({rotation_data['screenX']}, {rotation_data['screenY']})")
+            return
+        
+        # Execute rotation
+        print("\nPress SPACE to execute rotation, or ESC to cancel")
+        import keyboard
+        while True:
+            if keyboard.is_pressed('space'):
+                print("\nExecuting rotation...")
+                success = osrs.camera.set_camera_to_tile(target_x, target_y, target_plane)
+                
+                if success:
+                    print("\n✓ Camera rotation successful! Tile is now visible.")
+                    
+                    # Show final camera state
+                    final_camera = osrs.api.get_camera()
+                    if final_camera:
+                        print(f"\nFinal camera state:")
+                        print(f"  Yaw: {final_camera.get('yaw')} / 2048")
+                        print(f"  Pitch: {final_camera.get('pitch')} / 512")
+                    
+                    # Get final tile position
+                    final_rotation = osrs.api.get_camera_rotation_to_tile(target_x, target_y, target_plane)
+                    if final_rotation and final_rotation.get('visible'):
+                        if 'screenX' in final_rotation and 'screenY' in final_rotation:
+                            print(f"  Tile screen position: ({final_rotation['screenX']}, {final_rotation['screenY']})")
+                else:
+                    print("\n✗ Camera rotation failed. Tile is not visible.")
+                
+                break
+            elif keyboard.is_pressed('esc'):
+                print("\nCancelled.")
+                break
+            import time
+            time.sleep(0.1)
+    
+    def test_camera_positioning(self):
+        """Test new camera positioning system with various distances."""
+        import keyboard
+        import time
+        
+        osrs = self.init_osrs()
+        
+        print("\n" + "="*60)
+        print("CAMERA POSITIONING TEST SUITE")
+        print("="*60)
+        print("\nThis tests the new CameraController system that positions")
+        print("the camera to make specific world tiles visible.")
+        print("\nSelect test:")
+        print("1 - Near tile (3 tiles away)")
+        print("2 - Medium tile (10 tiles away)")
+        print("3 - Far tile (20 tiles away)")
+        print("4 - Custom coordinates")
+        print("5 - Extreme angle test (180° behind)")
+        print("6 - Scale-only adjustment test")
+        print("ESC - Cancel")
+        print("="*60)
+        
+        test_choice = None
+        while test_choice is None:
+            if keyboard.is_pressed('1'):
+                test_choice = 'near'
+            elif keyboard.is_pressed('2'):
+                test_choice = 'medium'
+            elif keyboard.is_pressed('3'):
+                test_choice = 'far'
+            elif keyboard.is_pressed('4'):
+                test_choice = 'custom'
+            elif keyboard.is_pressed('5'):
+                test_choice = 'extreme'
+            elif keyboard.is_pressed('6'):
+                test_choice = 'scale'
+            elif keyboard.is_pressed('esc'):
+                print("\nCancelled.")
+                return
+            time.sleep(0.1)
+        
+        time.sleep(0.3)  # Debounce
+        
+        # Get current player position
+        coords = osrs.api.get_coords()
+        if not coords or 'world' not in coords:
+            print("\n✗ Failed to get player coordinates")
+            return
+        
+        player_x = coords['world']['x']
+        player_y = coords['world']['y']
+        player_plane = coords['world']['plane']
+        
+        print(f"\nCurrent position: ({player_x}, {player_y}, plane={player_plane})")
+        
+        # Calculate target tile based on test choice
+        if test_choice == 'near':
+            target_x = player_x + 3
+            target_y = player_y
+            print("\nTarget: 3 tiles east (near distance)")
+            print("Expected: High zoom (~600), steep pitch")
+            
+        elif test_choice == 'medium':
+            target_x = player_x + 7
+            target_y = player_y + 7
+            print("\nTarget: 10 tiles northeast (medium distance)")
+            print("Expected: Medium zoom (~450), moderate pitch")
+            
+        elif test_choice == 'far':
+            target_x = player_x + 14
+            target_y = player_y + 14
+            print("\nTarget: 20 tiles northeast (far distance)")
+            print("Expected: Low zoom (~350), shallow pitch")
+            
+        elif test_choice == 'extreme':
+            target_x = player_x - 10
+            target_y = player_y
+            print("\nTarget: 10 tiles west (180° behind player)")
+            print("Expected: Large yaw rotation, medium zoom/pitch")
+            
+        elif test_choice == 'scale':
+            # Just test scale adjustment by targeting current tile
+            target_x = player_x
+            target_y = player_y
+            print("\nTarget: Current tile (scale adjustment only)")
+            print("Expected: Only zoom changes, no rotation")
+            
+        else:  # custom
+            try:
+                target_x = int(input("Enter target X coordinate: ").strip())
+                target_y = int(input("Enter target Y coordinate: ").strip())
+                print(f"\nTarget: ({target_x}, {target_y}, plane={player_plane})")
+            except ValueError:
+                print("\n✗ Invalid coordinates")
+                return
+        
+        # Get camera state before
+        camera_before = osrs.api.get_camera()
+        if camera_before:
+            print(f"\nCamera BEFORE:")
+            print(f"  Yaw: {camera_before.get('yaw', 'N/A')}")
+            print(f"  Pitch: {camera_before.get('pitch', 'N/A')}")
+            print(f"  Scale: {camera_before.get('scale', 'N/A')}")
+        
+        # Check if tile is visible before adjustment
+        rotation_data_before = osrs.api.get_camera_rotation(target_x, target_y, player_plane)
+        if rotation_data_before:
+            visible_before = rotation_data_before.get('visible', False)
+            print(f"  Tile visible: {visible_before}")
+        
+        print("\nPress SPACE to start camera positioning, ESC to cancel")
+        
+        while True:
+            if keyboard.is_pressed('space'):
+                break
+            elif keyboard.is_pressed('esc'):
+                print("\nCancelled.")
+                return
+            time.sleep(0.1)
+        
+        time.sleep(0.3)  # Debounce
+        
+        # Execute camera positioning
+        print("\nPositioning camera...")
+        success = osrs.camera.set_camera_to_tile(target_x, target_y, player_plane)
+        
+        # Get camera state after
+        camera_after = osrs.api.get_camera()
+        if camera_after:
+            print(f"\nCamera AFTER:")
+            print(f"  Yaw: {camera_after.get('yaw', 'N/A')}")
+            print(f"  Pitch: {camera_after.get('pitch', 'N/A')}")
+            print(f"  Scale: {camera_after.get('scale', 'N/A')}")
+        
+        # Verify tile visibility
+        rotation_data_after = osrs.api.get_camera_rotation(target_x, target_y, player_plane)
+        if rotation_data_after:
+            visible_after = rotation_data_after.get('visible', False)
+            print(f"  Tile visible: {visible_after}")
+            
+            if rotation_data_after.get('screenX') and rotation_data_after.get('screenY'):
+                screen_x = rotation_data_after['screenX']
+                screen_y = rotation_data_after['screenY']
+                print(f"  Screen position: ({screen_x}, {screen_y})")
+        
+        # Calculate changes
+        if camera_before and camera_after:
+            yaw_change = camera_after.get('yaw', 0) - camera_before.get('yaw', 0)
+            pitch_change = camera_after.get('pitch', 0) - camera_before.get('pitch', 0)
+            scale_change = camera_after.get('scale', 0) - camera_before.get('scale', 0)
+            
+            print(f"\nChanges:")
+            print(f"  Yaw: {yaw_change:+d} units")
+            print(f"  Pitch: {pitch_change:+d} units")
+            print(f"  Scale: {scale_change:+d} units")
+        
+        # Result summary
+        print(f"\n{'='*60}")
+        if success:
+            print("✓ Camera positioning SUCCESSFUL")
+        else:
+            print("✗ Camera positioning FAILED")
+        print(f"{'='*60}")
+    
+    def test_camera_calculation_verification(self):
+        """Verify camera calculation accuracy by manually setting camera to API-calculated values."""
+        import keyboard
+        import time
+        
+        osrs = self.init_osrs()
+        
+        print("\n=== Camera Calculation Verification ===")
+        print("\nThis test verifies if the API's calculated pitch/yaw/scale are correct.")
+        print("1. API calculates target camera values for a tile")
+        print("2. You manually set the camera to those values")
+        print("3. We check if the tile is actually visible at those camera settings")
+        
+        # Get current position
+        coords = osrs.api.get_coords()
+        if not coords:
+            print("✗ Failed to get player coordinates")
+            return
+        
+        player_x = coords['world']['x']
+        player_y = coords['world']['y']
+        player_plane = coords['world']['plane']
+        
+        print(f"\nCurrent position: ({player_x}, {player_y}, plane={player_plane})")
+        
+        # Get target from user
+        try:
+            target_x = int(input("Enter target X coordinate: "))
+            target_y = int(input("Enter target Y coordinate: "))
+        except ValueError:
+            print("✗ Invalid coordinates")
+            return
+        
+        print(f"\nTarget: ({target_x}, {target_y}, plane={player_plane})")
+        
+        # Calculate distance
+        dx = target_x - player_x
+        dy = target_y - player_y
+        distance = (dx ** 2 + dy ** 2) ** 0.5
+        print(f"Distance: {distance:.1f} tiles")
+        
+        # Get API's calculated camera values
+        rotation_data = osrs.api.get_camera_rotation(target_x, target_y, player_plane)
+        if not rotation_data:
+            print("✗ Failed to get camera rotation data")
+            return
+        
+        target_yaw = rotation_data.get('targetYaw')
+        target_pitch = rotation_data.get('targetPitch')
+        target_scale = rotation_data.get('targetScale')
+        
+        print(f"\n{'='*60}")
+        print("API CALCULATED TARGET VALUES:")
+        print(f"{'='*60}")
+        print(f"Target Yaw:   {target_yaw} / 2048")
+        print(f"Target Pitch: {target_pitch} (128=down, 383=horizontal)")
+        print(f"Target Scale: {target_scale} (300=zoom out, 650=zoom in)")
+        
+        # Show calculation details
+        angle_radians = rotation_data.get('angleRadians')
+        if angle_radians is not None:
+            import math
+            angle_degrees = angle_radians * 180 / math.pi
+            print(f"\nCalculation details:")
+            print(f"  dx={dx}, dy={dy}")
+            print(f"  atan2(dy, dx) = {angle_degrees:.1f}°")
+            print(f"  Converted to yaw: {target_yaw}")
+        
+        # Convert yaw to compass direction
+        yaw_degrees = (target_yaw / 2048) * 360
+        direction = "North"
+        if 45 < yaw_degrees <= 135:
+            direction = "West"
+        elif 135 < yaw_degrees <= 225:
+            direction = "South"
+        elif 225 < yaw_degrees <= 315:
+            direction = "East"
+        print(f"  Direction: {direction} ({yaw_degrees:.1f}°)")
+        
+        print(f"\n{'='*60}")
+        print("MANUAL VERIFICATION INSTRUCTIONS:")
+        print(f"{'='*60}")
+        print("1. Use your mouse to manually adjust the camera to:")
+        print(f"   - Yaw (compass): {target_yaw}")
+        print(f"   - Pitch (angle): {target_pitch}")
+        print(f"   - Scale (zoom): {target_scale}")
+        print("2. Press SPACE when camera is set correctly")
+        print("3. ESC to cancel")
+        print(f"{'='*60}")
+        
+        # Wait for user to set camera
+        while True:
+            if keyboard.is_pressed('space'):
+                time.sleep(0.3)  # Debounce
+                break
+            elif keyboard.is_pressed('esc'):
+                print("\nCancelled.")
+                return
+            time.sleep(0.1)
+        
+        # Read actual camera state
+        camera = osrs.api.get_camera()
+        if not camera:
+            print("✗ Failed to read camera state")
+            return
+        
+        actual_yaw = camera.get('yaw', 0)
+        actual_pitch = camera.get('pitch', 0)
+        actual_scale = camera.get('scale', 0)
+        
+        print(f"\n{'='*60}")
+        print("ACTUAL CAMERA STATE:")
+        print(f"{'='*60}")
+        print(f"Actual Yaw:   {actual_yaw} (target: {target_yaw}, diff: {actual_yaw - target_yaw:+d})")
+        print(f"Actual Pitch: {actual_pitch} (target: {target_pitch}, diff: {actual_pitch - target_pitch:+d})")
+        print(f"Actual Scale: {actual_scale} (target: {target_scale}, diff: {actual_scale - target_scale:+d})")
+        
+        # Check if tile is visible
+        rotation_data = osrs.api.get_camera_rotation(target_x, target_y, player_plane)
+        if not rotation_data:
+            print("✗ Failed to check tile visibility")
+            return
+        
+        is_visible = rotation_data.get('visible', False)
+        screen_x = rotation_data.get('screenX', -1)
+        screen_y = rotation_data.get('screenY', -1)
+        
+        print(f"\n{'='*60}")
+        print("TILE VISIBILITY CHECK:")
+        print(f"{'='*60}")
+        print(f"Tile visible: {is_visible}")
+        if screen_x >= 0 and screen_y >= 0:
+            print(f"Screen position: ({screen_x}, {screen_y})")
+            
+            # Get viewport center
+            viewport_center_x = rotation_data.get('viewportCenterX', 256)
+            viewport_center_y = rotation_data.get('viewportCenterY', 167)
+            offset_x = screen_x - viewport_center_x
+            offset_y = screen_y - viewport_center_y
+            print(f"Viewport center: ({viewport_center_x}, {viewport_center_y})")
+            print(f"Offset from center: ({offset_x:+d}, {offset_y:+d}) pixels")
+        else:
+            print(f"Screen position: Not available (tile out of render distance)")
+        
+        # Summary
+        print(f"\n{'='*60}")
+        if is_visible:
+            if abs(screen_x - rotation_data.get('viewportCenterX', 256)) < 100 and \
+               abs(screen_y - rotation_data.get('viewportCenterY', 167)) < 100:
+                print("✓ SUCCESS: Tile is visible and reasonably centered")
+            else:
+                print("⚠ PARTIAL: Tile is visible but far from center")
+                print("  This suggests pitch/yaw calculation is roughly correct")
+                print("  but may need fine-tuning for centering")
+        else:
+            print("✗ FAILURE: Tile is NOT visible at calculated camera position")
+            print("  The yaw/pitch/scale calculations are incorrect")
+            print("  Check the atan2 conversion formula and coordinate system")
+        print(f"{'='*60}")
+    
+    def test_camera_rotation_calibration(self):
+        """Test and calibrate pixel-to-yaw/pitch conversion ratios."""
+        import keyboard
+        import time
+        
+        osrs = self.init_osrs()
+        
+        print("\n=== Camera Rotation Calibration Test ===")
+        print("\nThis test measures actual yaw/pitch changes from pixel drags")
+        print("to verify/calibrate the conversion ratios used in rotation calculations.")
+        
+        print("\nSelect test type:")
+        print("1 - Yaw (horizontal rotation)")
+        print("2 - Pitch (vertical rotation)")
+        print("ESC - Cancel")
+        
+        test_type = None
+        while test_type is None:
+            if keyboard.is_pressed('1'):
+                test_type = 'yaw'
+            elif keyboard.is_pressed('2'):
+                test_type = 'pitch'
+            elif keyboard.is_pressed('esc'):
+                print("\nCancelled.")
+                return
+            time.sleep(0.1)
+        
+        time.sleep(0.3)  # Debounce
+        
+        if test_type == 'yaw':
+            print("\n=== YAW CALIBRATION ===")
+            print("Testing horizontal camera rotation (yaw)")
+            
+            # Get pixel distance from user
+            try:
+                pixel_input = input("\nEnter pixel drag distance [default 200]: ").strip()
+                pixel_distance = int(pixel_input) if pixel_input else 200
+            except ValueError:
+                print("Invalid input, using default 200")
+                pixel_distance = 200
+            
+            print(f"\nWill perform {pixel_distance}px horizontal drag (right direction)")
+            print("Press SPACE to start test, ESC to cancel")
+            
+            while True:
+                if keyboard.is_pressed('space'):
+                    break
+                elif keyboard.is_pressed('esc'):
+                    print("\nCancelled.")
+                    return
+                time.sleep(0.1)
+            
+            time.sleep(0.3)  # Debounce
+            
+            # Record initial yaw
+            camera_before = osrs.api.get_camera()
+            if not camera_before:
+                print("✗ Failed to read initial camera state")
+                return
+            
+            yaw_before = camera_before.get('yaw', 0)
+            print(f"\nInitial yaw: {yaw_before}")
+            
+            # Perform rotation
+            print(f"Executing {pixel_distance}px horizontal drag...")
+            osrs.window.rotate_camera(min_drag_distance=pixel_distance, direction='right')
+            time.sleep(0.5)  # Wait for camera to settle
+            
+            # Record final yaw
+            camera_after = osrs.api.get_camera()
+            if not camera_after:
+                print("✗ Failed to read final camera state")
+                return
+            
+            yaw_after = camera_after.get('yaw', 0)
+            print(f"Final yaw: {yaw_after}")
+            
+            # Calculate change
+            yaw_change = (yaw_after - yaw_before) % 2048
+            if yaw_change > 1024:  # Handle wrap-around
+                yaw_change = yaw_change - 2048
+            
+            print(f"\n" + "="*60)
+            print(f"YAW CHANGE: {abs(yaw_change)} units")
+            print(f"PIXEL DRAG: {pixel_distance} pixels")
+            print(f"RATIO: {pixel_distance / abs(yaw_change):.2f} pixels per yaw unit")
+            print(f"INVERSE: {abs(yaw_change) / pixel_distance:.4f} yaw units per pixel")
+            print("="*60)
+            
+            # Compare to expected
+            expected_yaw_per_200px = 512  # 90 degrees
+            expected_ratio = 200 / 512
+            actual_ratio = pixel_distance / abs(yaw_change)
+            
+            print(f"\nExpected ratio (from code): {expected_ratio:.4f} px/unit")
+            print(f"Actual ratio (measured): {actual_ratio:.4f} px/unit")
+            print(f"Difference: {((actual_ratio - expected_ratio) / expected_ratio * 100):.1f}%")
+            
+            # Suggest updated conversion
+            if abs(yaw_change) > 0:
+                suggested_pixels_for_512 = int((512 / abs(yaw_change)) * pixel_distance)
+                print(f"\nSuggested: {suggested_pixels_for_512}px ≈ 512 yaw units (90°)")
+        
+        else:  # pitch
+            print("\n=== PITCH CALIBRATION ===")
+            print("Testing vertical camera rotation (pitch)")
+            
+            # Get pixel distance from user
+            try:
+                pixel_input = input("\nEnter pixel drag distance [default 100]: ").strip()
+                pixel_distance = int(pixel_input) if pixel_input else 100
+            except ValueError:
+                print("Invalid input, using default 100")
+                pixel_distance = 100
+            
+            print(f"\nWill perform {pixel_distance}px vertical drag (down direction)")
+            print("Press SPACE to start test, ESC to cancel")
+            
+            while True:
+                if keyboard.is_pressed('space'):
+                    break
+                elif keyboard.is_pressed('esc'):
+                    print("\nCancelled.")
+                    return
+                time.sleep(0.1)
+            
+            time.sleep(0.3)  # Debounce
+            
+            # Record initial pitch
+            camera_before = osrs.api.get_camera()
+            if not camera_before:
+                print("✗ Failed to read initial camera state")
+                return
+            
+            pitch_before = camera_before.get('pitch', 0)
+            print(f"\nInitial pitch: {pitch_before}")
+            
+            # Perform rotation
+            print(f"Executing {pixel_distance}px vertical drag...")
+            osrs.window.rotate_camera(min_drag_distance=pixel_distance, direction='down', vertical=True)
+            time.sleep(0.5)  # Wait for camera to settle
+            
+            # Record final pitch
+            camera_after = osrs.api.get_camera()
+            if not camera_after:
+                print("✗ Failed to read final camera state")
+                return
+            
+            pitch_after = camera_after.get('pitch', 0)
+            print(f"Final pitch: {pitch_after}")
+            
+            # Calculate change
+            pitch_change = abs(pitch_after - pitch_before)
+            
+            print(f"\n" + "="*60)
+            print(f"PITCH CHANGE: {pitch_change} units")
+            print(f"PIXEL DRAG: {pixel_distance} pixels")
+            print(f"RATIO: {pixel_distance / pitch_change:.2f} pixels per pitch unit")
+            print(f"INVERSE: {pitch_change / pixel_distance:.4f} pitch units per pixel")
+            print("="*60)
+            
+            # Compare to expected
+            expected_pitch_per_100px = 128
+            expected_ratio = 100 / 128
+            actual_ratio = pixel_distance / pitch_change if pitch_change > 0 else 0
+            
+            print(f"\nExpected ratio (from code): {expected_ratio:.4f} px/unit")
+            print(f"Actual ratio (measured): {actual_ratio:.4f} px/unit")
+            if pitch_change > 0:
+                print(f"Difference: {((actual_ratio - expected_ratio) / expected_ratio * 100):.1f}%")
+            
+            # Suggest updated conversion
+            if pitch_change > 0:
+                suggested_pixels_for_128 = int((128 / pitch_change) * pixel_distance)
+                print(f"\nSuggested: {suggested_pixels_for_128}px ≈ 128 pitch units")
+    
+    def test_set_camera_yaw(self):
+        """Test setting camera yaw to a specific angle."""
+        osrs = self.init_osrs()
+        
+        print("\n=== Set Camera Yaw Test ===")
+        
+        # Get current camera state
+        camera = osrs.api.get_camera()
+        if not camera:
+            print("✗ Could not read camera state")
+            return
+        
+        current_yaw = camera.get('yaw', 0)
+        print(f"Current yaw: {current_yaw} / 2048")
+        
+        # Convert to degrees for reference
+        current_degrees = (current_yaw / 2048) * 360
+        print(f"  ({current_degrees:.1f}° clockwise from north)")
+        
+        # Display cardinal directions for reference
+        print("\nYaw reference (0-2048 scale):")
+        print("  0 / 2048 = North (0°)")
+        print("  512 = West (90° counter-clockwise)")
+        print("  1024 = South (180°)")
+        print("  1536 = East (270° counter-clockwise / 90° clockwise)")
+        
+        # Prompt for target yaw
+        print("\nChoose rotation method:")
+        print("1 - Mouse drag (fast, natural)")
+        print("2 - Arrow keys (slower, more precise)")
+        print("ESC - Cancel")
+        
+        method = None
+        while method is None:
+            if keyboard.is_pressed('1'):
+                method = 'mouse'
+            elif keyboard.is_pressed('2'):
+                method = 'keys'
+            elif keyboard.is_pressed('esc'):
+                print("\nCancelled.")
+                return
+            time.sleep(0.1)
+        
+        time.sleep(0.3)  # Debounce
+        
+        print(f"\nSelected method: {method}")
+        
+        # Get target yaw from user
+        print("\nEnter target yaw (0-2048) or press ENTER for quick test angles:")
+        print("Quick options:")
+        print("  [Press ENTER] - Test all cardinal directions")
+        print("  Or type a number: e.g., 512 for East, 1024 for South")
+        
+        try:
+            yaw_input = input("Target yaw: ").strip()
+            
+            if yaw_input:
+                # Custom yaw
+                target_yaw = int(yaw_input)
+                if target_yaw < 0 or target_yaw > 2048:
+                    print("✗ Invalid yaw. Must be 0-2048.")
+                    return
+                
+                print(f"\nRotating to yaw {target_yaw}...")
+                print("Note: Individual yaw/pitch control removed. Use camera.set_camera_to_tile() for positioning.")
+                success = False
+                
+                if success:
+                    print("\n✓ Rotation complete!")
+                    # Show final state
+                    camera = osrs.api.get_camera()
+                    if camera:
+                        final_yaw = camera.get('yaw', 0)
+                        print(f"Final yaw: {final_yaw} / 2048")
+                else:
+                    print("\n✗ Rotation failed")
+            
+            else:
+                # Test all cardinal directions
+                print("\nTesting cardinal directions in sequence...")
+                cardinal_directions = [
+                    (0, "North"),
+                    (512, "East"),
+                    (1024, "South"),
+                    (1536, "West"),
+                    (0, "North (return)")
+                ]
+                
+                for target_yaw, direction in cardinal_directions:
+                    print(f"\n--- Rotating to {direction} (yaw={target_yaw}) ---")
+                    print("Note: Individual yaw control removed. Use camera.set_camera_to_tile() for positioning.")
+                    success = False
+                    
+                    if success:
+                        print(f"✓ Successfully rotated to {direction}")
+                    else:
+                        print(f"✗ Failed to rotate to {direction}")
+                    
+                    # Small delay between rotations
+                    time.sleep(1.0)
+                
+                print("\n✓ Cardinal direction test complete!")
+        
+        except ValueError as e:
+            print(f"✗ Invalid input: {e}")
+        except KeyboardInterrupt:
+            print("\n✗ Test interrupted by user")
+    
+    def test_set_camera_pitch(self):
+        """Test setting camera pitch to a specific angle."""
+        osrs = self.init_osrs()
+        
+        print("\n=== Set Camera Pitch Test ===")
+        
+        # Get current camera state
+        camera = osrs.api.get_camera()
+        if not camera:
+            print("✗ Could not read camera state")
+            return
+        
+        current_pitch = camera.get('pitch', 383)
+        print(f"Current pitch: {current_pitch} / 383")
+        
+        # Display pitch reference
+        print("\nPitch reference (128-383 scale):")
+        print("  128 = Looking straight down (closest view)")
+        print("  256 = Medium angle (45°)")
+        print("  383 = Most horizontal (looking far)")
+        
+        # Prompt for method
+        print("\nChoose rotation method:")
+        print("1 - Mouse drag (fast, natural)")
+        print("2 - Arrow keys (slower, more precise)")
+        print("ESC - Cancel")
+        
+        method = None
+        while method is None:
+            if keyboard.is_pressed('1'):
+                method = 'mouse'
+            elif keyboard.is_pressed('2'):
+                method = 'keys'
+            elif keyboard.is_pressed('esc'):
+                print("\nCancelled.")
+                return
+            time.sleep(0.1)
+        
+        time.sleep(0.3)  # Debounce
+        
+        print(f"\nSelected method: {method}")
+        
+        # Get target pitch from user
+        print("\nEnter target pitch (128-383) or press ENTER for quick test angles:")
+        print("Quick options:")
+        print("  [Press ENTER] - Test common pitch angles")
+        print("  Or type a number: e.g., 256 for medium, 383 for far view")
+        
+        try:
+            pitch_input = input("Target pitch: ").strip()
+            
+            if pitch_input:
+                # Custom pitch
+                target_pitch = int(pitch_input)
+                if target_pitch < 128 or target_pitch > 383:
+                    print("✗ Invalid pitch. Must be 128-383.")
+                    return
+                
+                print(f"\nAdjusting to pitch {target_pitch}...")
+                print("Note: Individual pitch control removed. Use camera.set_camera_to_tile() for positioning.")
+                success = False
+                
+                if success:
+                    print("\n✓ Pitch adjustment complete!")
+                    # Show final state
+                    camera = osrs.api.get_camera()
+                    if camera:
+                        final_pitch = camera.get('pitch', 383)
+                        print(f"Final pitch: {final_pitch} / 383")
+                else:
+                    print("\n✗ Pitch adjustment failed")
+            
+            else:
+                # Test common pitch angles
+                print("\nTesting common pitch angles in sequence...")
+                pitch_angles = [
+                    (256, "Medium angle (45°)"),
+                    (383, "Most Horizontal (far view)"),
+                    (128, "Looking Down (close view)"),
+                    (256, "Return to Medium")
+                ]
+                
+                for target_pitch, description in pitch_angles:
+                    print(f"\n--- Setting pitch to {description} (pitch={target_pitch}) ---")
+                    print("Note: Individual pitch control removed. Use camera.set_camera_to_tile() for positioning.")
+                    success = False
+                    
+                    if success:
+                        print(f"✓ Successfully set to {description}")
+                    else:
+                        print(f"✗ Failed to set to {description}")
+                    
+                    # Small delay between adjustments
+                    time.sleep(1.0)
+                
+                print("\n✓ Pitch angle test complete!")
+        
+        except ValueError as e:
+            print(f"✗ Invalid input: {e}")
+        except KeyboardInterrupt:
+            print("\n✗ Test interrupted by user")
+    
     def run_navigation_tests(self):
         """Run navigation testing menu."""
         self.current_menu = "navigation"
@@ -2140,6 +2964,8 @@ class ModularTester:
             'w': ("Walk to Coordinates", self.test_walk_to_coordinates),
             'l': ("Long Distance Walk", self.test_long_distance_walk),
             's': ("Test Stuck Detection", self.test_stuck_detection),
+            'a': ("Camera Positioning Suite", self.test_camera_positioning),
+            'v': ("Verify Camera Calculations", self.test_camera_calculation_verification),
             'k': ("Calibration Info", self.test_calibration_info),
         }
         
@@ -2154,6 +2980,8 @@ class ModularTester:
         print("W - Walk to Coordinates (+10 north)")
         print("L - Long Distance Walk (25 tiles NE)")
         print("S - Test Stuck Detection")
+        print("A - Camera Positioning Suite")
+        print("V - Verify Camera Calculations (NEW)")
         print("K - Calibration Info")
         print("\nESC - Back to Main Menu")
         print("="*60)

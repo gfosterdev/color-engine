@@ -74,6 +74,17 @@ class TimingProfile:
     MEDIUM_DELAY = (0.10, 0.20)           # Medium delays
     LARGE_DELAY = (0.20, 0.40)            # Larger delays for realism
 
+    # Camera Control
+    CAMERA_ROTATION_RETRY_DELAY = (0.2, 0.5)  # Delay between rotation retry attempts
+
+
+# ============================================================================
+# CAMERA ROTATION RETRIES
+# ============================================================================
+
+# Maximum number of retry attempts for camera rotation before fallback to 360° sweep
+CAMERA_ROTATION_MAX_RETRIES = 3
+
 
 class FastProfile(TimingProfile):
     """Aggressive timing profile for speed (higher detection risk)."""

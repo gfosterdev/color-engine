@@ -213,9 +213,30 @@ class RuneLiteAPI:
         Get camera position and rotation.
         
         Returns:
-            Dictionary with yaw, pitch, x, y, z
+            Dictionary with yaw, pitch, scale, x, y, z
         """
         result = self._get("camera")
+        return cast(Optional[Dict[str, Any]], result)
+    
+    def get_camera_rotation(self, world_x: int, world_y: int, plane: int = 0) -> Optional[Dict[str, Any]]:
+        """
+        Get camera rotation calculations to make a target tile visible.
+        
+        Args:
+            world_x: Target tile world X coordinate
+            world_y: Target tile world Y coordinate
+            plane: Target tile plane (default: 0)
+        
+        Returns:
+            Dictionary with:
+            - visible: bool - whether tile is currently visible
+            - currentYaw, currentPitch, currentScale: current camera state
+            - targetYaw, targetPitch, targetScale: target camera state
+            - yawDistance, pitchDistance, scaleDelta: adjustment amounts
+            - dragPixelsX, dragPixelsY: signed pixel drag distances
+            - screenX, screenY: tile screen coordinates (if visible)
+        """
+        result = self._get(f"camera_rotation?x={world_x}&y={world_y}&plane={plane}")
         return cast(Optional[Dict[str, Any]], result)
     
     def get_game_state(self) -> Optional[Dict[str, Any]]:
@@ -373,4 +394,32 @@ class RuneLiteAPI:
         """
 
         result = self._get("viewport")
+        return cast(Optional[Dict[str, Any]], result)
+    
+    def get_camera_rotation_to_tile(self, world_x: int, world_y: int, plane: int = 0) -> Optional[Dict[str, Any]]:
+        """
+        Calculate camera rotation required to make a world tile visible in viewport.
+        
+        Args:
+            world_x: Target tile world X coordinate
+            world_y: Target tile world Y coordinate
+            plane: Target tile plane (default: 0)
+            
+        Returns:
+            Dictionary with:
+                - visible (bool): Whether tile is currently visible
+                - currentYaw (int): Current camera yaw (0-2048)
+                - currentPitch (int): Current camera pitch (128-512)
+                - targetYaw (int): Required yaw to face tile
+                - targetPitch (int): Recommended pitch for distance
+                - yawDistance (int): Rotation distance in yaw units
+                - pitchDistance (int): Rotation distance in pitch units
+                - direction (str): "left" or "right" for yaw rotation
+                - pitchDirection (str): "up" or "down" for pitch adjustment
+                - yawPixels (int): Approximate pixel drag distance for yaw
+                - pitchPixels (int): Approximate pixel drag distance for pitch
+                - screenX (int): Screen X coordinate if visible
+                - screenY (int): Screen Y coordinate if visible
+        """
+        result = self._get(f"camera_rotation?x={world_x}&y={world_y}&plane={plane}")
         return cast(Optional[Dict[str, Any]], result)

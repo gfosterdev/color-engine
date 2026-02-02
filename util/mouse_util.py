@@ -202,3 +202,31 @@ class MouseMover:
         
         # Release middle mouse button
         self.user32.mouse_event(0x0040, 0, 0, 0, 0)  # MOUSEEVENTF_MIDDLEUP
+    
+    def scroll_wheel(self, delta: int, duration: float = 0.3):
+        """
+        Scroll the mouse wheel smoothly.
+        
+        Args:
+            delta: Amount to scroll (positive=up/zoom in, negative=down/zoom out)
+                   120 units = 1 "click" of scroll wheel
+            duration: Time to spread scroll events over (default 0.3s)
+        """
+        # Split large deltas into multiple smaller scroll events for smoothness
+        num_events = min(max(3, abs(delta) // 60), 5)  # 3-5 scroll events
+        delta_per_event = delta // num_events
+        remainder = delta % num_events
+        
+        # Calculate delay between each scroll event
+        delay_between = duration / num_events if num_events > 1 else 0
+        
+        for i in range(num_events):
+            # Add remainder to last event to reach exact target
+            current_delta = delta_per_event + (remainder if i == num_events - 1 else 0)
+            
+            # Perform scroll event using MOUSEEVENTF_WHEEL (0x0800)
+            self.user32.mouse_event(0x0800, 0, 0, current_delta, 0)
+            
+            # Random delay between events (except after last one)
+            if i < num_events - 1:
+                time.sleep(delay_between + random.uniform(-0.02, 0.02))

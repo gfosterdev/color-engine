@@ -572,7 +572,7 @@ class Window:
         """
         return self.GAME_AREA.contains(x, y)
 
-    def rotate_camera(self, min_drag_distance: int, left_to_right: bool = True, direction: Optional[str] = None) -> bool:
+    def rotate_camera(self, min_drag_distance: int, left_to_right: bool = True, direction: Optional[str] = None, vertical: bool = False, angle_variance: float = 30.0) -> bool:
         """
         Rotate camera by dragging middle mouse from a random point.
         The drag distance is at least min_drag_distance pixels, and the end point stays within the GAME_AREA.
@@ -581,7 +581,9 @@ class Window:
         Args:
             min_drag_distance: Minimum drag distance in pixels
             left_to_right: If True, favors horizontal drag (spins camera). If False, allows any direction.
-            direction: Explicit direction - "right" (clockwise) or "left" (counter-clockwise). Overrides left_to_right.
+            direction: Explicit direction - "right" (clockwise), "left" (counter-clockwise), "up", or "down". Overrides left_to_right.
+            vertical: If True, performs vertical camera rotation (pitch adjustment). Direction should be "up" or "down".
+            angle_variance: Degrees of variance from pure horizontal/vertical (default: 30°). Lower values = straighter drags.
             
         Returns:
             True if successful, False if no window found or invalid parameters
@@ -612,25 +614,41 @@ class Window:
             start_x = random.randint(min_x, max_x)
             start_y = random.randint(min_y, max_y)
             
-            # Pick a random angle
-            if direction == "right":
-                # Right direction (clockwise): -30° to +30°
-                angle = random.uniform(-math.pi/6, math.pi/6)
-            elif direction == "left":
-                # Left direction (counter-clockwise): 150° to 210°
-                angle = random.uniform(5*math.pi/6, 7*math.pi/6)
-            elif left_to_right:
-                # Favor horizontal movement (0° or 180° ±30°)
-                # Randomly choose left or right direction
-                if random.random() < 0.5:
-                    # Right direction: -30° to +30°
-                    angle = random.uniform(-math.pi/6, math.pi/6)
+            # Pick a random angle based on direction
+            if vertical:
+                # Vertical camera rotation (pitch)
+                if direction == "up":
+                    # Up direction: -90° to -70° (upward drag)
+                    angle = random.uniform(-math.pi/2 - math.pi/18, -math.pi/2 + math.pi/18)
+                elif direction == "down":
+                    # Down direction: 70° to 90° (downward drag)
+                    angle = random.uniform(math.pi/2 - math.pi/18, math.pi/2 + math.pi/18)
                 else:
-                    # Left direction: 150° to 210°
-                    angle = random.uniform(5*math.pi/6, 7*math.pi/6)
+                    # Default to down if not specified
+                    angle = random.uniform(math.pi/2 - math.pi/18, math.pi/2 + math.pi/18)
             else:
-                # Any direction (0-360 degrees)
-                angle = random.uniform(0, 2 * math.pi)
+                # Horizontal camera rotation (yaw)
+                # Convert angle_variance from degrees to radians
+                variance_rad = math.radians(angle_variance)
+                
+                if direction == "right":
+                    # Right direction (clockwise): 0° ± angle_variance
+                    angle = random.uniform(-variance_rad, variance_rad)
+                elif direction == "left":
+                    # Left direction (counter-clockwise): 180° ± angle_variance
+                    angle = random.uniform(math.pi - variance_rad, math.pi + variance_rad)
+                elif left_to_right:
+                    # Favor horizontal movement (0° or 180° ± angle_variance)
+                    # Randomly choose left or right direction
+                    if random.random() < 0.5:
+                        # Right direction: 0° ± angle_variance
+                        angle = random.uniform(-variance_rad, variance_rad)
+                    else:
+                        # Left direction: 180° ± angle_variance
+                        angle = random.uniform(math.pi - variance_rad, math.pi + variance_rad)
+                else:
+                    # Any direction (0-360 degrees)
+                    angle = random.uniform(0, 2 * math.pi)
             
             # Calculate end point based on angle and min distance
             # Try with the minimum distance first

@@ -7,6 +7,7 @@ from client.interfaces import InterfaceDetector
 from client.interactions import RightClickMenu, KeyboardInput
 from client.navigation import NavigationManager
 from client.runelite_api import RuneLiteAPI
+from client.camera_controller import CameraController
 from config.game_objects import BankObjects
 from config.regions import (
     INTERACT_TEXT_REGION,
@@ -19,7 +20,7 @@ from config.regions import (
     UI_LOGOUT_ICON_REGION,
     UI_LOGOUT_BUTTON_REGION
 )
-from config.timing import TIMING
+from config.timing import TIMING, CAMERA_ROTATION_MAX_RETRIES
 import time
 import random
 import keyboard
@@ -35,6 +36,7 @@ class OSRS:
         self.keyboard = KeyboardInput()
         self.profile_config = profile_config
         self.api = RuneLiteAPI()
+        self.camera = CameraController(self)
     
     def click(self, option: str, target: Optional[str] = None):
         """
@@ -457,7 +459,7 @@ class OSRS:
 
     def validate_interact_text(self, expected_text):
         """
-            Validate right click menu has expected text.
+        Validate right click menu has expected text.
         """
         menu = self.api.get_menu()
         menu_entries = menu.get("entries", []) if menu else []
