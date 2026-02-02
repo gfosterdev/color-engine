@@ -361,101 +361,7 @@ class OSRS:
         print("No bank objects found in viewport")
         return None
 
-    def find_in_viewport(self, entity_ids: Union[int, List[int]], entity_type: str = "object", 
-                        rotate_360: bool = True, timeout: float = 15.0) -> List[dict]:
-        """
-        Find NPCs or game objects in viewport, rotating camera 360 degrees if not found.
-        
-        Args:
-            entity_ids: Single ID or list of NPC/game object IDs to search for
-            entity_type: "npc" or "object" (default: "object")
-            rotate_360: If True, rotates camera 360 degrees to search. If False, only checks current view.
-            timeout: Maximum time in seconds to search
-            
-        Returns:
-            List of dictionaries with entity data (hull, name, id, etc.). Empty list if none found.
-        """
-        # Normalize to list
-        if isinstance(entity_ids, int):
-            entity_ids = [entity_ids]
-        
-        start_time = time.time()
-        rotations_attempted = 0
-        found_entities = []
-        
-        # Calculate rotations needed for ~360 degrees
-        # Each ~200 pixel drag rotates camera roughly 90 degrees
-        # So 4 rotations should give us a full 360-degree view
-        rotations_for_360 = 4
-        
-        # Randomly decide rotation direction (clockwise vs counter-clockwise)
-        # "right" = clockwise, "left" = counter-clockwise
-        rotate_direction = random.choice(["right", "left"])
-        
-        print(f"Searching for {entity_type}(s) with ID(s) {entity_ids}...")
-        if rotate_360:
-            print(f"Will rotate 360° ({'clockwise' if rotate_direction == 'right' else 'counter-clockwise'}) if not found immediately")
-        
-        while time.time() - start_time < timeout:
-            # Search for all entity IDs based on type
-            if entity_type.lower() == "npc":
-                all_entities = self.api.get_npcs_in_viewport()
-            else:  # Default to game object
-                all_entities = self.api.get_game_objects_in_viewport()
-            
-            if all_entities:
-                # Filter to only entities matching our IDs
-                matches = [e for e in all_entities if e.get('id') in entity_ids]
-                
-                if matches:
-                    # Add new matches that aren't already in our found list
-                    for match in matches:
-                        # Check if we already have this entity (by id and position)
-                        is_duplicate = any(
-                            found.get('id') == match.get('id') and 
-                            found.get('x') == match.get('x') and 
-                            found.get('y') == match.get('y')
-                            for found in found_entities
-                        )
-                        if not is_duplicate:
-                            found_entities.append(match)
-                            entity_name = match.get('name', 'Unknown')
-                            entity_id = match.get('id')
-                            print(f"✓ Found {entity_type}: {entity_name} (ID: {entity_id})")
-            
-            # If we found at least one, we can return
-            if found_entities:
-                print(f"Found {len(found_entities)} matching {entity_type}(s)")
-                return found_entities
-            
-            # If not found and rotation is enabled
-            if rotate_360 and rotations_attempted < rotations_for_360:
-                print(f"Not found. Rotating camera ({rotations_attempted + 1}/{rotations_for_360} - ~{(rotations_attempted + 1) * 90}°)...")
-                
-                # Randomize rotation distance around 200 pixels for ~90° rotation
-                # Vary slightly to make it less predictable
-                min_drag = random.randint(180, 220)
-                
-                # Rotate in consistent direction for full 360
-                self.window.rotate_camera(min_drag_distance=min_drag, direction=rotate_direction)
-                
-                # Wait for camera to settle and viewport to update
-                time.sleep(random.uniform(*TIMING.MEDIUM_DELAY))
-                
-                rotations_attempted += 1
-            elif not rotate_360:
-                # No rotation requested, exit after first check
-                break
-            else:
-                # Completed full 360 rotation without finding target
-                break
-        
-        if found_entities:
-            return found_entities
-        
-        rotation_msg = f" after 360° rotation" if rotate_360 and rotations_attempted >= rotations_for_360 else ""
-        print(f"✗ {entity_type.capitalize()}(s) with ID(s) {entity_ids} not found{rotation_msg}")
-        return []
+    
 
     def validate_interact_text(self, expected_text):
         """
@@ -472,14 +378,22 @@ class OSRS:
             print(f"Expected interact text '{expected_text}' not found in menu entries.")
         return False
     
-    def click_npc(self, npc_id, action: str):
+    def click_npc(self, npc_id_or_entity: Union[int, dict], action: str):
         """
-        Click on an NPC by it's ID.
+        Click on an NPC by its ID or using an already-retrieved entity.
+        
+        Args:
+            npc_id_or_entity: Either an NPC ID (int) or an entity dict from get_npc_in_viewport
+            action: Action to perform (e.g., "Attack", "Talk-to", "Pickpocket")
         """
-        npc = self.api.get_npc_in_viewport(npc_id)
-        if not npc:
-            print(f"NPC with ID {npc_id} not found in viewport.")
-            return False
+        # If it's an int, fetch the NPC; if it's a dict, use it directly
+        if isinstance(npc_id_or_entity, int):
+            npc = self.api.get_npc_in_viewport(npc_id_or_entity)
+            if not npc:
+                print(f"NPC with ID {npc_id_or_entity} not found in viewport.")
+                return False
+        else:
+            npc = npc_id_or_entity
         
         target = npc.get('name', None)
 
@@ -496,14 +410,22 @@ class OSRS:
             
         return False
 
-    def click_game_object(self, obj_id, action: str):
+    def click_game_object(self, obj_id_or_entity: Union[int, dict], action: str):
         """
-        Click on a game object by it's ID.
+        Click on a game object by its ID or using an already-retrieved entity.
+        
+        Args:
+            obj_id_or_entity: Either an object ID (int) or an entity dict from get_game_object_in_viewport
+            action: Action to perform (e.g., "Mine", "Chop", "Bank")
         """
-        game_object = self.api.get_game_object_in_viewport(obj_id)
-        if not game_object:
-            print(f"Game object with ID {obj_id} not found in viewport.")
-            return False
+        # If it's an int, fetch the object; if it's a dict, use it directly
+        if isinstance(obj_id_or_entity, int):
+            game_object = self.api.get_game_object_in_viewport(obj_id_or_entity)
+            if not game_object:
+                print(f"Game object with ID {obj_id_or_entity} not found in viewport.")
+                return False
+        else:
+            game_object = obj_id_or_entity
         
         target = game_object.get('name', None)
 
@@ -519,6 +441,79 @@ class OSRS:
                 return True
 
         return False
+    
+    def find_entity(self, entity_id: int, entity_type: str) -> Optional[dict]:
+        """
+        Find an entity (game object or NPC) by ID, using camera adjustment if needed.
+        
+        First checks if the entity exists in the viewport. If not found, searches for
+        the nearest entity of that ID and adjusts the camera to point at it, then
+        verifies it's in the viewport.
+        
+        Args:
+            entity_id: The game object ID or NPC ID to search for
+            entity_type: Type of entity - either "npc" or "object"
+            
+        Returns:
+            Entity dictionary with hull data if found in viewport, None otherwise
+        """
+        if entity_type not in ["npc", "object"]:
+            raise ValueError(f"entity_type must be 'npc' or 'object', got '{entity_type}'")
+        
+        # First check if entity already in viewport
+        print(f"[find_entity] Checking if {entity_type} {entity_id} exists in viewport...")
+        if entity_type == "npc":
+            entity = self.api.get_npc_in_viewport(entity_id)
+        else:  # object
+            entity = self.api.get_game_object_in_viewport(entity_id)
+        
+        if entity:
+            print(f"[find_entity] ✓ {entity_type.capitalize()} found in viewport")
+            return entity
+        
+        # Not in viewport, find nearest entity
+        print(f"[find_entity] {entity_type.capitalize()} not in viewport, searching for nearest...")
+        nearest = self.api.get_nearest_by_id(entity_id, entity_type)
+        
+        if not nearest or not nearest.get('found', False):
+            print(f"[find_entity] ✗ No {entity_type} with ID {entity_id} found nearby")
+            return None
+        
+        # Extract coordinates
+        world_x = nearest.get('worldX')
+        world_y = nearest.get('worldY')
+        plane = nearest.get('plane', 0)
+        distance = nearest.get('distance', 0)
+        
+        if world_x is None or world_y is None:
+            print(f"[find_entity] ✗ Nearest entity missing coordinate data")
+            return None
+        
+        print(f"[find_entity] Found nearest {entity_type} at ({world_x}, {world_y}, plane {plane}), distance: {distance} tiles")
+        
+        # Point camera at the entity
+        print(f"[find_entity] Adjusting camera to point at entity...")
+        camera_success = self.camera.set_camera_to_tile(world_x, world_y, plane)
+        
+        if not camera_success:
+            print(f"[find_entity] ✗ Failed to adjust camera to entity location")
+            return None
+        
+        print(f"[find_entity] ✓ Camera adjusted, verifying entity in viewport...")
+        
+        # Verify entity is now in viewport - pass world coords to get the specific entity
+        time.sleep(random.uniform(0.3, 0.5))  # Brief delay for render
+        if entity_type == "npc":
+            entity = self.api.get_npc_in_viewport(entity_id, world_x, world_y)
+        else:  # object
+            entity = self.api.get_game_object_in_viewport(entity_id, world_x, world_y)
+        
+        if entity:
+            print(f"[find_entity] ✓ {entity_type.capitalize()} now visible in viewport")
+            return entity
+        else:
+            print(f"[find_entity] ✗ {entity_type.capitalize()} still not visible after camera adjustment")
+            return None
         
     def open_right_click_menu(self):
         """

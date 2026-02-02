@@ -73,6 +73,7 @@ public class HttpServerPlugin extends Plugin
         server.createContext("/grounditems", this::handleGroundItems);
         server.createContext("/npcs_in_viewport", this::getNPCsInViewport);
         server.createContext("/objects_in_viewport", this::getGameObjectsInViewport);
+        server.createContext("/find_nearest", this::handleFindNearest);
 
         // Game state
         server.createContext("/camera", this::handleCamera);
@@ -301,6 +302,8 @@ public class HttpServerPlugin extends Plugin
                         Point point = Perspective.localToCanvas(client, gameObject.getLocalLocation(), plane);
                         JsonObject objData = new JsonObject();
                         objData.addProperty("id", gameObject.getId());
+                        objData.addProperty("worldX", gameObject.getWorldLocation().getX());
+                        objData.addProperty("worldY", gameObject.getWorldLocation().getY());
                         objData.addProperty("x", point.getX());
                         objData.addProperty("y", point.getY());
 
@@ -343,6 +346,148 @@ public class HttpServerPlugin extends Plugin
                 && point.getY() >= 0 && point.getY() <= client.getViewportHeight();
     }
 
+    public void handleFindNearest(HttpExchange exchange) throws IOException
+    {
+        // Parse query parameters: /find_nearest?id=1234&type=npc
+        String query = exchange.getRequestURI().getQuery();
+        if (query == null)
+        {
+            exchange.sendResponseHeaders(400, 0);
+            exchange.getResponseBody().close();
+            return;
+        }
+
+        Map<String, String> params = new java.util.HashMap<>();
+        for (String param : query.split("&"))
+        {
+            String[] pair = param.split("=");
+            if (pair.length == 2)
+            {
+                params.put(pair[0], pair[1]);
+            }
+        }
+
+        if (!params.containsKey("id") || !params.containsKey("type"))
+        {
+            exchange.sendResponseHeaders(400, 0);
+            exchange.getResponseBody().close();
+            return;
+        }
+
+        int targetId;
+        String searchType = params.get("type").toLowerCase();
+        
+        if (!searchType.equals("npc") && !searchType.equals("object"))
+        {
+            exchange.sendResponseHeaders(400, 0);
+            exchange.getResponseBody().close();
+            return;
+        }
+        
+        try
+        {
+            targetId = Integer.parseInt(params.get("id"));
+        }
+        catch (NumberFormatException ex)
+        {
+            exchange.sendResponseHeaders(400, 0);
+            exchange.getResponseBody().close();
+            return;
+        }
+
+        JsonObject result = invokeAndWait(() -> {
+            Player localPlayer = client.getLocalPlayer();
+            if (localPlayer == null) return null;
+
+            WorldPoint playerPos = localPlayer.getWorldLocation();
+            JsonObject data = new JsonObject();
+            data.addProperty("searchId", targetId);
+            data.addProperty("searchType", searchType);
+            data.addProperty("found", false);
+
+            if (searchType.equals("npc"))
+            {
+                // Search for NPCs
+                NPC closestNPC = null;
+                int closestNPCDistance = Integer.MAX_VALUE;
+                List<NPC> npcList = client.getNpcs();
+
+                for (NPC npc : npcList)
+                {
+                    if (npc == null || npc.getId() != targetId) continue;
+
+                    WorldPoint npcPos = npc.getWorldLocation();
+                    int distance = npcPos.distanceTo(playerPos);
+
+                    if (distance < closestNPCDistance)
+                    {
+                        closestNPC = npc;
+                        closestNPCDistance = distance;
+                    }
+                }
+
+                if (closestNPC != null)
+                {
+                    WorldPoint npcPos = closestNPC.getWorldLocation();
+                    data.addProperty("found", true);
+                    data.addProperty("type", "npc");
+                    data.addProperty("name", closestNPC.getName());
+                    data.addProperty("worldX", npcPos.getX());
+                    data.addProperty("worldY", npcPos.getY());
+                    data.addProperty("plane", npcPos.getPlane());
+                    data.addProperty("distance", closestNPCDistance);
+                }
+            }
+            else if (searchType.equals("object"))
+            {
+                // Search for game objects
+                GameObject closestObject = null;
+                int closestObjectDistance = Integer.MAX_VALUE;
+                Scene scene = client.getScene();
+                Tile[][][] tiles = scene.getTiles();
+                int plane = client.getPlane();
+
+                for (int x = 0; x < 104; x++)
+                {
+                    for (int y = 0; y < 104; y++)
+                    {
+                        Tile tile = tiles[plane][x][y];
+                        if (tile == null) continue;
+
+                        for (GameObject gameObject : tile.getGameObjects())
+                        {
+                            if (gameObject == null || gameObject.getId() != targetId) continue;
+
+                            WorldPoint objPos = gameObject.getWorldLocation();
+                            int distance = objPos.distanceTo(playerPos);
+
+                            if (distance < closestObjectDistance)
+                            {
+                                closestObject = gameObject;
+                                closestObjectDistance = distance;
+                            }
+                        }
+                    }
+                }
+
+                if (closestObject != null)
+                {
+                    WorldPoint objPos = closestObject.getWorldLocation();
+                    data.addProperty("found", true);
+                    data.addProperty("type", "object");
+                    data.addProperty("worldX", objPos.getX());
+                    data.addProperty("worldY", objPos.getY());
+                    data.addProperty("plane", objPos.getPlane());
+                    data.addProperty("distance", closestObjectDistance);
+                }
+            }
+
+            return data;
+        });
+
+        sendJsonResponse(exchange, result);
+    }
+
     public void getNPCsInViewport(HttpExchange exchange) throws IOException
     {
         JsonArray npcsData = invokeAndWait(() -> {
@@ -361,6 +506,8 @@ public class HttpServerPlugin extends Plugin
                     JsonObject npcData = new JsonObject();
                     npcData.addProperty("name", npc.getName());
                     npcData.addProperty("id", npc.getId());
+                    npcData.addProperty("worldX", wp.getX());
+                    npcData.addProperty("worldY", wp.getY());
                     npcData.addProperty("x", point.getX());
                     npcData.addProperty("y", point.getY());
 

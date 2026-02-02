@@ -7,6 +7,7 @@ Navigate using number keys and submenus.
 
 import keyboard
 import time
+import random
 import ctypes
 from util import Window, Region
 from util.types import Polygon
@@ -997,6 +998,116 @@ class ModularTester:
         success = osrs.click_game_object(obj_id, action)
         print("✓ Click successful" if success else "✗ Click failed")
 
+    def test_find_nearest_by_id(self):
+        """Find nearest game object or NPC by ID and display world coordinates."""
+        api = self.init_api()
+
+        try:
+            id_input = input("\nEnter object/NPC ID (e.g., 10583 for bank or 1 for man): ").strip()
+            if not id_input:
+                print("✗ No ID entered, cancelling")
+                return
+            entity_id = int(id_input, 0)
+            
+            type_input = input("Enter entity type (npc/object): ").strip().lower()
+            if type_input not in ["npc", "object"]:
+                print("✗ Invalid type, must be 'npc' or 'object'")
+                return
+        except ValueError:
+            print("✗ Invalid ID format")
+            return
+        except Exception as e:
+            print(f"✗ Error: {e}")
+            return
+
+        print(f"\nSearching for nearest {type_input} with ID {entity_id}...")
+        result = api.get_nearest_by_id(entity_id, type_input)
+        
+        if not result:
+            print("✗ API request failed")
+            return
+        
+        if result.get('found'):
+            entity_type = result.get('type', 'unknown')
+            world_x = result.get('worldX')
+            world_y = result.get('worldY')
+            plane = result.get('plane')
+            distance = result.get('distance')
+            
+            print(f"\n✓ Found {entity_type.upper()} with ID {entity_id}")
+            if entity_type == 'npc':
+                name = result.get('name')
+                print(f"  Name: {name}")
+            print(f"  World Coordinates: ({world_x}, {world_y}, {plane})")
+            print(f"  Distance: {distance} tiles")
+        else:
+            print(f"\n✗ No entity with ID {entity_id} found in area")
+
+    def test_find_entity(self):
+        """Test find_entity method that checks viewport and adjusts camera if needed."""
+        osrs = self.init_osrs()
+
+        try:
+            id_input = input("\nEnter object/NPC ID (e.g., 10583 for bank or 1 for man): ").strip()
+            if not id_input:
+                print("✗ No ID entered, cancelling")
+                return
+            entity_id = int(id_input, 0)
+            
+            type_input = input("Enter entity type (npc/object): ").strip().lower()
+            if type_input not in ["npc", "object"]:
+                print("✗ Invalid type, must be 'npc' or 'object'")
+                return
+        except ValueError:
+            print("✗ Invalid ID format")
+            return
+        except Exception as e:
+            print(f"✗ Error: {e}")
+            return
+
+        print(f"\n{'='*60}")
+        print(f"Finding {type_input} with ID {entity_id}...")
+        print(f"{'='*60}\n")
+        
+        entity = osrs.find_entity(entity_id, type_input)
+        
+        if entity:
+            print(f"\n{'='*60}")
+            print(f"✓ SUCCESS - {type_input.upper()} FOUND IN VIEWPORT")
+            print(f"{'='*60}")
+            print(f"Entity data: {entity}")
+            
+            # Prompt for click action
+            try:
+                action = input("\nEnter action (e.g., 'Mine', 'Bank', 'Talk-to', or press Enter to skip): ").strip()
+                if not action:
+                    print("✗ No action entered, skipping click")
+                    return
+                
+                print(f"\n{'='*60}")
+                print(f"Attempting to click: {action} on {type_input} {entity_id}")
+                print(f"{'='*60}\n")
+                
+                # Use appropriate click method based on entity type
+                if type_input == "npc":
+                    success = osrs.click_npc(entity, action)
+                else:  # object
+                    success = osrs.click_game_object(entity, action)
+                
+                if success:
+                    print(f"\n✓ Click successful")
+                else:
+                    print(f"\n✗ Click failed")
+                    
+            except KeyboardInterrupt:
+                print("\n✗ Click cancelled")
+            except Exception as e:
+                print(f"✗ Click error: {e}")
+        else:
+            print(f"\n{'='*60}")
+            print(f"✗ FAILED - Could not find {type_input} with ID {entity_id}")
+            print(f"{'='*60}")
+
     def test_gameobject_find_bank(self):
         """Find bank booth."""
         interaction = self.init_interactions()
@@ -1458,6 +1569,8 @@ class ModularTester:
             'c': ("Click on Game Object via ID", self.test_click_on_gameobject),
             'l': ("Find NPC via ID", self.test_npc_find_api),
             'k': ("Click on NPC via ID", self.test_click_on_npc),
+            'n': ("Find Nearest by ID (World Coords)", self.test_find_nearest_by_id),
+            'f': ("Find Entity (Viewport + Camera Adjust)", self.test_find_entity),
             '1': ("Find Iron Ore", self.test_gameobject_find_ore),
             '2': ("Interact with Ore", self.test_gameobject_interact_ore),
             '3': ("Find Bank Booth", self.test_gameobject_find_bank),
@@ -1476,6 +1589,8 @@ class ModularTester:
         print("C - Click on Game Object by ID")
         print("L - Find NPC by ID")
         print("K - Click on NPC by ID")
+        print("N - Find Nearest by ID (World Coords)")
+        print("F - Find Entity (Viewport + Camera Adjust) [NEW]")
         print("1 - Find Iron Ore")
         print("2 - Interact with Ore")
         print("3 - Find Bank Booth")

@@ -342,17 +342,29 @@ class RuneLiteAPI:
         result = self._get("npcs_in_viewport")
         return cast(Optional[List[Dict[str, Any]]], result)
 
-    def get_npc_in_viewport(self, npc_id) -> Optional[Dict[str, Any]]:
+    def get_npc_in_viewport(self, npc_id, world_x: Optional[int] = None, world_y: Optional[int] = None) -> Optional[Dict[str, Any]]:
         """
-        Get npc in viewport if it exists
+        Get NPC in viewport if it exists.
+        If more than one exists and no coordinates provided, returns a random one.
+        If coordinates are provided, returns the NPC at that location.
+        
+        Args:
+            npc_id: NPC ID to search for
+            world_x: Optional world X coordinate to filter by
+            world_y: Optional world Y coordinate to filter by
 
         Returns:
-            Dictionary with name, id, x, y, hull
+            Dictionary with name, id, x, y, hull or None if not found
         """
         result = self._get("npcs_in_viewport")
         result = cast(Optional[List[Dict[str, Any]]], result)
         if result and len(result) > 0:
             filtered = [npc for npc in result if npc.get('id') == npc_id]
+            
+            # If coordinates provided, filter by exact location
+            if world_x is not None and world_y is not None:
+                filtered = [npc for npc in filtered if npc.get('worldX') == world_x and npc.get('worldX') == world_y]
+            
             if len(filtered) > 0:
                 import random
                 return random.choice(filtered)
@@ -368,10 +380,16 @@ class RuneLiteAPI:
         result = self._get("objects_in_viewport")
         return cast(Optional[List[Dict[str, Any]]], result)
 
-    def get_game_object_in_viewport(self, obj_id) -> Optional[Dict[str, Any]]:
+    def get_game_object_in_viewport(self, obj_id, world_x: Optional[int] = None, world_y: Optional[int] = None) -> Optional[Dict[str, Any]]:
         """
         Get game object if it exists in the viewport.
-        If more than one exists, returns a random one.
+        If more than one exists and no coordinates provided, returns a random one.
+        If coordinates are provided, returns the object at that location.
+        
+        Args:
+            obj_id: Game object ID to search for
+            world_x: Optional world X coordinate to filter by
+            world_y: Optional world Y coordinate to filter by
         
         Returns:
             Dictionary with id, name, x, y or None if not found
@@ -380,6 +398,14 @@ class RuneLiteAPI:
         result = cast(Optional[List[Dict[str, Any]]], result)
         if result and len(result) > 0:
             filtered = [obj for obj in result if obj.get('id') == obj_id]
+            print(f"filtered length: {len(filtered)}")
+            
+            # If coordinates provided, filter by exact location
+            if world_x is not None and world_y is not None:
+                filtered = [obj for obj in filtered if obj.get('worldX') == world_x and obj.get('worldY') == world_y]
+                print(f"filtered length: {len(filtered)}")
+                print(f"filtered items: {filtered}")
+            
             if len(filtered) > 0:
                 import random
                 return random.choice(filtered)
@@ -422,4 +448,31 @@ class RuneLiteAPI:
                 - screenY (int): Screen Y coordinate if visible
         """
         result = self._get(f"camera_rotation?x={world_x}&y={world_y}&plane={plane}")
+        return cast(Optional[Dict[str, Any]], result)
+    
+    def get_nearest_by_id(self, entity_id: int, entity_type: str) -> Optional[Dict[str, Any]]:
+        """
+        Find the nearest game object or NPC by ID and return its world coordinates.
+        
+        Args:
+            entity_id: The game object ID or NPC ID to search for
+            entity_type: Type of entity to search for - either "npc" or "object"
+            
+        Returns:
+            Dictionary with:
+                - found (bool): Whether entity was found
+                - searchId (int): The ID that was searched for
+                - searchType (str): The type that was searched ("npc" or "object")
+                - type (str): "npc" or "object" if found
+                - name (str): Entity name (NPCs only)
+                - worldX (int): World X coordinate
+                - worldY (int): World Y coordinate
+                - plane (int): World plane
+                - distance (int): Distance from player in tiles
+            
+            Returns None if request fails, or dict with found=False if not found.
+        """
+        if entity_type not in ["npc", "object"]:
+            raise ValueError(f"entity_type must be 'npc' or 'object', got '{entity_type}'")
+        result = self._get(f"find_nearest?id={entity_id}&type={entity_type}")
         return cast(Optional[Dict[str, Any]], result)
