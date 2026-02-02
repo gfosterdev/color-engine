@@ -68,7 +68,9 @@ class ModularTester:
         if not self.inventory:
             from client.inventory import InventoryManager
             print("[Loading inventory module...]")
-            self.inventory = InventoryManager(self.window)
+            # Need to initialize a minimal OSRS instance for inventory
+            osrs = self.init_osrs()
+            self.inventory = osrs.inventory
             print("[Inventory ready]")
         return self.inventory
     
@@ -662,7 +664,7 @@ class ModularTester:
 
         slot = int(input("Inventory slot to drop: "))
         print(f"\nDropping inventory slot {slot}...")
-        success = osrs.drop_item(slot)
+        success = osrs.inventory.drop_item(slot)
         print("✓ Dropped" if success else "✗ Drop failed")
 
     def test_drop_item(self):
@@ -673,7 +675,7 @@ class ModularTester:
 
         item_id = int(input("Item ID to drop: "))
         print(f"\nDropping all items with ID {item_id}...")
-        drop_count = osrs.drop_items(item_id)
+        drop_count = osrs.inventory.drop_all(item_id)
         print(f"✓ Dropped {drop_count} items" if drop_count > 0 else "✗ No items dropped")
 
     # =================================================================
@@ -738,7 +740,7 @@ class ModularTester:
         """Open bank."""
         osrs = self.init_osrs()
         print("\nOpening bank...")
-        result = osrs.open_bank()
+        result = osrs.bank.open()
         print(f"Result: {'✓ SUCCESS' if result else '✗ FAILED'}")
     
     def test_banking_deposit_all(self):
@@ -754,14 +756,14 @@ class ModularTester:
             return
         
         print("\nDepositing all items...")
-        result = osrs.deposit_all()
+        result = osrs.bank.deposit_all()
         print(f"Result: {'✓ SUCCESS' if result else '✗ FAILED'}")
     
     def test_banking_close(self):
         """Close bank."""
         osrs = self.init_osrs()
         print("\nClosing bank...")
-        result = osrs.close_bank()
+        result = osrs.bank.close()
         print(f"Result: {'✓ SUCCESS' if result else '✗ FAILED'}")
     
     def test_banking_search(self):
@@ -777,14 +779,14 @@ class ModularTester:
             return
         
         print("\nSearching for 'iron'...")
-        result = osrs.search_bank("iron")
+        result = osrs.bank.search("iron")
         print(f"Result: {'✓ SUCCESS' if result else '✗ FAILED'}")
     
     def test_banking_find(self):
         """Find bank with camera rotation."""
         osrs = self.init_osrs()
         print("\nFinding bank...")
-        bank_polygon = osrs.find_bank()
+        bank_polygon = osrs.bank.find()
         
         if bank_polygon:
             # Get a random point from the polygon to display
@@ -3583,6 +3585,336 @@ class ModularTester:
         print("="*60)
         
         self._run_submenu(test_map)
+    
+    # =================================================================
+    # WOODCUTTING TESTS
+    # =================================================================
+    
+    def test_woodcutting_axe_verification(self):
+        """Test if player has an axe equipped or in inventory."""
+        api = self.init_api()
+        from config.skill_mappings import get_all_tool_ids
+        
+        print("\nChecking for woodcutting axes...")
+        
+        axe_ids = get_all_tool_ids('woodcutting')
+        print(f"Looking for axe IDs: {axe_ids}")
+        
+        # Check equipment
+        equipment = api.get_equipment()
+        if equipment:
+            weapon_id = equipment.get('weapon', {}).get('id')
+            if weapon_id in axe_ids:
+                print(f"✓ Axe equipped: ID {weapon_id}")
+                return
+        
+        # Check inventory
+        inventory = api.get_inventory()
+        if inventory:
+            for item in inventory:
+                if item and item.get('id') in axe_ids:
+                    print(f"✓ Axe in inventory: ID {item['id']}")
+                    return
+        
+        print("✗ No axe found in equipment or inventory")
+    
+    def test_woodcutting_xp_tracking(self):
+        """Test woodcutting XP tracking."""
+        api = self.init_api()
+        
+        print("\nFetching woodcutting stats...")
+        
+        stats = api.get_stats()
+        if not stats:
+            print("✗ Could not fetch stats")
+            return
+        
+        wc_stat = stats.get('Woodcutting', {})
+        level = wc_stat.get('level', 0)
+        xp = wc_stat.get('xp', 0)
+        boosted_level = wc_stat.get('boostedLevel', level)
+        
+        print(f"Woodcutting Level: {level}")
+        print(f"Boosted Level: {boosted_level}")
+        print(f"Experience: {xp:,}")
+        
+        # Calculate XP to next level
+        def xp_for_level(level):
+            total = 0
+            for i in range(1, level):
+                total += int(i + 300 * (2 ** (i / 7.0)))
+            return int(total / 4)
+        
+        if level < 99:
+            next_level_xp = xp_for_level(level + 1)
+            xp_remaining = next_level_xp - xp
+            print(f"XP to level {level + 1}: {xp_remaining:,}")
+    
+    def test_woodcutting_animation_detection(self):
+        """Test woodcutting animation detection."""
+        api = self.init_api()
+        
+        print("\nMonitoring for woodcutting animation...")
+        print("Start cutting a tree!")
+        print("Press ESC to stop monitoring")
+        
+        woodcutting_animation_id = 879
+        detected = False
+        
+        while not keyboard.is_pressed('esc'):
+            player_data = api.get_player()
+            
+            if player_data:
+                is_animating = player_data.get('isAnimating', False)
+                animation_id = player_data.get('animation', -1)
+                
+                if is_animating and animation_id == woodcutting_animation_id:
+                    if not detected:
+                        print(f"✓ Woodcutting animation detected! (ID: {animation_id})")
+                        detected = True
+                elif detected and animation_id != woodcutting_animation_id:
+                    print(f"  Animation stopped (current: {animation_id})")
+                    detected = False
+            
+            time.sleep(0.3)
+        
+        time.sleep(0.3)  # Debounce ESC
+    
+    def test_find_trees(self):
+        """Test finding trees using RuneLite API."""
+        api = self.init_api()
+        from config.game_objects import Trees
+        
+        print("\nSearching for trees in viewport...")
+        
+        # Get all objects
+        objects = api.get_game_objects_in_viewport()
+        if not objects:
+            print("✗ No objects found")
+            return
+        
+        print(f"Total objects in viewport: {len(objects)}")
+        
+        # Filter for different tree types
+        tree_types = {
+            'Normal': Trees.TREE,
+            'Oak': Trees.OAK,
+            'Willow': Trees.WILLOW,
+            'Maple': Trees.MAPLE,
+            'Yew': Trees.YEW,
+            'Magic': Trees.MAGIC,
+        }
+        
+        for tree_name, tree_ids in tree_types.items():
+            trees = [obj for obj in objects if obj.get('id') in tree_ids]
+            if trees:
+                print(f"\n{tree_name} Trees: {len(trees)}")
+                for i, tree in enumerate(trees[:3], 1):  # Show first 3
+                    x, y = tree.get('worldX', 0), tree.get('worldY', 0)
+                    distance = tree.get('distance', 0)
+                    tree_id = tree.get('id')
+                    print(f"  {i}. World: ({x}, {y}) | Distance: {distance} | ID: {tree_id}")
+    
+    def test_tree_distance_sorting(self):
+        """Test sorting trees by distance."""
+        api = self.init_api()
+        from config.game_objects import Trees
+        import math
+        
+        print("\nTesting tree distance sorting...")
+        
+        # Get player position
+        coords = api.get_coords()
+        if not coords or 'world' not in coords:
+            print("✗ Could not get player position")
+            return
+        
+        player_pos = coords['world']
+        px, py = player_pos.get('x', 0), player_pos.get('y', 0)
+        print(f"Player at: ({px}, {py})")
+        
+        # Get all trees (start with yews)
+        objects = api.get_game_objects_in_viewport()
+        if not objects:
+            print("✗ No objects in viewport")
+            return
+        
+        # Filter for yew trees
+        all_tree_ids = Trees.YEW + Trees.OAK + Trees.WILLOW
+        trees = [obj for obj in objects if obj.get('id') in all_tree_ids]
+        
+        if not trees:
+            print("✗ No trees found")
+            return
+        
+        print(f"\nFound {len(trees)} trees. Sorting by distance...")
+        
+        # Calculate distances
+        for tree in trees:
+            tx, ty = tree.get('worldX', 0), tree.get('worldY', 0)
+            distance = math.sqrt((tx - px)**2 + (ty - py)**2)
+            tree['distance_2d'] = distance
+        
+        # Sort by distance
+        trees.sort(key=lambda t: t.get('distance_2d', float('inf')))
+        
+        print("\nTrees sorted by distance:")
+        for i, tree in enumerate(trees, 1):
+            tx, ty = tree.get('worldX', 0), tree.get('worldY', 0)
+            dist = tree.get('distance_2d', 0)
+            tree_id = tree.get('id')
+            print(f"  {i}. World: ({tx}, {ty}) | Distance: {dist:.1f} tiles | ID: {tree_id}")
+    
+    def test_woodcutting_location_resolution(self):
+        """Test woodcutting location name to coordinates resolution."""
+        from config.locations import WoodcuttingLocations, BankLocations
+        
+        print("\nTesting woodcutting location resolution...")
+        
+        test_locations = [
+            ("edgeville_yews", WoodcuttingLocations),
+            ("edgeville", BankLocations),
+            ("varrock_palace_trees", WoodcuttingLocations),
+            ("draynor_willows", WoodcuttingLocations),
+            ("grand_exchange_trees", WoodcuttingLocations),
+        ]
+        
+        for location_str, location_class in test_locations:
+            location_upper = location_str.upper().replace(" ", "_")
+            coord = location_class.find_by_name(location_upper)
+            
+            if coord:
+                print(f"✓ {location_str}: {coord}")
+            else:
+                print(f"✗ {location_str}: Not found")
+        
+        # Show all woodcutting locations
+        print("\nAll woodcutting locations:")
+        all_wc_locs = WoodcuttingLocations.all()
+        for name, coords in all_wc_locs.items():
+            print(f"  {name}: {coords}")
+    
+    def test_woodcutting_bot_initialization(self):
+        """Test woodcutting bot initialization."""
+        print("\nTesting woodcutting bot initialization...")
+        
+        try:
+            from client.skills.woodcutting import WoodcuttingBot
+            
+            print("Creating woodcutting bot instance...")
+            bot = WoodcuttingBot("yew_cutter_edgeville")
+            
+            print(f"✓ Bot initialized successfully")
+            print(f"  Tree types: {[cfg['name'] for cfg in bot.tree_configs]}")
+            print(f"  Tree IDs: {bot.primary_tree['tree_ids']}")
+            print(f"  Woodcutting location: {bot.wc_location}")
+            print(f"  Bank location: {bot.bank_location}")
+            print(f"  Banking enabled: {bot.should_bank}")
+            print(f"  Powerdrop enabled: {bot.powerdrop}")
+            print(f"  XP tracking: {bot.track_xp}")
+            print(f"  Respawn detection: {bot.detect_respawn}")
+            
+        except Exception as e:
+            print(f"✗ Initialization failed: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def test_tree_respawn_detection(self):
+        """Test tree respawn detection (requires woodcutting)."""
+        api = self.init_api()
+        from config.game_objects import Trees
+        
+        print("\nTesting tree respawn detection...")
+        print("This test monitors for tree respawn after cutting.")
+        print("Make sure you're near trees and start cutting!")
+        
+        all_tree_ids = Trees.YEW + Trees.OAK + Trees.WILLOW
+        woodcutting_animation_id = 879
+        
+        print("\nWaiting for woodcutting to start...")
+        cutting_started = False
+        timeout = 15.0
+        start_time = time.time()
+        
+        # Wait for woodcutting animation
+        while time.time() - start_time < timeout:
+            player_data = api.get_player()
+            if player_data:
+                is_animating = player_data.get('isAnimating', False)
+                animation_id = player_data.get('animation', -1)
+                
+                if is_animating and animation_id == woodcutting_animation_id:
+                    print("✓ Woodcutting detected!")
+                    cutting_started = True
+                    break
+            
+            time.sleep(0.2)
+        
+        if not cutting_started:
+            print("✗ Woodcutting not detected within timeout")
+            return
+        
+        # Wait for woodcutting to stop
+        print("\nWaiting for tree to be depleted...")
+        while True:
+            player_data = api.get_player()
+            if player_data:
+                is_animating = player_data.get('isAnimating', False)
+                animation_id = player_data.get('animation', -1)
+                
+                if not is_animating or animation_id != woodcutting_animation_id:
+                    print("✓ Woodcutting stopped (tree depleted)")
+                    break
+            
+            time.sleep(0.2)
+        
+        # Monitor for respawn
+        print("\nMonitoring for tree respawn (90 seconds for yews)...")
+        respawn_time = time.time()
+        
+        while time.time() - respawn_time < 90.0:
+            objects = api.get_game_objects_in_viewport()
+            if objects:
+                trees = [obj for obj in objects if obj.get('id') in all_tree_ids]
+                if trees:
+                    elapsed = time.time() - respawn_time
+                    print(f"✓ Tree respawned! (after {elapsed:.1f} seconds)")
+                    return
+            
+            time.sleep(0.5)
+        
+        print("✗ No respawn detected within timeout")
+    
+    def run_woodcutting_tests(self):
+        """Run woodcutting skill testing menu."""
+        self.current_menu = "woodcutting"
+        
+        test_map = {
+            'a': ("Axe Verification", self.test_woodcutting_axe_verification),
+            'x': ("XP Tracking", self.test_woodcutting_xp_tracking),
+            'n': ("Animation Detection", self.test_woodcutting_animation_detection),
+            't': ("Find Trees", self.test_find_trees),
+            'd': ("Tree Distance Sorting", self.test_tree_distance_sorting),
+            'l': ("Location Resolution", self.test_woodcutting_location_resolution),
+            'b': ("Woodcutting Bot Initialization", self.test_woodcutting_bot_initialization),
+            'r': ("Tree Respawn Detection", self.test_tree_respawn_detection),
+        }
+        
+        print("\n" + "="*60)
+        print("WOODCUTTING SKILL TESTS")
+        print("="*60)
+        print("A - Axe Verification (equipment check)")
+        print("X - XP Tracking (woodcutting stats)")
+        print("N - Animation Detection (woodcutting animation)")
+        print("T - Find Trees (API object detection)")
+        print("D - Tree Distance Sorting (world coordinates)")
+        print("L - Location Resolution (config lookup)")
+        print("B - Woodcutting Bot Initialization (full bot setup)")
+        print("R - Tree Respawn Detection (requires woodcutting)")
+        print("\nESC - Back to Main Menu")
+        print("="*60)
+        
+        self._run_submenu(test_map)
 
 
     def _run_submenu(self, test_map):
@@ -3626,6 +3958,7 @@ class ModularTester:
             '0': ("Navigation", self.run_navigation_tests),
             'p': ("Pathfinding", self.run_pathfinding_tests),
             'm': ("Mining Skill", self.run_mining_tests),
+            'w': ("Woodcutting Skill", self.run_woodcutting_tests),
         }
         
         def print_main_menu():
@@ -3643,7 +3976,8 @@ class ModularTester:
             print("9 - Color Registry Tests")
             print("0 - Navigation Tests")
             print("P - Pathfinding Tests")
-            print("M - Mining Skill Tests (NEW)")
+            print("M - Mining Skill Tests")
+            print("W - Woodcutting Skill Tests (NEW)")
             print("\nESC - Exit")
             print("="*60)
         

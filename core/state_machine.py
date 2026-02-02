@@ -21,7 +21,10 @@ class BotState(Enum):
     WALKING = "walking"
     NAVIGATING = "navigating"
     
-    # Skilling states
+    # Generic skilling states
+    GATHERING = "gathering"  # Generic resource gathering (mining, woodcutting, fishing, etc.)
+    
+    # Specific skilling states (for backwards compatibility)
     MINING = "mining"
     WOODCUTTING = "woodcutting"
     FISHING = "fishing"
@@ -97,23 +100,24 @@ class StateMachine:
         
         # Define specific transitions
         transitions = {
-            BotState.IDLE: [BotState.STARTING, BotState.WALKING, BotState.MINING, 
-                           BotState.WOODCUTTING, BotState.FISHING],
+            BotState.IDLE: [BotState.STARTING, BotState.WALKING, BotState.GATHERING,
+                           BotState.MINING, BotState.WOODCUTTING, BotState.FISHING],
             
-            BotState.STARTING: [BotState.MINING, BotState.WOODCUTTING, BotState.FISHING,
-                               BotState.WALKING, BotState.COMBAT],
+            BotState.STARTING: [BotState.GATHERING, BotState.MINING, BotState.WOODCUTTING, 
+                               BotState.FISHING, BotState.WALKING, BotState.COMBAT],
             
+            BotState.GATHERING: [BotState.BANKING, BotState.WALKING, BotState.IDLE_ACTION],
             BotState.MINING: [BotState.BANKING, BotState.WALKING, BotState.IDLE_ACTION],
             BotState.WOODCUTTING: [BotState.BANKING, BotState.WALKING, BotState.IDLE_ACTION],
             BotState.FISHING: [BotState.BANKING, BotState.WALKING, BotState.COOKING],
             
-            BotState.WALKING: [BotState.MINING, BotState.WOODCUTTING, BotState.FISHING,
-                              BotState.BANKING, BotState.IDLE, BotState.COMBAT],
+            BotState.WALKING: [BotState.GATHERING, BotState.MINING, BotState.WOODCUTTING, 
+                              BotState.FISHING, BotState.BANKING, BotState.IDLE, BotState.COMBAT],
             
             BotState.BANKING: [BotState.BANK_OPEN, BotState.WALKING],
             BotState.BANK_OPEN: [BotState.DEPOSITING, BotState.WITHDRAWING, BotState.IDLE],
-            BotState.DEPOSITING: [BotState.WALKING, BotState.MINING, BotState.WOODCUTTING],
-            BotState.WITHDRAWING: [BotState.WALKING, BotState.MINING, BotState.WOODCUTTING],
+            BotState.DEPOSITING: [BotState.WALKING, BotState.GATHERING, BotState.MINING, BotState.WOODCUTTING],
+            BotState.WITHDRAWING: [BotState.WALKING, BotState.GATHERING, BotState.MINING, BotState.WOODCUTTING],
             
             BotState.COMBAT: [BotState.ATTACKING, BotState.EATING, BotState.LOOTING],
             BotState.ATTACKING: [BotState.LOOTING, BotState.EATING, BotState.IDLE],
@@ -121,14 +125,14 @@ class StateMachine:
             BotState.EATING: [BotState.COMBAT, BotState.BANKING],
             
             BotState.DIALOGUE: [BotState.IDLE, BotState.BANKING, BotState.SHOPPING],
-            BotState.LEVEL_UP: [BotState.IDLE, BotState.MINING, BotState.WOODCUTTING],
+            BotState.LEVEL_UP: [BotState.IDLE, BotState.GATHERING, BotState.MINING, BotState.WOODCUTTING],
             
             BotState.ERROR: [BotState.RECOVERING, BotState.STOPPING],
             BotState.RECOVERING: [BotState.IDLE, BotState.ERROR],
             BotState.STUCK: [BotState.RECOVERING, BotState.ERROR],
             
-            BotState.IDLE_ACTION: [BotState.MINING, BotState.WOODCUTTING, BotState.IDLE],
-            BotState.CAMERA_MOVEMENT: [BotState.MINING, BotState.WOODCUTTING, BotState.IDLE],
+            BotState.IDLE_ACTION: [BotState.GATHERING, BotState.MINING, BotState.WOODCUTTING, BotState.IDLE],
+            BotState.CAMERA_MOVEMENT: [BotState.GATHERING, BotState.MINING, BotState.WOODCUTTING, BotState.IDLE],
             BotState.BREAK: [BotState.IDLE, BotState.STARTING],
         }
         

@@ -651,6 +651,30 @@ class Bones(ItemCategory):
     HYDRA_BONES = 22783
 
 
+class BirdsNests(ItemCategory):
+    """Birds nest item IDs (common woodcutting drops)."""
+    
+    # Seed nests
+    BIRDS_NEST_SEEDS = 5070
+    
+    # Ring nests
+    BIRDS_NEST_RING = 5071
+    
+    # Empty nests
+    BIRDS_NEST_EMPTY = 5072
+    
+    # Specific content nests
+    BIRDS_NEST_MARIGOLD = 5073
+    BIRDS_NEST_WILLOW = 5074
+    
+    # Clue nest
+    BIRDS_NEST_CLUE = 7413
+    
+    # God eggs (rare)
+    BIRD_NEST_SARADOMIN = 22798
+    BIRD_NEST_GUTHIX = 22800
+
+
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
@@ -684,6 +708,7 @@ def find_item_category(item_id: int) -> Optional[str]:
         "Currency": Currency,
         "Ammunition": Ammunition,
         "Bones": Bones,
+        "BirdsNests": BirdsNests,
     }
     
     for category_name, category_cls in categories.items():
@@ -706,7 +731,7 @@ def find_item_name(item_id: int) -> Optional[str]:
     categories = [
         Ores, Bars, Logs, Planks, RawFish, CookedFish, Food,
         Potions, Herbs, Seeds, Runes, Gems, Tools, Weapons,
-        Armor, Currency, Ammunition, Bones
+        Armor, Currency, Ammunition, Bones, BirdsNests
     ]
     
     for category in categories:

@@ -174,9 +174,8 @@ class MiningBot(SkillBotBase):
         if not self.osrs.interfaces.is_bank_open():
             # Walk to bank
             print("Walking to bank...")
-            bank_location = self.config.skill_settings.get('bank_location', 'varrock_west_bank')
             
-            if self.osrs.open_bank(location_name=bank_location):
+            if self.osrs.bank.open():
                 print("✓ Bank opened")
             else:
                 print("✗ Failed to open bank")
@@ -186,19 +185,19 @@ class MiningBot(SkillBotBase):
         # Deposit all ores
         for cfg in self.rock_configs:
             item_id = cfg['item_id']
-            if self.osrs.inventory.deposit_all(item_id):
+            if self.osrs.bank.deposit_item_by_id(item_id, quantity="all"):
                 print(f"✓ Deposited {cfg['name']}")
         
         time.sleep(random.uniform(*TIMING.BANK_DEPOSIT_ACTION))
         
         # Close bank
-        self.osrs.interfaces.close_interface()
+        self.osrs.bank.close()
         time.sleep(random.uniform(*TIMING.INTERFACE_CLOSE_DELAY))
         
         self.banking_trips += 1
         
         # Return to gathering
-        self.current_state = BotState.MINING
+        self.current_state = BotState.GATHERING
     
     def stop(self):
         """Override stop to print mining-specific statistics."""

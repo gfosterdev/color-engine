@@ -123,11 +123,13 @@ class RespawnDetector:
         Returns:
             True if object not found at location, False if still present
         """
-        objects = self.api.get_game_objects_in_viewport()
+        # Use get_entity_in_viewport to check if object exists at exact world coordinates
+        entity = self.api.get_entity_in_viewport(
+            object_id, 
+            "object", 
+            world_x=x, 
+            world_y=y
+        )
         
-        # Check if target object still exists at coordinates
-        for obj in objects:
-            if obj.get('id') == object_id and obj.get('x') == x and obj.get('y') == y:
-                return False  # Object still there
-        
-        return True  # Object disappeared
+        # If entity not found at location, it has disappeared
+        return entity is None

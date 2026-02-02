@@ -8,12 +8,9 @@ from client.interactions import RightClickMenu, KeyboardInput
 from client.navigation import NavigationManager
 from client.runelite_api import RuneLiteAPI
 from client.camera_controller import CameraController
-from config.game_objects import BankObjects
+from client.bank import BankManager
 from config.regions import (
     INTERACT_TEXT_REGION,
-    BANK_SEARCH_REGION,
-    BANK_DEPOSIT_INVENTORY_REGION,
-    BANK_DEPOSIT_EQUIPMENT_REGION,
     LOGIN_EXISTING_USER_BUTTON,
     LOGIN_BUTTON_REGION,
     LOGIN_CLICK_HERE_TO_PLAY_REGION,
@@ -30,13 +27,16 @@ class OSRS:
     def __init__(self, profile_config=None):
         self.window = Window()
         self.window.find(title="RuneLite - xJawj", exact_match=False)
-        self.inventory = InventoryManager(self.window)
-        self.interfaces = InterfaceDetector(self.window)
-        self.navigation = NavigationManager(self.window)
-        self.keyboard = KeyboardInput()
         self.profile_config = profile_config
         self.api = RuneLiteAPI()
         self.camera = CameraController(self)
+        
+        # Initialize managers that need osrs reference
+        self.inventory = InventoryManager(self)
+        self.interfaces = InterfaceDetector(self.window)
+        self.navigation = NavigationManager(self.window)
+        self.keyboard = KeyboardInput()
+        self.bank = BankManager(self)
     
     def click(self, option: str, target: Optional[str] = None):
         """
@@ -77,80 +77,6 @@ class OSRS:
                 menu.close()
                 print(f"Menu is open: {menu.is_open}")
 
-    def drop_item(self, slot_index: int) -> bool:
-        """
-        Drop an item from a specific inventory slot.
-        
-        Args:
-            slot_index: Slot index (1-28)
-        """
-        if not self.inventory.is_inventory_open():
-            self.inventory.open_inventory()
-            time.sleep(random.uniform(*TIMING.INVENTORY_TAB_OPEN))
-        
-        # Popualate inventory data
-        self.inventory.populate()
-
-        slot = self.inventory.slots[slot_index - 1]
-        if slot.is_empty:
-            print(f"Slot {slot_index} is empty, cannot drop")
-            return False
-
-        # Move mouse to slot (duration auto-calculated based on distance)
-        self.window.move_mouse_to(slot.region.random_point())
-
-        # Validate "Drop" is in menu
-        if not self.validate_interact_text("Drop"):
-            print("Drop option not found in menu")
-            return False
-        
-        # Click "Drop" option (assumed to be first)
-        self.click("Drop", None)
-        
-        print("Item dropped successfully")
-        return True
-
-    def drop_items(self, item_id: int) -> int:
-        """
-        Drop all items matching a specific item ID from inventory.
-        
-        Args:
-            item_id: Item ID to drop
-        Returns:
-            Number of items dropped
-        """
-        if not self.inventory.is_inventory_open():
-            self.inventory.open_inventory()
-            time.sleep(random.uniform(*TIMING.INVENTORY_TAB_OPEN))
-        
-        # Popualate inventory data
-        self.inventory.populate()
-
-        # Dropping many at once, hold shift
-        # keyboard.press('shift')
-        drop_count = 0
-        for slot in self.inventory.slots:
-            if slot.item_id == item_id:
-                # Move mouse to slot (duration auto-calculated based on distance)
-                self.window.move_mouse_to(slot.region.random_point())
-
-                # Validate "Drop" is in menu
-                if not self.validate_interact_text("Drop"):
-                    print("Drop option not found in menu")
-                    continue
-                
-                # Click "Drop" option (assumed to be first)
-                self.click("Drop", None)
-                
-                drop_count += 1
-                time.sleep(random.uniform(*TIMING.GAME_TICK_DELAY))
-        
-        # Release shift key
-        # keyboard.release('shift')
-
-        print(f"Dropped {drop_count} items with ID {item_id}")
-        return drop_count
-
     def login_from_profile(self) -> bool:
         """.
         Log in using password from profile configuration.
@@ -173,195 +99,6 @@ class OSRS:
             return False
         
         return self.login(password)
-    
-    def open_bank(self) -> bool:
-        """
-        Open bank by clicking on bank booth/chest using RuneLite API.
-
-        Returns:
-            True if bank opened successfully
-        """
-        print("Attempting to open bank...")
-        
-        # Try to find any bank object in viewport
-        all_bank_ids = BankObjects.all_interactive()
-        
-        for bank_id in all_bank_ids:
-            bank_obj = self.api.get_entity_in_viewport(bank_id, "object")
-            if bank_obj:
-                print(f"Found bank object: {bank_obj.get('name', 'Unknown')} (ID: {bank_id})")
-                
-                hull = bank_obj.get('hull', None)
-                if hull and hull.get('points'):
-                    polygon = Polygon(hull['points'])
-                    click_point = polygon.random_point_inside(self.window.GAME_AREA)
-                    self.window.move_mouse_to(click_point, in_canvas=True)
-                    
-                    if self.validate_interact_text("Bank"):
-                        self.window.click()
-                        time.sleep(random.uniform(*TIMING.BANK_OPEN_WAIT))
-                        
-                        # Wait for bank to open
-                        if self.interfaces.wait_for_bank_open(timeout=5.0):
-                            print("Bank opened successfully")
-                            return True
-                        else:
-                            print("Bank did not open in time")
-                else:
-                    print(f"Bank object found but no convex hull data available")
-        
-        print("No bank objects found in viewport")
-        return False
-    
-    def close_bank(self) -> bool:
-        """Close the bank interface."""
-        if not self.interfaces.is_bank_open():
-            return True
-        
-        print("Closing bank...")
-        self.keyboard.press_key('esc')
-        time.sleep(random.uniform(*TIMING.INTERFACE_CLOSE_DELAY))
-        
-        return not self.interfaces.is_bank_open()
-    
-    def deposit_all(self) -> bool:
-        """Deposit entire inventory using the deposit inventory button."""
-        if not self.interfaces.is_bank_open():
-            print("Bank not open, cannot deposit")
-            return False
-        
-        print("Depositing all items...")
-        self.window.move_mouse_to(BANK_DEPOSIT_INVENTORY_REGION.random_point())
-        self.window.click()
-        time.sleep(random.uniform(*TIMING.BANK_DEPOSIT_ACTION))
-        
-        return True
-    
-    def deposit_item_by_id(self, item_id: int, quantity: str = "all") -> bool:
-        """
-        Deposit a specific item from inventory by its item ID.
-        
-        Args:
-            item_id: Item ID to deposit
-            quantity: "all", "1", "5", "10", or "X"
-            
-        Returns:
-            True if item was found and deposited
-        """
-        if not self.interfaces.is_bank_open():
-            print("Bank not open, cannot deposit item")
-            return False
-        
-        # Ensure inventory tab is open
-        if not self.inventory.is_inventory_open():
-            self.inventory.open_inventory()
-            time.sleep(random.uniform(*TIMING.INVENTORY_TAB_OPEN))
-        
-        # Populate inventory data from API
-        self.inventory.populate()
-        
-        # Find the item in inventory by ID
-        slot_index = None
-        for slot in self.inventory.slots:
-            if slot.item_id == item_id:
-                slot_index = slot.index
-                break
-        
-        if slot_index is None:
-            print(f"Item with ID {item_id} not found in inventory")
-            return False
-        
-        # Move to slot and perform action
-        slot = self.inventory.slots[slot_index - 1]
-        self.window.move_mouse_to(slot.region.random_point())
-        
-        if quantity == "all":
-            # Right-click and select "Deposit-All"
-            self.click("Deposit-All", None)
-        else:
-            # Left-click deposits 1
-            self.window.click()
-        
-        time.sleep(random.uniform(*TIMING.BANK_DEPOSIT_ACTION))
-        return True
-    
-    def withdraw_item(self, item_name: str, quantity: int = 1) -> bool:
-        """
-        Withdraw an item from the bank.
-        
-        Args:
-            item_name: Name of the item to withdraw
-            quantity: Number to withdraw
-            
-        Returns:
-            True if withdrawal was attempted
-        """
-        if not self.interfaces.is_bank_open():
-            print("Bank not open, cannot withdraw")
-            return False
-        
-        print(f"Withdrawing {quantity}x {item_name}...")
-        
-        # Use bank search
-        if self.search_bank(item_name):
-            time.sleep(random.uniform(*TIMING.BANK_SEARCH_TYPE))
-            # TODO: Click on the item in bank grid
-            # This requires bank grid slot detection
-            return True
-        
-        return False
-    
-    def search_bank(self, search_text: str) -> bool:
-        """
-        Type text into the bank search box.
-        
-        Args:
-            search_text: Text to search for
-            
-        Returns:
-            True if search was performed
-        """
-        if not self.interfaces.is_bank_open():
-            return False
-        
-        print(f"Searching bank for: {search_text}")
-        
-        # Click on search box
-        self.window.move_mouse_to(BANK_SEARCH_REGION.random_point())
-        self.window.click()
-        time.sleep(random.uniform(*TIMING.INTERFACE_TRANSITION))
-        
-        # Clear existing text
-        self.keyboard.press_hotkey('ctrl', 'a')
-        time.sleep(random.uniform(*TIMING.MICRO_DELAY))
-        
-        # Type search text
-        self.keyboard.type_text(search_text)
-        time.sleep(random.uniform(*TIMING.BANK_SEARCH_TYPE))
-        
-        return True
-
-    def find_bank(self) -> Optional[Polygon]:
-        """
-        Find nearest bank object in viewport using RuneLite API.
-        
-        Returns:
-            Polygon of bank object convex hull, or None if not found
-        """
-        all_bank_ids = BankObjects.all_interactive()
-        
-        for bank_id in all_bank_ids:
-            bank_obj = self.api.get_entity_in_viewport(bank_id, "object")
-            if bank_obj:
-                hull = bank_obj.get('hull', None)
-                if hull and hull.get('points'):
-                    print(f"Found bank: {bank_obj.get('name', 'Unknown')} (ID: {bank_id})")
-                    return Polygon(hull['points'])
-        
-        print("No bank objects found in viewport")
-        return None
-
-    
 
     def validate_interact_text(self, expected_text):
         """

@@ -48,6 +48,10 @@ class SkillBotBase(ABC):
         self.current_state = BotState.IDLE
         self.is_running = False
         
+        # Navigation state
+        self.walking_destination = None  # (x, y, z) world coordinates
+        self.walking_next_state = None   # State to transition to after walking
+        
         # Components - will be initialized in setup()
         self.skill_tracker: Optional[SkillTracker] = None
         self.respawn_detector: Optional[RespawnDetector] = None
@@ -66,6 +70,10 @@ class SkillBotBase(ABC):
         self.track_xp = self.config.get('validation', {}).get('track_xp', False)
         self.detect_respawn = self.config.get('validation', {}).get('detect_respawn', False)
         self.use_animation = self.config.get('validation', {}).get('use_animation_detection', True)
+        
+        # Behavior config
+        self.powerdrop = self.config.get('powerdrop', False)
+        self.should_bank = self.config.get('banking', True)
     
     def setup(self) -> bool:
         """
@@ -114,7 +122,7 @@ class SkillBotBase(ABC):
             return
         
         self.is_running = True
-        self.current_state = BotState.MINING
+        self.current_state = BotState.GATHERING
         
         try:
             while self.is_running:
@@ -134,7 +142,7 @@ class SkillBotBase(ABC):
     
     def _run_cycle(self):
         """Execute one bot cycle based on current state."""
-        if self.current_state == BotState.MINING:
+        if self.current_state == BotState.GATHERING:
             self._handle_gathering()
         
         elif self.current_state == BotState.BANKING:
@@ -151,9 +159,14 @@ class SkillBotBase(ABC):
         """Handle gathering state logic."""
         # Check if inventory full
         if self.osrs.inventory.is_full():
-            print("Inventory full, switching to banking")
-            self.current_state = BotState.BANKING
-            return
+            if self.powerdrop:
+                # Drop items instead of banking
+                self._handle_powerdrop()
+            else:
+                # Switch to banking
+                print("Inventory full, switching to banking")
+                self.current_state = BotState.BANKING
+                return
         
         # Update XP if tracking
         if self.track_xp and self.skill_tracker:
@@ -163,46 +176,102 @@ class SkillBotBase(ABC):
         
         # Gather resource (implemented by subclass)
         self._gather_resource()
+        
+        # Anti-ban actions
+        if self.anti_ban:
+            self.anti_ban.perform_random_action()
+    
+    def _handle_powerdrop(self):
+        """Drop resources when inventory is full (powerdrop mode)."""
+        print("Inventory full - dropping items...")
+        
+        # Get resource item ID from config
+        resource_info = self._get_resource_info()
+        item_id = resource_info.get('item_id')
+        
+        if not item_id:
+            print("✗ No item ID configured for dropping")
+            return
+        
+        # Drop all items of this type
+        dropped = self.osrs.inventory.drop_all(item_id)
+        if dropped > 0:
+            print(f"✓ Dropped {dropped} items")
+        
+        time.sleep(random.uniform(0.5, 1.0))
     
     def _handle_banking(self):
         """Handle banking state logic."""
-        # Check if at bank
-        if not self.osrs.interfaces.is_bank_open():
-            # Walk to bank
+        # If bank is already open, proceed to deposit
+        if self.osrs.interfaces.is_bank_open():
+            # Deposit items
+            item_id = self._get_resource_info()['item_id']
+            if self.osrs.bank.deposit_item_by_id(item_id, quantity="all"):
+                print("✓ Items deposited")
+                time.sleep(random.uniform(*TIMING.BANK_DEPOSIT_ACTION))
+                
+                # Close bank
+                self.osrs.bank.close()
+                time.sleep(random.uniform(*TIMING.INTERFACE_CLOSE_DELAY))
+                
+                # Walk back to gathering location
+                gathering_location = self._get_gathering_location()
+                if gathering_location and not self._is_near_location(gathering_location, tolerance=10):
+                    print("Walking back to gathering location...")
+                    self._start_walking(gathering_location, BotState.GATHERING)
+                else:
+                    # Already at gathering location
+                    self.current_state = BotState.GATHERING
+            else:
+                print("✗ Failed to deposit items")
+                time.sleep(1)
+            return
+        
+        # Bank not open - check if we need to walk to bank first
+        bank_location = self._get_bank_location()
+        
+        if bank_location and not self._is_near_location(bank_location, tolerance=10):
+            # Need to walk to bank
             print("Walking to bank...")
-            bank_location = self.config.get('bank_location', 'varrock_west_bank')
-            
-            if self.osrs.open_bank(location_name=bank_location):
+            self._start_walking(bank_location, BotState.BANKING)
+        else:
+            # Already near bank, try to open it
+            print("Opening bank...")
+            if self.osrs.bank.open():
                 print("✓ Bank opened")
             else:
                 print("✗ Failed to open bank")
                 time.sleep(2)
-                return
-        
-        # Deposit items
-        item_id = self._get_resource_info()['item_id']
-        if self.osrs.inventory.deposit_all(item_id):
-            print("✓ Items deposited")
-            time.sleep(random.uniform(*TIMING.BANK_DEPOSIT_ACTION))
-            
-            # Close bank
-            self.osrs.interfaces.close_interface()
-            time.sleep(random.uniform(*TIMING.INTERFACE_CLOSE_DELAY))
-            
-            # Return to gathering
-            self.current_state = BotState.MINING
-        else:
-            print("✗ Failed to deposit items")
-            time.sleep(1)
     
     def _handle_walking(self):
         """Handle walking state logic."""
-        # Wait for navigation to complete
-        time.sleep(1)
+        if not self.walking_destination:
+            print("⚠ Walking state but no destination set")
+            self.current_state = self.walking_next_state or BotState.GATHERING
+            return
         
-        # Check if reached destination
-        # (In real implementation, would check distance to target)
-        self.current_state = BotState.MINING
+        # Check if already at destination
+        if self._is_near_location(self.walking_destination, tolerance=2):
+            print("✓ Reached destination")
+            self.current_state = self.walking_next_state or BotState.GATHERING
+            self.walking_destination = None
+            self.walking_next_state = None
+            return
+        
+        # Navigate to destination
+        x, y, z = self.walking_destination
+        print(f"Walking to ({x}, {y}, {z})...")
+        
+        success = self.osrs.navigation.walk_to_tile(x, y, z, use_pathfinding=True)
+        
+        if success:
+            print("✓ Navigation complete")
+            self.current_state = self.walking_next_state or BotState.GATHERING
+            self.walking_destination = None
+            self.walking_next_state = None
+        else:
+            print("✗ Navigation failed, retrying...")
+            time.sleep(random.uniform(1.0, 2.0))
     
     def _verify_tool(self) -> bool:
         """
@@ -213,6 +282,69 @@ class SkillBotBase(ABC):
         """
         tool_ids = self._get_tool_ids()
         return self.osrs.verify_tool_equipped(tool_ids, slot=3)
+    
+    def _start_walking(self, destination: tuple, next_state: BotState):
+        """
+        Initiate walking to a destination.
+        
+        Args:
+            destination: (x, y, z) world coordinates
+            next_state: State to transition to after reaching destination
+        """
+        self.walking_destination = destination
+        self.walking_next_state = next_state
+        self.current_state = BotState.WALKING
+    
+    def _is_near_location(self, location: tuple, tolerance: int = 5) -> bool:
+        """
+        Check if player is near a location.
+        
+        Args:
+            location: (x, y, z) world coordinates
+            tolerance: Distance in tiles to consider "near"
+            
+        Returns:
+            True if within tolerance distance, False otherwise
+        """
+        current_pos = self.osrs.navigation.read_world_coordinates()
+        if not current_pos:
+            return False
+        
+        current_x, current_y = current_pos
+        target_x, target_y, target_z = location
+        
+        # Calculate 2D distance (ignore Z for now)
+        distance = ((current_x - target_x) ** 2 + (current_y - target_y) ** 2) ** 0.5
+        
+        return distance <= tolerance
+    
+    def _get_bank_location(self) -> Optional[tuple]:
+        """
+        Get bank location from config.
+        
+        Returns:
+            (x, y, z) coordinates or None if not configured
+        """
+        # Subclasses may override this if they store bank location differently
+        # Default: try to get from standard config key
+        if hasattr(self, 'bank_location'):
+            return getattr(self, 'bank_location')
+        return None
+    
+    def _get_gathering_location(self) -> Optional[tuple]:
+        """
+        Get gathering location from config.
+        
+        Returns:
+            (x, y, z) coordinates or None if not configured
+        """
+        # Subclasses should override this to provide their gathering location
+        # Default implementation for backwards compatibility
+        if hasattr(self, 'wc_location'):
+            return getattr(self, 'wc_location')
+        if hasattr(self, 'mining_location'):
+            return getattr(self, 'mining_location')
+        return None
     
     # =============================================================================
     # ABSTRACT METHODS - Must be implemented by subclasses

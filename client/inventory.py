@@ -55,14 +55,15 @@ class InventoryManager:
     Assumes RuneLite client in fixed mode for consistent slot positions.
     """
     
-    def __init__(self, window):
+    def __init__(self, osrs_instance):
         """
         Initialize inventory manager.
         
         Args:
-            window: Window instance for screen capture and interaction
+            osrs_instance: Reference to OSRS instance for window and click operations
         """
-        self.window = window
+        self.osrs = osrs_instance
+        self.window = osrs_instance.window
         self.slots: List[InventorySlot] = []
         self._initialize_slots()
         self.api = RuneLiteAPI()
@@ -191,6 +192,22 @@ class InventoryManager:
         """
         return TOTAL_SLOTS - self.count_empty_slots()
     
+    def count_item(self, item_id: int) -> int:
+        """
+        Count how many inventory slots are filled with a specific item ID.
+        
+        Args:
+            item_id: The item ID to count
+            
+        Returns:
+            Number of slots containing the specified item (0-28)
+        """
+        count = 0
+        for slot in self.slots:
+            if not slot.is_empty and slot.item_id == item_id:
+                count += 1
+        return count
+
     def is_full(self) -> bool:
         """
         Check if inventory is full.
@@ -235,4 +252,81 @@ class InventoryManager:
         
         return True
     
+    def drop_item(self, slot_index: int) -> bool:
+        """
+        Drop an item from a specific inventory slot.
+        
+        Args:
+            slot_index: Slot index (1-28)
+            
+        Returns:
+            True if item was dropped successfully
+        """
+        if not self.is_inventory_open():
+            self.open_inventory()
+            import time
+            time.sleep(random.uniform(*TIMING.INVENTORY_TAB_OPEN))
+        
+        # Populate inventory data
+        self.populate()
+
+        slot = self.slots[slot_index - 1]
+        if slot.is_empty:
+            print(f"Slot {slot_index} is empty, cannot drop")
+            return False
+
+        # Move mouse to slot (duration auto-calculated based on distance)
+        self.window.move_mouse_to(slot.region.random_point())
+
+        # Validate "Drop" is in menu
+        if not self.osrs.validate_interact_text("Drop"):
+            print("Drop option not found in menu")
+            return False
+        
+        # Click "Drop" option (assumed to be first)
+        self.osrs.click("Drop", None)
+        
+        print("Item dropped successfully")
+        return True
+
+    def drop_all(self, item_id: int) -> int:
+        """
+        Drop all items matching a specific item ID from inventory.
+        
+        Args:
+            item_id: Item ID to drop
+            
+        Returns:
+            Number of items dropped
+        """
+        if not self.is_inventory_open():
+            self.open_inventory()
+            import time
+            time.sleep(random.uniform(*TIMING.INVENTORY_TAB_OPEN))
+        
+        # Populate inventory data
+        self.populate()
+
+        drop_count = 0
+        for slot in self.slots:
+            if slot.item_id == item_id:
+                # Move mouse to slot (duration auto-calculated based on distance)
+                self.window.move_mouse_to(slot.region.random_point())
+
+                # Validate "Drop" is in menu
+                if not self.osrs.validate_interact_text("Drop"):
+                    print("Drop option not found in menu")
+                    continue
+                
+                # Click "Drop" option (assumed to be first)
+                self.osrs.click("Drop", None)
+                
+                drop_count += 1
+                import time
+                time.sleep(random.uniform(*TIMING.GAME_TICK_DELAY))
+
+        print(f"Dropped {drop_count} items with ID {item_id}")
+        return drop_count
+    
+
 import random

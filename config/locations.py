@@ -199,6 +199,9 @@ class WoodcuttingLocations(LocationCategory):
     
     # Port Sarim willows
     PORT_SARIM_WILLOWS = (3058, 3251, 0)
+    
+    # Edgeville area
+    EDGEVILLE_YEWS = (3087, 3481, 0)  # Yew trees south of bank
 
 
 # ============================================================================

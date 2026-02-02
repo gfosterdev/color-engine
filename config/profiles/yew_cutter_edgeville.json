@@ -1,0 +1,38 @@
+{
+	"profile_name": "yew_cutter_edgeville",
+	"description": "Woodcutting bot for yew trees at Edgeville",
+	"credentials": {
+		"username": "your_username",
+		"password": "your_password"
+	},
+	"skill_settings": {
+		"tree_type": "yew",
+		"trees": ["yew"],
+		"location": "edgeville_yews",
+		"bank_location": "edgeville",
+		"banking": true,
+		"powerdrop": false,
+		"use_skill_tracker": true,
+		"use_respawn_detector": true,
+		"use_animation_detection": true
+	},
+	"anti_ban": {
+		"enabled": true,
+		"afk_chance": 0.02,
+		"camera_movement_chance": 0.05,
+		"random_breaks": true,
+		"break_interval_minutes": [45, 90],
+		"break_duration_minutes": [3, 8]
+	},
+	"safety": {
+		"logout_on_player": false,
+		"logout_on_low_health": false,
+		"emergency_teleport": false
+	},
+	"timing": {
+		"action_delay_min": 0.5,
+		"action_delay_max": 1.5,
+		"min_response_time": 0.3,
+		"max_response_time": 0.8
+	}
+}
