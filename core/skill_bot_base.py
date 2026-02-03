@@ -7,8 +7,10 @@ from abc import ABC, abstractmethod
 from typing import Optional, Dict
 import time
 import random
+import sys
 from core.state_machine import BotState
 from core.anti_ban import AntiBanManager
+from core.config import AntiBanConfig, BreakConfig, DEBUG
 from client.skill_tracker import SkillTracker
 from client.respawn_detector import RespawnDetector
 from config.timing import TIMING
@@ -32,17 +34,25 @@ class SkillBotBase(ABC):
     - _get_tool_ids()
     """
     
-    def __init__(self, osrs, profile_config: dict):
+    def __init__(self, osrs, profile_config):
         """
         Initialize skill bot.
         
         Args:
             osrs: OSRS instance
-            profile_config: Bot configuration dictionary
+            profile_config: Bot configuration (BotConfig object or dict)
         """
         self.osrs = osrs
         self.api = osrs.api
-        self.config = profile_config
+        
+        # Convert BotConfig to dict for backwards compatibility
+        from core.config import BotConfig
+        if isinstance(profile_config, BotConfig):
+            self.bot_config = profile_config
+            self.config = profile_config.to_dict()
+        else:
+            self.bot_config = None
+            self.config = profile_config
         
         # State management
         self.current_state = BotState.IDLE
@@ -52,28 +62,51 @@ class SkillBotBase(ABC):
         self.walking_destination = None  # (x, y, z) world coordinates
         self.walking_next_state = None   # State to transition to after walking
         
+        # Statistics
+        self.resources_gathered = 0
+        self.start_time = None
+        
         # Components - will be initialized in setup()
         self.skill_tracker: Optional[SkillTracker] = None
         self.respawn_detector: Optional[RespawnDetector] = None
         
-        # Anti-ban (optional if config not provided)
-        try:
-            if hasattr(osrs, 'anti_ban'):
-                self.anti_ban = osrs.anti_ban
-            else:
-                self.anti_ban = None
-        except:
-            self.anti_ban = None
+        # Initialize anti-ban manager
+        # Use BotConfig objects if available, otherwise parse from dict
+        if self.bot_config:
+            anti_ban_config = self.bot_config.anti_ban
+            break_config = self.bot_config.breaks
+        else:
+            anti_ban_config = self.config.get('anti_ban', {})
+            if isinstance(anti_ban_config, dict):
+                anti_ban_config = AntiBanConfig(**anti_ban_config)
+            
+            break_config = self.config.get('breaks', {})
+            if isinstance(break_config, dict):
+                break_config = BreakConfig(**break_config)
         
-        # Validation config
-        self.validate_tool = self.config.get('validation', {}).get('verify_pickaxe', False)
-        self.track_xp = self.config.get('validation', {}).get('track_xp', False)
-        self.detect_respawn = self.config.get('validation', {}).get('detect_respawn', False)
-        self.use_animation = self.config.get('validation', {}).get('use_animation_detection', True)
+        # TODO: Test login_from_profile() before relying on logout breaks in production
+        self.anti_ban = AntiBanManager(
+            window=self.osrs.window,
+            config=anti_ban_config,
+            break_config=break_config,
+            osrs_client=self.osrs
+        )
         
-        # Behavior config
-        self.powerdrop = self.config.get('powerdrop', False)
-        self.should_bank = self.config.get('banking', True)
+        # Validation config - use BotConfig objects if available, otherwise parse from dict
+        if self.bot_config:
+            self.validate_tool = self.bot_config.validation.verify_pickaxe
+            self.track_xp = self.bot_config.validation.track_xp
+            self.detect_respawn = self.bot_config.validation.detect_respawn
+            self.use_animation = self.bot_config.validation.use_animation_detection
+            self.powerdrop = self.bot_config.powerdrop
+            self.should_bank = self.bot_config.banking
+        else:
+            self.validate_tool = self.config.get('validation', {}).get('verify_pickaxe', False)
+            self.track_xp = self.config.get('validation', {}).get('track_xp', False)
+            self.detect_respawn = self.config.get('validation', {}).get('detect_respawn', False)
+            self.use_animation = self.config.get('validation', {}).get('use_animation_detection', True)
+            self.powerdrop = self.config.get('powerdrop', False)
+            self.should_bank = self.config.get('banking', True)
     
     def setup(self) -> bool:
         """
@@ -82,9 +115,10 @@ class SkillBotBase(ABC):
         Returns:
             True if setup successful, False otherwise
         """
-        print(f"\n{'='*50}")
-        print(f"Setting up {self._get_skill_name()} bot...")
-        print(f"{'='*50}\n")
+        if DEBUG:
+            print(f"\n{'='*50}")
+            print(f"Setting up {self._get_skill_name()} bot...")
+            print(f"{'='*50}\n")
         
         # Verify tool equipped
         if self.validate_tool:
@@ -112,7 +146,8 @@ class SkillBotBase(ABC):
                 enabled=True
             )
         
-        print(f"✓ {self._get_skill_name()} bot setup complete\n")
+        if DEBUG:
+            print(f"✓ {self._get_skill_name()} bot setup complete\n")
         return True
     
     def start(self):
@@ -123,6 +158,7 @@ class SkillBotBase(ABC):
         
         self.is_running = True
         self.current_state = BotState.GATHERING
+        self.start_time = time.time()
         
         try:
             while self.is_running:
@@ -139,6 +175,16 @@ class SkillBotBase(ABC):
         
         if self.track_xp and self.skill_tracker:
             self.skill_tracker.print_session_summary()
+        
+        # Print anti-ban statistics
+        if self.anti_ban and DEBUG:
+            print(f"\n{'='*50}")
+            print("Anti-Ban Session Summary")
+            print(f"{'='*50}")
+            status = self.anti_ban.get_status()
+            for key, value in status.items():
+                print(f"  {key.replace('_', ' ').title()}: {value}")
+            print(f"{'='*50}\n")
     
     def _run_cycle(self):
         """Execute one bot cycle based on current state."""
@@ -154,49 +200,82 @@ class SkillBotBase(ABC):
         else:
             print(f"Unknown state: {self.current_state}")
             time.sleep(1)
+        
+        # Print status line after each cycle
+        self._print_status_line()
     
     def _handle_gathering(self):
         """Handle gathering state logic."""
         # Check if inventory full
+        self.osrs.inventory.populate()
         if self.osrs.inventory.is_full():
             if self.powerdrop:
                 # Drop items instead of banking
                 self._handle_powerdrop()
             else:
                 # Switch to banking
-                print("Inventory full, switching to banking")
+                if DEBUG:
+                    print("Inventory full, switching to banking")
                 self.current_state = BotState.BANKING
                 return
         
         # Update XP if tracking
         if self.track_xp and self.skill_tracker:
             gains = self.skill_tracker.update()
-            if gains:
+            if gains and DEBUG:
                 print(f"✓ Gained {gains['xp_gained']} XP ({gains['new_xp']:,} total)")
+        
+        # Check for breaks (long duration, requires state change)
+        should_break, break_type = self.anti_ban.should_take_break()
+        if should_break:
+            previous_state = self.current_state
+            self.current_state = BotState.BREAK
+            if DEBUG:
+                print(f"\n{'='*50}")
+                print(f"Taking {break_type} break...")
+                print(f"{'='*50}\n")
+            self.anti_ban.take_break(break_type)
+            self.current_state = previous_state
+            if DEBUG:
+                print("Break finished, resuming gathering\n")
+        
+        # Add reaction delay before action (human-like)
+        self.anti_ban.add_reaction_delay()
         
         # Gather resource (implemented by subclass)
         self._gather_resource()
         
-        # Anti-ban actions
-        if self.anti_ban:
-            self.anti_ban.perform_random_action()
+        # Apply action delay after gathering (increases with fatigue)
+        self.anti_ban.apply_action_delay()
+        
+        # Short anti-ban actions (no state change needed)
+        if self.anti_ban.should_perform_idle_action():
+            self.anti_ban.perform_idle_action()
+        
+        # Other anti-ban behaviors
+        self.anti_ban.perform_attention_shift()
+        self.anti_ban.randomize_tab_switching()
     
     def _handle_powerdrop(self):
         """Drop resources when inventory is full (powerdrop mode)."""
-        print("Inventory full - dropping items...")
+        if DEBUG:
+            print("Inventory full - dropping items...")
         
         # Get resource item ID from config
         resource_info = self._get_resource_info()
         item_id = resource_info.get('item_id')
         
         if not item_id:
-            print("✗ No item ID configured for dropping")
+            if DEBUG:
+                print("✗ No item ID configured for dropping")
             return
         
         # Drop all items of this type
         dropped = self.osrs.inventory.drop_all(item_id)
         if dropped > 0:
-            print(f"✓ Dropped {dropped} items")
+            self.resources_gathered += dropped
+            if DEBUG:
+                print(f"✓ Dropped {dropped} items (Total: {self.resources_gathered})")
         
         time.sleep(random.uniform(0.5, 1.0))
     
@@ -207,7 +286,8 @@ class SkillBotBase(ABC):
             # Deposit items
             item_id = self._get_resource_info()['item_id']
             if self.osrs.bank.deposit_item_by_id(item_id, quantity="all"):
-                print("✓ Items deposited")
+                if DEBUG:
+                    print("✓ Items deposited")
                 time.sleep(random.uniform(*TIMING.BANK_DEPOSIT_ACTION))
                 
                 # Close bank
@@ -217,7 +297,8 @@ class SkillBotBase(ABC):
                 # Walk back to gathering location
                 gathering_location = self._get_gathering_location()
                 if gathering_location and not self._is_near_location(gathering_location, tolerance=10):
-                    print("Walking back to gathering location...")
+                    if DEBUG:
+                        print("Walking back to gathering location...")
                     self._start_walking(gathering_location, BotState.GATHERING)
                 else:
                     # Already at gathering location
@@ -232,27 +313,33 @@ class SkillBotBase(ABC):
         
         if bank_location and not self._is_near_location(bank_location, tolerance=10):
             # Need to walk to bank
-            print("Walking to bank...")
+            if DEBUG:
+                print("Walking to bank...")
             self._start_walking(bank_location, BotState.BANKING)
         else:
             # Already near bank, try to open it
-            print("Opening bank...")
+            if DEBUG:
+                print("Opening bank...")
             if self.osrs.bank.open():
-                print("✓ Bank opened")
+                if DEBUG:
+                    print("✓ Bank opened")
             else:
-                print("✗ Failed to open bank")
+                if DEBUG:
+                    print("✗ Failed to open bank")
                 time.sleep(2)
     
     def _handle_walking(self):
         """Handle walking state logic."""
         if not self.walking_destination:
-            print("⚠ Walking state but no destination set")
+            if DEBUG:
+                print("⚠ Walking state but no destination set")
             self.current_state = self.walking_next_state or BotState.GATHERING
             return
         
         # Check if already at destination
         if self._is_near_location(self.walking_destination, tolerance=2):
-            print("✓ Reached destination")
+            if DEBUG:
+                print("✓ Reached destination")
             self.current_state = self.walking_next_state or BotState.GATHERING
             self.walking_destination = None
             self.walking_next_state = None
@@ -260,17 +347,20 @@ class SkillBotBase(ABC):
         
         # Navigate to destination
         x, y, z = self.walking_destination
-        print(f"Walking to ({x}, {y}, {z})...")
+        if DEBUG:
+            print(f"Walking to ({x}, {y}, {z})...")
         
         success = self.osrs.navigation.walk_to_tile(x, y, z, use_pathfinding=True)
         
         if success:
-            print("✓ Navigation complete")
+            if DEBUG:
+                print("✓ Navigation complete")
             self.current_state = self.walking_next_state or BotState.GATHERING
             self.walking_destination = None
             self.walking_next_state = None
         else:
-            print("✗ Navigation failed, retrying...")
+            if DEBUG:
+                print("✗ Navigation failed, retrying...")
             time.sleep(random.uniform(1.0, 2.0))
     
     def _verify_tool(self) -> bool:
@@ -345,6 +435,67 @@ class SkillBotBase(ABC):
         if hasattr(self, 'mining_location'):
             return getattr(self, 'mining_location')
         return None
+    
+    # =============================================================================
+    # STATUS LINE - Base implementation, can be overridden by subclasses
+    # =============================================================================
+    
+    def _get_status_info(self) -> Dict:
+        """
+        Generate status information dictionary.
+        Override in subclasses to add custom status information.
+        
+        Returns:
+            Dictionary with status information
+        """
+        self.osrs.inventory.populate()
+        inventory_count = len([slot for slot in self.osrs.inventory.slots if slot])
+        inventory_capacity = f"{inventory_count}/28"
+        
+        # Calculate runtime
+        runtime = "00:00:00"
+        if self.start_time:
+            elapsed = int(time.time() - self.start_time)
+            hours = elapsed // 3600
+            minutes = (elapsed % 3600) // 60
+            seconds = elapsed % 60
+            runtime = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+        
+        return {
+            'state': self.current_state.name,
+            'inventory': inventory_capacity,
+            'resources': self.resources_gathered,
+            'runtime': runtime
+        }
+    
+    def _format_status_line(self, status_info: Dict) -> str:
+        """
+        Format status information into a display string.
+        Override in subclasses to customize status line format.
+        
+        Args:
+            status_info: Status information dictionary from _get_status_info()
+            
+        Returns:
+            Formatted status string
+        """
+        return (
+            f"State: {status_info['state']:12} | "
+            f"Inventory: {status_info['inventory']:5} | "
+            f"Gathered: {status_info['resources']:4} | "
+            f"Runtime: {status_info['runtime']}"
+        )
+    
+    def _print_status_line(self):
+        """
+        Print status line that overwrites itself using carriage return.
+        """
+        status_info = self._get_status_info()
+        status_line = self._format_status_line(status_info)
+        
+        # Use carriage return to overwrite the same line
+        sys.stdout.write(f"\r{status_line}")
+        sys.stdout.flush()
     
     # =============================================================================
     # ABSTRACT METHODS - Must be implemented by subclasses

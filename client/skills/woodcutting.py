@@ -10,7 +10,7 @@ from typing import Optional, Dict
 from client.osrs import OSRS
 from core.skill_bot_base import SkillBotBase
 from core.state_machine import BotState
-from core.config import load_profile
+from core.config import load_profile, DEBUG
 from config.timing import TIMING
 from config.skill_mappings import WOODCUTTING_RESOURCES, get_all_tool_ids
 from config.locations import WoodcuttingLocations, BankLocations
@@ -42,16 +42,16 @@ class WoodcuttingBot(SkillBotBase):
         config = load_profile(profile_name)
         osrs = OSRS(config)
         
-        # Initialize base class
-        super().__init__(osrs, config.skill_settings)
+        # Initialize base class with full config
+        super().__init__(osrs, config)
         
-        self.config = config
+        self.bot_config = config
         
         # Get tree configuration
-        tree_type = self.config.skill_settings.get("tree_type", "yew")
+        tree_type = self.bot_config.skill_settings.get("tree_type", "yew")
         
         # Support multiple tree types from profile
-        tree_types = self.config.skill_settings.get("trees", [tree_type])
+        tree_types = self.bot_config.skill_settings.get("trees", [tree_type])
         self.tree_configs = []
         
         for tree_name in tree_types:
@@ -71,15 +71,16 @@ class WoodcuttingBot(SkillBotBase):
         
         # Primary tree config
         self.primary_tree = self.tree_configs[0]
-        print(f"Configured trees: {[cfg['name'] for cfg in self.tree_configs]}")
+        if DEBUG:
+            print(f"Configured trees: {[cfg['name'] for cfg in self.tree_configs]}")
         
         # Get behavior settings
-        self.should_bank = self.config.skill_settings.get("banking", True)
-        self.powerdrop = self.config.skill_settings.get("powerdrop", False)
+        self.should_bank = self.bot_config.skill_settings.get("banking", True)
+        self.powerdrop = self.bot_config.skill_settings.get("powerdrop", False)
         
         # Resolve locations from config
-        wc_location_str = self.config.skill_settings.get("location", "edgeville_yews")
-        bank_location_str = self.config.skill_settings.get("bank_location", "edgeville")
+        wc_location_str = self.bot_config.skill_settings.get("location", "edgeville_yews")
+        bank_location_str = self.bot_config.skill_settings.get("bank_location", "edgeville")
         
         self.wc_location = WoodcuttingLocations.find_by_name(wc_location_str.upper().replace(" ", "_"))
         self.bank_location = BankLocations.find_by_name(bank_location_str.upper().replace(" ", "_"))
@@ -89,8 +90,9 @@ class WoodcuttingBot(SkillBotBase):
         if self.should_bank and not self.bank_location:
             raise ValueError(f"Banking enabled but could not resolve bank location: {bank_location_str}")
         
-        print(f"Woodcutting location: {self.wc_location}")
-        print(f"Bank location: {self.bank_location}")
+        if DEBUG:
+            print(f"Woodcutting location: {self.wc_location}")
+            print(f"Bank location: {self.bank_location}")
         
         # Statistics
         self.logs_cut = 0
@@ -117,7 +119,8 @@ class WoodcuttingBot(SkillBotBase):
         nearest_tree = self.osrs.find_entity(tree_ids, "object")
         
         if not nearest_tree:
-            print("No trees available")
+            if DEBUG:
+                print("No trees available")
             time.sleep(1)
             return
         
@@ -129,7 +132,8 @@ class WoodcuttingBot(SkillBotBase):
                 tree_name = cfg["name"]
                 break
         
-        print(f"Chopping {tree_name}...")
+        if DEBUG:
+            print(f"Chopping {tree_name}...")
         
         # Get current log count before cutting
         log_item_id = None
@@ -144,9 +148,12 @@ class WoodcuttingBot(SkillBotBase):
         
         # Click the tree (handles all interaction logic)
         if not self.osrs.click_entity(nearest_tree, "object", "Chop down"):
-            print("Failed to click tree")
+            if DEBUG:
+                print("Failed to click tree")
             return
+
         
+
         # Wait for tree depletion using respawn detector
         if self.detect_respawn and self.respawn_detector and tree_id:
             self.respawn_detector.wait_for_respawn(
@@ -167,9 +174,11 @@ class WoodcuttingBot(SkillBotBase):
         
         if logs_obtained > 0:
             self.logs_cut += logs_obtained
-            print(f"✓ Obtained {logs_obtained} {tree_name} logs (Total: {self.logs_cut})")
+            if DEBUG:
+                print(f"✓ Obtained {logs_obtained} {tree_name} logs (Total: {self.logs_cut})")
         else:
-            print(f"⚠ No logs obtained from {tree_name}")
+            if DEBUG:
+                print(f"⚠ No logs obtained from {tree_name}")
     
     def _get_skill_name(self) -> str:
         """Get skill name. Implements SkillBotBase abstract method."""
@@ -184,9 +193,39 @@ class WoodcuttingBot(SkillBotBase):
         return {
             'object_ids': self.primary_tree['tree_ids'],
             'item_id': self.primary_tree['item_id'],
-            'animation_id': self.primary_tree.get('animation_id', 879),
+            'animation_id': self.primary_tree.get('animation_id', 867),
             'respawn_time': self.primary_tree.get('respawn_time', (60, 90))
         }
+    
+    # =============================================================================
+    # STATUS LINE OVERRIDES
+    # =============================================================================
+    
+    def _get_status_info(self) -> Dict:
+        """Override to add woodcutting-specific status information."""
+        # Get base status info
+        base_info = super()._get_status_info()
+        
+        # Update resources with logs count
+        base_info['resources'] = self.logs_cut
+        
+        # Add woodcutting-specific info
+        base_info['logs_cut'] = self.logs_cut
+        base_info['banking_trips'] = self.banking_trips
+        base_info['nests'] = self.nests_collected
+        
+        return base_info
+    
+    def _format_status_line(self, status_info: Dict) -> str:
+        """Override to format woodcutting-specific status line."""
+        return (
+            f"State: {status_info['state']:12} | "
+            f"Inv: {status_info['inventory']:5} | "
+            f"Logs: {status_info['logs_cut']:4} | "
+            f"Banks: {status_info['banking_trips']:3} | "
+            f"Nests: {status_info['nests']:2} | "
+            f"Time: {status_info['runtime']}"
+        )
     
     # =============================================================================
     # CUSTOM METHODS
@@ -210,11 +249,13 @@ class WoodcuttingBot(SkillBotBase):
                 nest_count = self.osrs.inventory.count_item(nest_id)
                 if nest_count > 0:
                     self.nests_collected += nest_count
-                    print(f"✓ Found {nest_count} birds nest(s) in inventory")
+                    if DEBUG:
+                        print(f"✓ Found {nest_count} birds nest(s) in inventory")
             
             # Deposit everything
             self.osrs.bank.deposit_all()
-            print("✓ Deposited all items")
+            if DEBUG:
+                print("✓ Deposited all items")
             
             time.sleep(random.uniform(*TIMING.BANK_DEPOSIT_ACTION))
             
@@ -227,7 +268,8 @@ class WoodcuttingBot(SkillBotBase):
             # Walk back to gathering location (base class handles this)
             gathering_location = self._get_gathering_location()
             if gathering_location and not self._is_near_location(gathering_location, tolerance=10):
-                print("Walking back to woodcutting location...")
+                if DEBUG:
+                    print("Walking back to woodcutting location...")
                 self._start_walking(gathering_location, BotState.GATHERING)
             else:
                 # Already at location
@@ -239,26 +281,31 @@ class WoodcuttingBot(SkillBotBase):
         
         if bank_location and not self._is_near_location(bank_location, tolerance=10):
             # Need to walk to bank
-            print("Walking to bank...")
+            if DEBUG:
+                print("Walking to bank...")
             self._start_walking(bank_location, BotState.BANKING)
         else:
             # Already near bank, try to open it
-            print("Opening bank...")
+            if DEBUG:
+                print("Opening bank...")
             if self.osrs.bank.open():
-                print("✓ Bank opened")
+                if DEBUG:
+                    print("✓ Bank opened")
             else:
-                print("✗ Failed to open bank")
+                if DEBUG:
+                    print("✗ Failed to open bank")
                 time.sleep(2)
     
     def _handle_powerdrop(self):
         """Override to drop multiple log types from tree configs."""
-        print("Inventory full - dropping logs...")
+        if DEBUG:
+            print("Inventory full - dropping logs...")
         
         # Drop all log types
         for cfg in self.tree_configs:
             item_id = cfg['item_id']
             dropped = self.osrs.inventory.drop_all(item_id)
-            if dropped > 0:
+            if dropped > 0 and DEBUG:
                 print(f"✓ Dropped {dropped} {cfg['name']} logs")
         
         time.sleep(random.uniform(0.5, 1.0))

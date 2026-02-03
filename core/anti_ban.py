@@ -401,7 +401,7 @@ class AntiBanManager:
             time.sleep(random.uniform(0.5, 2.0))
             
             # Return to inventory
-            keyboard.press_and_release('f4')
+            keyboard.press_and_release('esc')
             time.sleep(random.uniform(0.3, 0.6))
             
             self.last_tab_switch = time.time()

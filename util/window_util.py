@@ -10,6 +10,7 @@ import cv2
 import numpy as np
 from PIL import ImageGrab, Image
 from .mouse_util import MouseMover
+from core.config import DEBUG
 import random
 import math
 import subprocess
@@ -336,8 +337,9 @@ class Window:
             cv2.fillPoly(overlay, [largest_contour], (255, 0, 0))
             cv2.addWeighted(overlay, 0.3, debug_img, 0.7, 0, debug_img)
             cv2.imwrite('color_region_debug.png', debug_img)
-            print(f"Found color region at ({x}, {y}) with size {w}x{h}")
-            print(f"Filled mask has {cv2.countNonZero(filled_mask)} valid pixels")
+            if DEBUG:
+                print(f"Found color region at ({x}, {y}) with size {w}x{h}")
+                print(f"Filled mask has {cv2.countNonZero(filled_mask)} valid pixels")
         
         return Region(int(x), int(y), int(w), int(h), filled_mask)
     
@@ -466,7 +468,8 @@ class Window:
         rel_x = mouse_x - self.window['x']
         rel_y = mouse_y - self.window['y']
         
-        print(f"Mouse position: ({rel_x}, {rel_y})")
+        if DEBUG:
+            print(f"Mouse position: ({rel_x}, {rel_y})")
         return True
 
     def read_text(self, region=None, debug=False):
@@ -541,12 +544,12 @@ class Window:
             found = self.find_color_region(rgb, tolerance=tolerance, debug=debug)
             
             if found:
-                if debug:
+                if debug and DEBUG:
                     print(f"Found color on attempt {attempt + 1}")
                 return found
             
             # Not found, rotate camera
-            if debug:
+            if debug and DEBUG:
                 print(f"Attempt {attempt + 1}/{max_attempts}: Color not found, rotating camera...")
             
             # Rotate camera using rotate_camera method
@@ -555,7 +558,7 @@ class Window:
             # Small delay to let camera settle
             sleep(0.1)
         
-        if debug:
+        if debug and DEBUG:
             print(f"Color not found after {max_attempts} attempts")
         
         return None

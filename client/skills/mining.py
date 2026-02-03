@@ -165,6 +165,34 @@ class MiningBot(SkillBotBase):
         }
     
     # =============================================================================
+    # STATUS LINE OVERRIDES
+    # =============================================================================
+    
+    def _get_status_info(self) -> Dict:
+        """Override to add mining-specific status information."""
+        # Get base status info
+        base_info = super()._get_status_info()
+        
+        # Update resources with ores count
+        base_info['resources'] = self.ores_mined
+        
+        # Add mining-specific info
+        base_info['ores_mined'] = self.ores_mined
+        base_info['banking_trips'] = self.banking_trips
+        
+        return base_info
+    
+    def _format_status_line(self, status_info: Dict) -> str:
+        """Override to format mining-specific status line."""
+        return (
+            f"State: {status_info['state']:12} | "
+            f"Inv: {status_info['inventory']:5} | "
+            f"Ores: {status_info['ores_mined']:4} | "
+            f"Banks: {status_info['banking_trips']:3} | "
+            f"Time: {status_info['runtime']}"
+        )
+    
+    # =============================================================================
     # CUSTOM METHODS
     # =============================================================================
     

@@ -16,13 +16,35 @@
 		"use_respawn_detector": true,
 		"use_animation_detection": true
 	},
+	"validation": {
+		"verify_pickaxe": false,
+		"track_xp": true,
+		"detect_respawn": true,
+		"use_animation_detection": true
+	},
 	"anti_ban": {
 		"enabled": true,
-		"afk_chance": 0.02,
-		"camera_movement_chance": 0.05,
-		"random_breaks": true,
-		"break_interval_minutes": [45, 90],
-		"break_duration_minutes": [3, 8]
+		"idle_actions": true,
+		"camera_movements": true,
+		"tab_switching": true,
+		"random_misclicks": false,
+		"fatigue_simulation": true,
+		"attention_shifts": true,
+		"idle_frequency_min": 10.0,
+		"idle_frequency_max": 45.0
+	},
+	"breaks": {
+		"enabled": true,
+		"frequency_min": 45,
+		"frequency_max": 90,
+		"duration_min": 3,
+		"duration_max": 8,
+		"randomize": true,
+		"logout_breaks_enabled": true,
+		"logout_frequency_min": 90,
+		"logout_frequency_max": 180,
+		"logout_duration_min": 15,
+		"logout_duration_max": 45
 	},
 	"safety": {
 		"logout_on_player": false,

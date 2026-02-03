@@ -9,6 +9,7 @@ from client.navigation import NavigationManager
 from client.runelite_api import RuneLiteAPI
 from client.camera_controller import CameraController
 from client.bank import BankManager
+from core.config import DEBUG
 from config.regions import (
     INTERACT_TEXT_REGION,
     LOGIN_EXISTING_USER_BUTTON,
@@ -43,39 +44,33 @@ class OSRS:
         Checks if we can left click, if not attempts a right click.
         """
         menu = RightClickMenu(self.window)
-        print(f"Menu is open: {menu.is_open}")
 
         can_left_click = menu.can_left_click(option, target)
-        print(f"Can left click: {can_left_click}")
         if can_left_click:
-            print("Performing left click...")
             self.window.click()
-            print("✓ Left clicked")
+            if DEBUG:
+                print("✓ Left clicked")
         else:
             if not menu.is_open:
-                print("Opening menu...")
                 menu.open()
-                print(f"Menu is open: {menu.is_open}")
             
             menu.populate()
             if menu.is_open:
-                print(f"\nSelecting menu entry with option {option}")
                 entry = menu.get_entry(option, target)
                 if entry:
                     index = entry.get('index')
                     if not index:
-                        print(f"✗ Could not find index for entry {entry}")
+                        if DEBUG:
+                            print(f"✗ Could not find index for entry {entry}")
                         return
                     index = int(index)
-                    print(f"Clicking entry: {entry}")
                     menu.click_entry(index)
-                    print("✓ Clicked")
+                    if DEBUG:
+                        print("✓ Clicked")
             
             menu.populate()
             if menu.is_open:
-                print("Closing menu...")
                 menu.close()
-                print(f"Menu is open: {menu.is_open}")
 
     def login_from_profile(self) -> bool:
         """.
@@ -110,9 +105,11 @@ class OSRS:
             for entry in menu_entries:
                 option = entry.get("option", "")
                 if expected_text.lower() in option.lower():
-                    print(f"Found expected interact text: {option}")
+                    if DEBUG:
+                        print(f"Found expected interact text: {option}")
                     return True
-            print(f"Expected interact text '{expected_text}' not found in menu entries.")
+            if DEBUG:
+                print(f"Expected interact text '{expected_text}' not found in menu entries.")
         return False
     
     def click_entity(self, entity_id_or_dict: Union[int, dict], entity_type: str, action: str) -> bool:
@@ -134,7 +131,8 @@ class OSRS:
         if isinstance(entity_id_or_dict, int):
             entity = self.api.get_entity_in_viewport(entity_id_or_dict, entity_type)
             if not entity:
-                print(f"{entity_type.capitalize()} with ID {entity_id_or_dict} not found in viewport.")
+                if DEBUG:
+                    print(f"{entity_type.capitalize()} with ID {entity_id_or_dict} not found in viewport.")
                 return False
         else:
             entity = entity_id_or_dict
@@ -180,19 +178,23 @@ class OSRS:
             entity_ids = [entity_ids]
         
         # First check if entity already in viewport
-        print(f"[find_entity] Checking if {entity_type} {entity_ids} exists in viewport...")
+        if DEBUG:
+            print(f"[find_entity] Checking if {entity_type} {entity_ids} exists in viewport...")
         entity = self.api.get_entity_in_viewport(entity_ids=entity_ids, entity_type=entity_type, selection="nearest")
         
         if entity:
-            print(f"[find_entity] ✓ {entity_type.capitalize()} found in viewport")
+            if DEBUG:
+                print(f"[find_entity] ✓ {entity_type.capitalize()} found in viewport")
             return entity
         
         # Not in viewport, find nearest entity in current world, not viewport
-        print(f"[find_entity] {entity_type.capitalize()} not in viewport, searching for nearest...")
+        if DEBUG:
+            print(f"[find_entity] {entity_type.capitalize()} not in viewport, searching for nearest...")
         nearest = self.api.get_nearest_by_id(entity_ids, entity_type)
         
         if not nearest or not nearest.get('found', False):
-            print(f"[find_entity] ✗ No {entity_type} with IDs {entity_ids} found nearby")
+            if DEBUG:
+                print(f"[find_entity] ✗ No {entity_type} with IDs {entity_ids} found nearby")
             return None
         
         # Extract coordinates
@@ -202,30 +204,37 @@ class OSRS:
         distance = nearest.get('distance', 0)
         
         if world_x is None or world_y is None:
-            print(f"[find_entity] ✗ Nearest entity missing coordinate data")
+            if DEBUG:
+                print(f"[find_entity] ✗ Nearest entity missing coordinate data")
             return None
         
-        print(f"[find_entity] Found nearest {entity_type} at ({world_x}, {world_y}, plane {plane}), distance: {distance} tiles")
+        if DEBUG:
+            print(f"[find_entity] Found nearest {entity_type} at ({world_x}, {world_y}, plane {plane}), distance: {distance} tiles")
         
         # Point camera at the entity
-        print(f"[find_entity] Adjusting camera to point at entity...")
+        if DEBUG:
+            print(f"[find_entity] Adjusting camera to point at entity...")
         camera_success = self.camera.set_camera_to_tile(world_x, world_y, plane)
         
         if not camera_success:
-            print(f"[find_entity] ✗ Failed to adjust camera to entity location")
+            if DEBUG:
+                print(f"[find_entity] ✗ Failed to adjust camera to entity location")
             return None
         
-        print(f"[find_entity] ✓ Camera adjusted, verifying entity in viewport...")
+        if DEBUG:
+            print(f"[find_entity] ✓ Camera adjusted, verifying entity in viewport...")
         
         # Verify entity is now in viewport - pass world coords to get the specific entity
         time.sleep(random.uniform(0.3, 0.5))  # Brief delay for render
         entity = self.api.get_entity_in_viewport(entity_ids, entity_type, world_x, world_y)
         
         if entity:
-            print(f"[find_entity] ✓ {entity_type.capitalize()} now visible in viewport")
+            if DEBUG:
+                print(f"[find_entity] ✓ {entity_type.capitalize()} now visible in viewport")
             return entity
         else:
-            print(f"[find_entity] ✗ {entity_type.capitalize()} still not visible after camera adjustment")
+            if DEBUG:
+                print(f"[find_entity] ✗ {entity_type.capitalize()} still not visible after camera adjustment")
             return None
         
     def open_right_click_menu(self):
@@ -237,15 +246,18 @@ class OSRS:
         """
         menu_state = self.api.get_menu()
         if menu_state and menu_state.get('isOpen'):
-            print("Right click menu is already open.")
+            if DEBUG:
+                print("Right click menu is already open.")
             return menu_state
-        print("Opening right click menu...")
+        if DEBUG:
+            print("Opening right click menu...")
         self.window.click(button='right')
 
         # Validate menu is open
         menu_state = self.api.get_menu()
         if not (menu_state and menu_state.get('isOpen')):
-            print("Failed to open right click menu.")
+            if DEBUG:
+                print("Failed to open right click menu.")
             return None
         return menu_state
 
@@ -287,37 +299,44 @@ class OSRS:
         Returns:
             True if successfully logged in
         """
-        print("Starting login process...")
+        if DEBUG:
+            print("Starting login process...")
         
         if not self.window.window:
-            print("Window not found")
+            if DEBUG:
+                print("Window not found")
             return False
         
         # Verify we're at the login screen
         if not self.is_at_login_screen():
-            print("Not at login screen - cannot proceed with login")
+            if DEBUG:
+                print("Not at login screen - cannot proceed with login")
             return False
         
         # Click "Existing User" button
-        print("Clicking 'Existing User' button...")
+        if DEBUG:
+            print("Clicking 'Existing User' button...")
         self.window.capture()
         self.window.move_mouse_to(LOGIN_EXISTING_USER_BUTTON.random_point())
         self.window.click()
         time.sleep(random.uniform(*TIMING.LOGIN_BUTTON_DELAY))
         
         # Type password
-        print("Entering password...")
+        if DEBUG:
+            print("Entering password...")
         self.keyboard.type_text(password)
         time.sleep(random.uniform(*TIMING.INTERFACE_TRANSITION))
         
         # Click login button
-        print("Clicking login button...")
+        if DEBUG:
+            print("Clicking login button...")
         self.window.capture()
         self.window.move_mouse_to(LOGIN_BUTTON_REGION.random_point())
         self.window.click()
         
         # Wait and check for "Click here to play" screen
-        print("Waiting for character selection screen...")
+        if DEBUG:
+            print("Waiting for character selection screen...")
         max_attempts = 10
         for attempt in range(max_attempts):
             time.sleep(random.uniform(*TIMING.LOGIN_VERIFY_DELAY))
@@ -329,20 +348,24 @@ class OSRS:
                 if self.is_logged_in():
                     time.sleep(random.uniform(*TIMING.LOGIN_VERIFY_DELAY))
                     # Click to enter game
-                    print("Clicking to enter game...")
+                    if DEBUG:
+                        print("Clicking to enter game...")
                     self.window.move_mouse_to(LOGIN_CLICK_HERE_TO_PLAY_REGION.random_point())
                     self.window.click()
                     # Extra delay for world load
                     min_delay, max_delay = TIMING.LOGIN_BUTTON_DELAY
                     time.sleep(random.uniform(min_delay + 1.0, max_delay + 2.0))
                     
-                    print("Login successful!")
+                    if DEBUG:
+                        print("Login successful!")
                     return True
                 else:
-                    print("Login failed - incorrect credentials or other issue")
+                    if DEBUG:
+                        print("Login failed - incorrect credentials or other issue")
                     return False
         
-        print("Login verification timed out")
+        if DEBUG:
+            print("Login verification timed out")
         return False
     
     def logout(self) -> bool:
@@ -352,36 +375,44 @@ class OSRS:
         Returns:
             True if logout was successful
         """
-        print("Starting logout process...")
+        if DEBUG:
+            print("Starting logout process...")
         
         if not self.window.window:
-            print("Window not found")
+            if DEBUG:
+                print("Window not found")
             return False
         
         # Close any open interfaces first (bank, shop, etc.)
-        print("Closing any open interfaces...")
+        if DEBUG:
+            print("Closing any open interfaces...")
         self.interfaces.close_interface()
         
         # Click logout icon to open the menu
-        print("Clicking logout icon...")
+        if DEBUG:
+            print("Clicking logout icon...")
         self.window.capture()
         self.window.move_mouse_to(UI_LOGOUT_ICON_REGION.random_point())
         self.window.click()
         time.sleep(random.uniform(*TIMING.LOGOUT_PANEL_DELAY))
         
         # Verify logout panel opened by checking for "Logout" text
-        print("Verifying logout panel opened...")
+        if DEBUG:
+            print("Verifying logout panel opened...")
         self.window.capture()
         logout_text = self.window.read_text(UI_LOGOUT_BUTTON_REGION, debug=True)
         
         if not logout_text or "logout" not in logout_text.lower():
-            print(f"Logout panel did not open. Another interface may have priority. Extracted text: {logout_text}")
+            if DEBUG:
+                print(f"Logout panel did not open. Another interface may have priority. Extracted text: {logout_text}")
             return False
         
-        print("Logout panel confirmed open")
+        if DEBUG:
+            print("Logout panel confirmed open")
         
         # Click the logout button in the menu
-        print("Clicking logout button...")
+        if DEBUG:
+            print("Clicking logout button...")
         self.window.move_mouse_to(UI_LOGOUT_BUTTON_REGION.random_point())
         self.window.click()
         # Extra time for logout
@@ -389,12 +420,15 @@ class OSRS:
         time.sleep(random.uniform(min_delay + 0.5, max_delay + 1.0))
         
         # Verify we're back at login screen
-        print("Verifying logout successful...")
+        if DEBUG:
+            print("Verifying logout successful...")
         if self.is_at_login_screen():
-            print("Logout complete!")
+            if DEBUG:
+                print("Logout complete!")
             return True
         else:
-            print("Logout verification failed. Not at login screen.")
+            if DEBUG:
+                print("Logout verification failed. Not at login screen.")
             return False
 
     def get_equipped_tool_id(self, slot: int = 3) -> Optional[int]:
@@ -432,8 +466,10 @@ class OSRS:
         """
         equipped_id = self.get_equipped_tool_id(slot)
         if equipped_id in required_tool_ids:
-            print(f"✓ Required tool equipped (ID: {equipped_id})")
+            if DEBUG:
+                print(f"✓ Required tool equipped (ID: {equipped_id})")
             return True
         else:
-            print(f"✗ No required tool equipped in slot {slot}")
+            if DEBUG:
+                print(f"✗ No required tool equipped in slot {slot}")
             return False

@@ -3323,7 +3323,7 @@ class ModularTester:
             player_data = api.get_player()
             if player_data:
                 is_animating = player_data.get('isAnimating', False)
-                animation_id = player_data.get('animation', -1)
+                animation_id = player_data.get('animationId', -1)
                 
                 if is_animating:
                     if animation_id == mining_animation_id:
@@ -3511,7 +3511,7 @@ class ModularTester:
             player_data = api.get_player()
             if player_data:
                 is_animating = player_data.get('isAnimating', False)
-                animation_id = player_data.get('animation', -1)
+                animation_id = player_data.get('animationId', -1)
                 
                 if is_animating and animation_id == mining_animation_id:
                     print("✓ Mining detected!")
@@ -3530,7 +3530,7 @@ class ModularTester:
             player_data = api.get_player()
             if player_data:
                 is_animating = player_data.get('isAnimating', False)
-                animation_id = player_data.get('animation', -1)
+                animation_id = player_data.get('animationId', -1)
                 
                 if not is_animating or animation_id != mining_animation_id:
                     print("✓ Mining stopped (ore depleted)")
@@ -3666,7 +3666,7 @@ class ModularTester:
             
             if player_data:
                 is_animating = player_data.get('isAnimating', False)
-                animation_id = player_data.get('animation', -1)
+                animation_id = player_data.get('animationId', -1)
                 
                 if is_animating and animation_id == woodcutting_animation_id:
                     if not detected:
@@ -3841,7 +3841,7 @@ class ModularTester:
             player_data = api.get_player()
             if player_data:
                 is_animating = player_data.get('isAnimating', False)
-                animation_id = player_data.get('animation', -1)
+                animation_id = player_data.get('animationId', -1)
                 
                 if is_animating and animation_id == woodcutting_animation_id:
                     print("✓ Woodcutting detected!")
@@ -3860,7 +3860,7 @@ class ModularTester:
             player_data = api.get_player()
             if player_data:
                 is_animating = player_data.get('isAnimating', False)
-                animation_id = player_data.get('animation', -1)
+                animation_id = player_data.get('animationId', -1)
                 
                 if not is_animating or animation_id != woodcutting_animation_id:
                     print("✓ Woodcutting stopped (tree depleted)")
@@ -4019,3 +4019,4 @@ if __name__ == "__main__":
         traceback.print_exc()
     
     print("\n✓ Testing interface closed.")
+

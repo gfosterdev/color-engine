@@ -10,6 +10,9 @@ from typing import Dict, Any, Optional, List, Tuple
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 
+# Global debug flag - set to True to enable info-level print statements
+DEBUG = False
+
 
 @dataclass
 class MouseConfig:
@@ -83,6 +86,15 @@ class AntiBanConfig:
 
 
 @dataclass
+class ValidationConfig:
+    """Validation and tracking configuration."""
+    verify_pickaxe: bool = False
+    track_xp: bool = True
+    detect_respawn: bool = True
+    use_animation_detection: bool = True
+
+
+@dataclass
 class WindowConfig:
     """Game window configuration."""
     title: str = "RuneLite - xJawj"
@@ -103,7 +115,12 @@ class BotConfig:
     mouse: MouseConfig = field(default_factory=MouseConfig)
     breaks: BreakConfig = field(default_factory=BreakConfig)
     anti_ban: AntiBanConfig = field(default_factory=AntiBanConfig)
+    validation: ValidationConfig = field(default_factory=ValidationConfig)
     skill_settings: Dict[str, Any] = field(default_factory=dict)
+    
+    # Top-level behavior settings
+    powerdrop: bool = False
+    banking: bool = True
     
     def validate(self):
         """Validate all configuration sections."""
@@ -164,7 +181,10 @@ class ConfigLoader:
             mouse=MouseConfig(**data.get('mouse', {})),
             breaks=BreakConfig(**data.get('breaks', {})),
             anti_ban=AntiBanConfig(**data.get('anti_ban', {})),
-            skill_settings=data.get('skill_settings', {})
+            validation=ValidationConfig(**data.get('validation', {})),
+            skill_settings=data.get('skill_settings', {}),
+            powerdrop=data.get('powerdrop', data.get('skill_settings', {}).get('powerdrop', False)),
+            banking=data.get('banking', data.get('skill_settings', {}).get('banking', True))
         )
         
         # Validate configuration

@@ -81,7 +81,7 @@ class RespawnDetector:
         if not player:
             return False
         
-        current_animation = player.get('animation')
+        current_animation = player.get('animationId')
         return current_animation == self.animation_id
     
     def _check_animation_stopped(self) -> bool:
@@ -103,7 +103,7 @@ class RespawnDetector:
         if not player:
             return False
         
-        current_animation = player.get('animation')
+        current_animation = player.get('animationId')
         
         # If animation is -1 or not matching, player stopped gathering
         if current_animation == -1 or current_animation != self.animation_id:

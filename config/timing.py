@@ -26,6 +26,9 @@ class TimingProfile:
     MIN_MOVE_DURATION = 0.08
     MAX_MOVE_DURATION = 0.40
     
+    # Game Tick Timing (seconds)
+    GAME_TICK = (0.6, 0.7)                # Full OSRS game tick (600ms)
+    
     # Click Delays (seconds)
     GAME_TICK_DELAY = (0.03, 0.05)        # Post-click delay for server tick
     PRE_CLICK_DELAY = (0.05, 0.15)        # Human hesitation before click (built into MouseMover)

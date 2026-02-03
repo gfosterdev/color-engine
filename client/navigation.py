@@ -422,7 +422,7 @@ class NavigationManager:
                 return False
             
             # Wait for arrival with stuck detection
-            time.sleep(random.uniform(*TIMING.MEDIUM_DELAY))  # Initial movement delay
+            time.sleep(random.uniform(*TIMING.GAME_TICK))  # Wait full game tick for movement to register in API
             
             if not self.wait_until_arrived(wp_x, wp_y, tolerance=2, timeout=30):
                 # Check if we're stuck
@@ -554,8 +554,9 @@ class NavigationManager:
         while time.time() - start_time < timeout:
             if not self.is_moving():
                 # Confirm with second check to avoid animation lag
-                time.sleep(random.uniform(*TIMING.MICRO_DELAY))
+                time.sleep(random.uniform(*TIMING.GAME_TICK))
                 if not self.is_moving():
+                    print("STOPPED")
                     return True
             time.sleep(random.uniform(*TIMING.API_POLL_INTERVAL))
         

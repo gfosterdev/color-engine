@@ -124,6 +124,7 @@ class VariancePathfinder:
         path = self._dijkstra(start, goal, variance_config)
         
         if path is None:
+            print("NO PATH")
             return None
         
         # Inject random waypoints for large-scale variance

@@ -17,6 +17,7 @@ import struct
 from collections import OrderedDict
 from pathlib import Path
 from typing import Tuple, Optional
+from core.config import DEBUG
 
 
 class CollisionMap:
@@ -82,7 +83,8 @@ class CollisionMap:
             )
         
         self._initialized = True
-        print(f"CollisionMap initialized: {self.zip_path}")
+        if DEBUG:
+            print(f"CollisionMap initialized: {self.zip_path}")
     
     def _load_region(self, region_x: int, region_y: int, plane: int) -> Optional[bytes]:
         """
@@ -110,7 +112,8 @@ class CollisionMap:
                 return data
                 
         except Exception as e:
-            print(f"Error loading region ({region_x}, {region_y}, {plane}): {e}")
+            if DEBUG:
+                print(f"Error loading region ({region_x}, {region_y}, {plane}): {e}")
             return None
     
     def _get_region_data(self, region_x: int, region_y: int, plane: int) -> Optional[bytes]:

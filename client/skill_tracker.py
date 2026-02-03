@@ -164,17 +164,18 @@ class SkillTracker:
         """
         try:
             stats = self.api.get_stats()
-            if not stats or 'skills' not in stats:
+            if not stats:
                 return None
             
-            skill_key = self.skill_name.lower()
-            skill_data = stats['skills'].get(skill_key)
+            # API returns a list of skill objects with 'stat', 'level', 'xp' fields
+            for skill in stats:
+                if skill.get('stat', '').lower() == self.skill_name.lower():
+                    return {
+                        'level': skill.get('level'),
+                        'xp': skill.get('xp')
+                    }
             
-            if skill_data:
-                return {
-                    'level': skill_data.get('level'),
-                    'xp': skill_data.get('xp')
-                }
+            print(f"⚠ Skill '{self.skill_name}' not found in API response")
         except Exception as e:
             print(f"Error fetching {self.skill_name} stats: {e}")
         

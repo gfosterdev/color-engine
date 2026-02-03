@@ -125,7 +125,7 @@ WOODCUTTING_RESOURCES = {
         'object_ids': Trees.YEW,
         'item_id': Logs.YEW_LOGS,
         'display_name': 'Yew',
-        'woodcutting_animation_id': 879,
+        'woodcutting_animation_id': 867,
         'respawn_time': (60, 90)
     },
     'magic': {
