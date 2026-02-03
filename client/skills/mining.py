@@ -131,6 +131,11 @@ class MiningBot(SkillBotBase):
             print("Failed to click rock")
             return
         
+        # Wait for player to walk to rock and start mining
+        if not self._wait_for_interaction_start(timeout=8.0):
+            print("  ⚠ Failed to start interaction with rock")
+            return
+        
         # Wait for ore depletion using respawn detector
         if self.detect_respawn and self.respawn_detector and rock_id:
             self.respawn_detector.wait_for_respawn(

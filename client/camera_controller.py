@@ -9,6 +9,7 @@ import time
 import random
 import math
 from typing import TYPE_CHECKING, Optional, Tuple
+from core.config import DEBUG
 
 if TYPE_CHECKING:
     from client.osrs import OSRS
@@ -67,12 +68,14 @@ class CameraController:
         rotation_data = self.api.get_camera_rotation(world_x, world_y, plane)
         
         if not rotation_data:
-            print(f"[CameraController] Failed to get initial rotation data")
+            if DEBUG:
+                print(f"[CameraController] Failed to get initial rotation data")
             return False
         
         # Early exit if already visible
         if rotation_data.get('visible', False):
-            print(f"[CameraController] Tile already visible")
+            if DEBUG:
+                print(f"[CameraController] Tile already visible")
             return True
         
         # Adjust scale ONCE before rotation attempts (zoom before rotating)
@@ -84,21 +87,24 @@ class CameraController:
         # Override API suggestion if current scale is too zoomed in
         if current_scale >= 330:
             scale_delta = target_scale - current_scale
-            print(f"[CameraController] Current scale too zoomed in ({current_scale}), forcing zoom out to {target_scale}")
+            if DEBUG:
+                print(f"[CameraController] Current scale too zoomed in ({current_scale}), forcing zoom out to {target_scale}")
         else:
             # Already zoomed out enough, maintain current scale
             target_scale = current_scale
             scale_delta = 0
         
         if abs(scale_delta) > self.SCALE_THRESHOLD:
-            print(f"[CameraController] Adjusting scale: {current_scale} -> {target_scale} (delta: {scale_delta})")
+            if DEBUG:
+                print(f"[CameraController] Adjusting scale: {current_scale} -> {target_scale} (delta: {scale_delta})")
             
             self._adjust_scale(target_scale, current_scale, world_x, world_y, plane)
             
             # Early exit check if tile visible after scale adjustment
             rotation_data = self.api.get_camera_rotation(world_x, world_y, plane)
             if rotation_data and rotation_data.get('visible', False):
-                print(f"[CameraController] Tile visible after scale adjustment")
+                if DEBUG:
+                    print(f"[CameraController] Tile visible after scale adjustment")
                 return True
         
         # Now perform rotation attempts (scale is already adjusted)
@@ -111,13 +117,15 @@ class CameraController:
             rotation_data = self.api.get_camera_rotation(world_x, world_y, plane)
             
             if not rotation_data:
-                print(f"[CameraController] Failed to get rotation data (attempt {attempt + 1}/{max_attempts})")
+                if DEBUG:
+                    print(f"[CameraController] Failed to get rotation data (attempt {attempt + 1}/{max_attempts})")
                 time.sleep(random.uniform(0.4, 0.6))
                 continue
             
             # Early exit if visible
             if rotation_data.get('visible', False):
-                print(f"[CameraController] Tile visible (attempt {attempt + 1})")
+                if DEBUG:
+                    print(f"[CameraController] Tile visible (attempt {attempt + 1})")
                 return True
             
             # Detect if camera is stuck (not moving between attempts)
@@ -126,7 +134,8 @@ class CameraController:
             
             if last_yaw is not None and current_yaw == last_yaw and current_pitch == last_pitch:
                 stuck_count += 1
-                print(f"[CameraController] Camera hasn't moved (stuck count: {stuck_count})")
+                if DEBUG:
+                    print(f"[CameraController] Camera hasn't moved (stuck count: {stuck_count})")
                 if stuck_count >= 3:
                     print(f"[CameraController] Camera stuck after 3 attempts, aborting")
                     return False
@@ -138,7 +147,8 @@ class CameraController:
             
             # Perform combined yaw+pitch adjustment (diagonal drag)
             if not rotation_data:
-                print(f"[CameraController] Failed to get rotation data, retrying...")
+                if DEBUG:
+                    print(f"[CameraController] Failed to get rotation data, retrying...")
                 time.sleep(random.uniform(0.5, 0.8))
                 continue
                 
@@ -147,17 +157,20 @@ class CameraController:
             yaw_distance = abs(rotation_data.get('yawDistance', 0))
             
             # Debug: show what API returned
-            print(f"[CameraController] API returned: dragX={drag_x}, dragY={drag_y}, yawDist={yaw_distance}")
-            print(f"[CameraController] Raw rotation data: {rotation_data}")
+            if DEBUG:
+                print(f"[CameraController] API returned: dragX={drag_x}, dragY={drag_y}, yawDist={yaw_distance}")
+                print(f"[CameraController] Raw rotation data: {rotation_data}")
             
             # Skip if adjustments are below game's threshold (empirically, < 5px doesn't move camera)
             if abs(drag_x) < 5 and abs(drag_y) < 5:
-                print(f"[CameraController] Drags too small to execute (< 5px, game threshold)")
-                print(f"[CameraController] Tile at screen position but not marked visible by API")
+                if DEBUG:
+                    print(f"[CameraController] Drags too small to execute (< 5px, game threshold)")
+                    print(f"[CameraController] Tile at screen position but not marked visible by API")
                 # If we're this close, consider it a success even if API says not visible
                 return True
             
-            print(f"[CameraController] Adjusting camera: dx={drag_x}, dy={drag_y}")
+            if DEBUG:
+                print(f"[CameraController] Adjusting camera: dx={drag_x}, dy={drag_y}")
             self._adjust_camera_combined(drag_x, drag_y)
             
             # Wait for camera adjustment to complete
@@ -166,15 +179,18 @@ class CameraController:
             # Verify if tile is now visible
             rotation_data = self.api.get_camera_rotation(world_x, world_y, plane)
             if rotation_data and rotation_data.get('visible', False):
-                print(f"[CameraController] Success! Tile visible after adjustment (attempt {attempt + 1})")
+                if DEBUG:
+                    print(f"[CameraController] Success! Tile visible after adjustment (attempt {attempt + 1})")
                 return True
             
             # If not last attempt, add delay before retry
             if attempt < max_attempts - 1:
-                print(f"[CameraController] Tile not visible, retrying... (attempt {attempt + 1}/{max_attempts})")
+                if DEBUG:
+                    print(f"[CameraController] Tile not visible, retrying... (attempt {attempt + 1}/{max_attempts})")
                 time.sleep(random.uniform(0.4, 0.6))
         
-        print(f"[CameraController] Failed to make tile visible after {max_attempts} attempts")
+        if DEBUG:
+            print(f"[CameraController] Failed to make tile visible after {max_attempts} attempts")
         return False
     
     def _adjust_scale(self, target_scale: int, current_scale: int, world_x: int, world_y: int, plane: int, max_retries: int = 2):
@@ -197,7 +213,8 @@ class CameraController:
             # Use 50x multiplier to ensure significant zoom change (scale range is 300-650)
             # Each scale unit should be ~4 scroll wheel clicks for visible effect
             scroll_delta = scale_delta * 50
-            print(f"[CameraController] Scrolling {scroll_delta} units (scale {current_scale} -> {target_scale}) [attempt {attempt + 1}/{max_retries}]")
+            if DEBUG:
+                print(f"[CameraController] Scrolling {scroll_delta} units (scale {current_scale} -> {target_scale}) [attempt {attempt + 1}/{max_retries}]")
             
             # Apply ±10% randomization to make it less predictable
             variance = random.uniform(-0.10, 0.10)
@@ -207,13 +224,15 @@ class CameraController:
             randomized_delta = max(-600, min(600, randomized_delta))
             
             if randomized_delta == 0:
-                print(f"[CameraController] No scroll needed, scale already at target")
+                if DEBUG:
+                    print(f"[CameraController] No scroll needed, scale already at target")
                 return
             
             # Move mouse to center of viewport for scroll to work
             # Scroll wheel only affects the area under the mouse cursor
             if not self.window.window:
-                print("[CameraController] Window not found, cannot position mouse for scroll")
+                if DEBUG:
+                    print("[CameraController] Window not found, cannot position mouse for scroll")
                 return
                 
             viewport_center_x = self.window.window['x'] + self.window.window['width'] // 2
@@ -233,17 +252,22 @@ class CameraController:
             if rotation_data:
                 new_scale = rotation_data.get('currentScale', 512)
                 if new_scale < 330:
-                    print(f"[CameraController] Scale adjustment successful: {new_scale}")
+                    if DEBUG:
+                        print(f"[CameraController] Scale adjustment successful: {new_scale}")
                     return
                 else:
-                    print(f"[CameraController] Scale still too zoomed in ({new_scale}), target was < 330")
+                    if DEBUG:
+                        print(f"[CameraController] Scale still too zoomed in ({new_scale}), target was < 330")
                     if attempt < max_retries - 1:
-                        print(f"[CameraController] Retrying scale adjustment...")
+                        if DEBUG:
+                            print(f"[CameraController] Retrying scale adjustment...")
                         current_scale = new_scale  # Update for next attempt
                     else:
-                        print(f"[CameraController] WARNING: Failed to reach target scale after {max_retries} attempts")
+                        if DEBUG:
+                            print(f"[CameraController] WARNING: Failed to reach target scale after {max_retries} attempts")
             else:
-                print(f"[CameraController] WARNING: Could not verify scale adjustment")
+                if DEBUG:
+                    print(f"[CameraController] WARNING: Could not verify scale adjustment")
                 return
     
     def _adjust_camera_combined(self, dx_pixels: int, dy_pixels: int):
@@ -286,7 +310,8 @@ class CameraController:
         # Get window position for screen coordinate conversion
         window_info = self.window.window
         if not window_info:
-            print("[CameraController] Window not found for camera drag")
+            if DEBUG:
+                print("[CameraController] Window not found for camera drag")
             return
         
         window_x = window_info['x']
@@ -302,7 +327,8 @@ class CameraController:
         segment_dx = dx / num_segments
         segment_dy = dy / num_segments
         
-        print(f"[CameraController] Splitting drag ({dx}, {dy}) into {num_segments} segments")
+        if DEBUG:
+            print(f"[CameraController] Splitting drag ({dx}, {dy}) into {num_segments} segments")
         
         # Perform each segment
         for i in range(num_segments):

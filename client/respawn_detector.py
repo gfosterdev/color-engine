@@ -5,6 +5,7 @@ Uses dual detection: player animation + object polling for maximum reliability.
 
 from typing import Optional
 import time
+from core.config import DEBUG
 
 
 class RespawnDetector:
@@ -52,7 +53,9 @@ class RespawnDetector:
             return True
         
         start_time = time.time()
-        print(f"Waiting for node depletion (max {max_wait}s)...")
+        
+        if DEBUG:
+            print(f"\nWaiting for node depletion (max {max_wait}s)...")
         
         while time.time() - start_time < max_wait:
             # Method 1: Check if player stopped animating

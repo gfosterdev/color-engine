@@ -21,6 +21,7 @@ from config.regions import (
     MINIMAP_COMPASS_REGION
 )
 from config.timing import TIMING
+from core.config import DEBUG
 from .runelite_api import RuneLiteAPI
 
 # Lazy imports for pathfinding (only loaded when needed)
@@ -112,7 +113,8 @@ class NavigationManager:
             from util.collision_util import CollisionMap
             from client.pathfinder import VariancePathfinder
             
-            print("Loading collision map and pathfinder...")
+            if DEBUG:
+                print("Loading collision map and pathfinder...")
             # CollisionMap singleton - parameters are correct despite type checker warning
             _collision_map = CollisionMap(
                 zip_path=None,  # type: ignore[call-arg]
@@ -124,7 +126,8 @@ class NavigationManager:
             )
             
             self._pathfinding_enabled = True
-            print("✓ Pathfinding system loaded")
+            if DEBUG:
+                print("✓ Pathfinding system loaded")
             return True
             
         except FileNotFoundError as e:
@@ -216,7 +219,8 @@ class NavigationManager:
         if not self.window.window:
             return False
         
-        print("Clicking minimap compass to reset to north...")
+        if DEBUG:
+            print("Clicking minimap compass to reset to north...")
         
         # Ensure we have a fresh capture
         self.window.capture()
@@ -231,10 +235,12 @@ class NavigationManager:
         # Verify it worked
         yaw = self.read_camera_yaw()
         if yaw is not None and yaw < 100:  # Should be close to 0
-            print(f"✓ Compass clicked, camera at north (yaw: {yaw})")
+            if DEBUG:
+                print(f"✓ Compass clicked, camera at north (yaw: {yaw})")
             return True
         else:
-            print(f"Warning: Compass clicked but yaw reading unclear (yaw: {yaw})")
+            if DEBUG:
+                print(f"Warning: Compass clicked but yaw reading unclear (yaw: {yaw})")
             return True  # Still return True since we clicked it
     
     def _click_minimap_offset(self, dx: int, dy: int) -> bool:
@@ -254,7 +260,8 @@ class NavigationManager:
         # Read camera yaw for rotation
         yaw = self.read_camera_yaw()
         if yaw is None:
-            print("Warning: Could not read camera yaw, clicking compass to reset to north")
+            if DEBUG:
+                print("Warning: Could not read camera yaw, clicking compass to reset to north")
             if self.click_compass_to_north():
                 yaw = 0  # Compass resets to north
             else:
@@ -290,8 +297,9 @@ class NavigationManager:
         distance_from_center = math.sqrt((target_x - center[0])**2 + (target_y - center[1])**2)
         
         if distance_from_center > minimap_radius:
-            print(f"Warning: Click target ({target_x:.1f}, {target_y:.1f}) outside minimap circle")
-            print(f"  Distance from center: {distance_from_center:.1f}px, radius: {minimap_radius:.1f}px")
+            if DEBUG:
+                print(f"Warning: Click target ({target_x:.1f}, {target_y:.1f}) outside minimap circle")
+                print(f"  Distance from center: {distance_from_center:.1f}px, radius: {minimap_radius:.1f}px")
             return False
         
         # Execute click (mouse movement has built-in delay)
@@ -334,19 +342,22 @@ class NavigationManager:
         dy = world_y - current_y
         distance = math.sqrt(dx**2 + dy**2)
         
-        print(f"Walking from ({current_x}, {current_y}) to ({world_x}, {world_y})")
-        print(f"Distance: {distance:.1f} tiles")
+        if DEBUG:
+            print(f"Walking from ({current_x}, {current_y}) to ({world_x}, {world_y})")
+            print(f"Distance: {distance:.1f} tiles")
         
         # Check if already at target (within tolerance)
         if distance <= 2:
-            print("Already at target location")
+            if DEBUG:
+                print("Already at target location")
             return True
         
         # Try to use pathfinding if enabled
         waypoints = None
         if use_pathfinding and self._ensure_pathfinding_loaded():
             try:
-                print("Using collision-aware pathfinding...")
+                if DEBUG:
+                    print("Using collision-aware pathfinding...")
                 start = (current_x, current_y, plane)
                 goal = (world_x, world_y, plane)
                 variance_level = self._pathfinding_config.get("variance_level", "moderate")
@@ -357,19 +368,23 @@ class NavigationManager:
                     waypoints = None
                 
                 if waypoints:
-                    print(f"✓ Path found: {len(waypoints)} tiles")
+                    if DEBUG:
+                        print(f"✓ Path found: {len(waypoints)} tiles")
                     # Convert to simpler format and chunk for minimap range
                     waypoints = [(x, y) for x, y, z in waypoints]
                 else:
-                    print("No path found, falling back to linear navigation")
+                    if DEBUG:
+                        print("No path found, falling back to linear navigation")
                     
             except Exception as e:
-                print(f"Pathfinding error: {e}, falling back to linear navigation")
+                if DEBUG:
+                    print(f"Pathfinding error: {e}, falling back to linear navigation")
                 waypoints = None
         
         # Fallback: Generate linear waypoints if pathfinding unavailable or failed
         if waypoints is None:
-            print("Using linear path navigation...")
+            if DEBUG:
+                print("Using linear path navigation...")
             waypoints = []
             if distance > 12:
                 # Chunk into segments of 10-12 tiles (randomized)
@@ -388,15 +403,18 @@ class NavigationManager:
         waypoints_2d = cast(List[Tuple[int, int]], waypoints)
         chunked_waypoints = self._chunk_waypoints_for_minimap(waypoints_2d, current_pos)
         
-        print(f"Executing path: {len(chunked_waypoints)} waypoint(s)")
+        if DEBUG:
+            print(f"Executing path: {len(chunked_waypoints)} waypoint(s)")
         
         # Navigate through waypoints
         for i, (wp_x, wp_y) in enumerate(chunked_waypoints):
-            print(f"\nWaypoint {i+1}/{len(chunked_waypoints)}: ({wp_x}, {wp_y})")
+            if DEBUG:
+                print(f"\nWaypoint {i+1}/{len(chunked_waypoints)}: ({wp_x}, {wp_y})")
             
             # Random re-pathing chance (anti-ban)
             if i > 0 and random.random() < self._pathfinding_config.get("repathing_chance", 0.05):
-                print("  ↻ Dynamic re-pathing triggered")
+                if DEBUG:
+                    print("  ↻ Dynamic re-pathing triggered")
                 # Re-calculate remaining path with new random seed
                 return self.walk_to_tile(world_x, world_y, plane, use_pathfinding=True)
             
@@ -413,8 +431,9 @@ class NavigationManager:
             wp_dy = wp_y - current_y
             wp_distance = math.sqrt(wp_dx**2 + wp_dy**2)
             
-            print(f"  Current: ({current_x}, {current_y})")
-            print(f"  Offset: ({wp_dx:+d}, {wp_dy:+d}) = {wp_distance:.1f} tiles")
+            if DEBUG:
+                print(f"  Current: ({current_x}, {current_y})")
+                print(f"  Offset: ({wp_dx:+d}, {wp_dy:+d}) = {wp_distance:.1f} tiles")
             
             # Click minimap
             if not self._click_minimap_offset(wp_dx, wp_dy):
@@ -427,7 +446,8 @@ class NavigationManager:
             if not self.wait_until_arrived(wp_x, wp_y, tolerance=2, timeout=30):
                 # Check if we're stuck
                 if self._is_stuck():
-                    print("  ⚠ Stuck detected, attempting re-path...")
+                    if DEBUG:
+                        print("  ⚠ Stuck detected, attempting re-path...")
                     self._stuck_count += 1
                     self._last_stuck_position = (current_x, current_y)
                     
@@ -447,9 +467,11 @@ class NavigationManager:
             
             # Reset stuck counter on successful waypoint
             self._stuck_count = 0
-            print(f"  ✓ Reached waypoint {i+1}")
+            if DEBUG:
+                print(f"  ✓ Reached waypoint {i+1}")
         
-        print("\n✓ Successfully reached target")
+        if DEBUG:
+            print("\n✓ Successfully reached target")
         return True
     
     def _chunk_waypoints_for_minimap(
@@ -521,7 +543,8 @@ class NavigationManager:
             # Add the selected waypoint
             selected_wp = waypoints[farthest_index]
             chunked.append(selected_wp)
-            print(f"  → Selected waypoint at distance: {farthest_distance:.1f} tiles")
+            if DEBUG:
+                print(f"  → Selected waypoint at distance: {farthest_distance:.1f} tiles")
             
             last_pos = selected_wp
             
@@ -556,7 +579,6 @@ class NavigationManager:
                 # Confirm with second check to avoid animation lag
                 time.sleep(random.uniform(*TIMING.GAME_TICK))
                 if not self.is_moving():
-                    print("STOPPED")
                     return True
             time.sleep(random.uniform(*TIMING.API_POLL_INTERVAL))
         
@@ -581,13 +603,15 @@ class NavigationManager:
         # Wait for player to stop moving from the minimap click
         # Max distance ~12 tiles at ~0.6s/tile = ~7-8s typical, 15s timeout is safe
         if not self.wait_until_stopped(timeout=timeout):
-            print(f"  ⚠ Player still moving after {timeout}s timeout (possible API/game issue)")
+            if DEBUG:
+                print(f"  ⚠ Player still moving after {timeout}s timeout (possible API/game issue)")
             return False
         
         # Movement complete - check if we arrived at destination
         current_pos = self.read_world_coordinates()
         if current_pos is None:
-            print("  ⚠ Could not read coordinates after movement stopped")
+            if DEBUG:
+                print("  ⚠ Could not read coordinates after movement stopped")
             return False
         
         current_x, current_y = current_pos
@@ -596,7 +620,8 @@ class NavigationManager:
         if distance <= tolerance:
             return True
         else:
-            print(f"  ⚠ Stopped at ({current_x}, {current_y}) - distance from target: {distance:.1f} tiles")
+            if DEBUG:
+                print(f"  ⚠ Stopped at ({current_x}, {current_y}) - distance from target: {distance:.1f} tiles")
             return False
     
     def is_player_moving(self) -> bool:
@@ -708,7 +733,8 @@ class NavigationManager:
         """Clear pathfinding cache (useful for testing or forcing new paths)."""
         if _pathfinder:
             _pathfinder.clear_cache()
-            print("Path cache cleared")
+            if DEBUG:
+                print("Path cache cleared")
     
     def calibrate_minimap_scale(self):
         """
@@ -727,6 +753,7 @@ class NavigationManager:
         This method is deferred for future implementation when scale accuracy
         becomes critical for precise navigation tasks.
         """
-        print("Minimap scale calibration not yet implemented")
-        print(f"Current scale: {self.minimap_scale} pixels/tile")
-        print("To calibrate: walk a known distance and measure pixel displacement")
+        if DEBUG:
+            print("Minimap scale calibration not yet implemented")
+            print(f"Current scale: {self.minimap_scale} pixels/tile")
+            print("To calibrate: walk a known distance and measure pixel displacement")

@@ -157,8 +157,13 @@ class SkillBotBase(ABC):
             return
         
         self.is_running = True
-        self.current_state = BotState.GATHERING
         self.start_time = time.time()
+        
+        # Determine initial state based on player position
+        self.current_state = self._get_initial_state()
+        
+        if DEBUG:
+            print(f"Starting in {self.current_state.name} state")
         
         try:
             while self.is_running:
@@ -408,6 +413,39 @@ class SkillBotBase(ABC):
         
         return distance <= tolerance
     
+    def _get_initial_state(self) -> BotState:
+        """
+        Determine the initial bot state based on player position and inventory.
+        
+        Returns:
+            BotState to start in (GATHERING, BANKING, or WALKING)
+        """
+        # Check if inventory is full and banking is enabled
+        self.osrs.inventory.populate()
+        if self.osrs.inventory.is_full() and self.should_bank:
+            if DEBUG:
+                print("Inventory full - starting in BANKING state")
+            return BotState.BANKING
+        
+        # Check if player is at gathering location
+        gathering_location = self._get_gathering_location()
+        if gathering_location:
+            if self._is_near_location(gathering_location, tolerance=10):
+                if DEBUG:
+                    print("At gathering location - starting in GATHERING state")
+                return BotState.GATHERING
+            else:
+                if DEBUG:
+                    print("Not at gathering location - starting in WALKING state")
+                # Set destination so WALKING state knows where to go
+                self._start_walking(gathering_location, BotState.GATHERING)
+                return BotState.WALKING
+        else:
+            # No gathering location configured, assume we're at the right place
+            if DEBUG:
+                print("No gathering location configured - starting in GATHERING state")
+            return BotState.GATHERING
+    
     def _get_bank_location(self) -> Optional[tuple]:
         """
         Get bank location from config.
@@ -449,7 +487,7 @@ class SkillBotBase(ABC):
             Dictionary with status information
         """
         self.osrs.inventory.populate()
-        inventory_count = len([slot for slot in self.osrs.inventory.slots if slot])
+        inventory_count = self.osrs.inventory.count_filled()
         inventory_capacity = f"{inventory_count}/28"
         
         # Calculate runtime
@@ -496,6 +534,39 @@ class SkillBotBase(ABC):
         # Use carriage return to overwrite the same line
         sys.stdout.write(f"\r{status_line}")
         sys.stdout.flush()
+    
+    def _wait_for_interaction_start(self, timeout: float = 8.0) -> bool:
+        """
+        Wait for player to walk to target and begin interaction.
+        
+        Should be called immediately after click_entity() for gathering actions.
+        Handles cases where the player needs to walk to the resource before
+        the gathering animation begins.
+        
+        Args:
+            timeout: Maximum time to wait for walking to complete (default 8s)
+            
+        Returns:
+            True if player stopped moving (ready for interaction), False if timeout
+        """
+        # Delay by a game tick to ensure movement has started
+        time.sleep(random.uniform(*TIMING.GAME_TICK))
+
+        # Check if player is moving (walking to resource)
+        if self.osrs.navigation.is_moving():
+            if DEBUG:
+                print("  Walking to target...")
+            
+            # Wait until player stops moving (reached target)
+            if not self.osrs.navigation.wait_until_stopped(timeout=timeout):
+                if DEBUG:
+                    print(f"  ⚠ Timeout while walking to target ({timeout}s)")
+                return False
+            
+            # Brief delay for animation to start after arrival
+            time.sleep(random.uniform(0.3, 0.6))
+        
+        return True
     
     # =============================================================================
     # ABSTRACT METHODS - Must be implemented by subclasses

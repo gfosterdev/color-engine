@@ -151,8 +151,12 @@ class WoodcuttingBot(SkillBotBase):
             if DEBUG:
                 print("Failed to click tree")
             return
-
         
+        # Wait for player to walk to tree and start chopping
+        if not self._wait_for_interaction_start(timeout=10.0):
+            if DEBUG:
+                print("  ⚠ Failed to start interaction with tree")
+            return
 
         # Wait for tree depletion using respawn detector
         if self.detect_respawn and self.respawn_detector and tree_id:
