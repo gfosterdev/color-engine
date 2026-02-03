@@ -144,7 +144,12 @@ class OSRS:
             points = hull.get('points', None)
             if points:
                 polygon = Polygon(points)
-                click_point = polygon.random_point_inside(self.window.GAME_AREA)
+                try:
+                    click_point = polygon.random_point_inside(self.window.GAME_AREA)
+                except Exception as e:
+                    if DEBUG:
+                        print(f"Failed to get random point inside polygon: {e}")
+                    return False
                 self.window.move_mouse_to(click_point, in_canvas=True)
                 self.click(action, target)
                 
