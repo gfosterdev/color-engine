@@ -17,3 +17,5 @@ util/data/collision-map.zip
 
 external/NpcID.java
 external/ObjectID.java
+config/profiles/*
+!config/profiles/EXAMPLE_*

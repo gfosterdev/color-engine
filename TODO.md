@@ -35,3 +35,4 @@
         - is_spell_active
             - for spells that require a target clicked after the factv (alching, telegrab etc)
 6. Handle login/logout authentication
+    - add base methods to bot base

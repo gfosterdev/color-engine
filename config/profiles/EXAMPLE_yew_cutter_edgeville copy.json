@@ -2,8 +2,8 @@
 	"profile_name": "yew_cutter_edgeville",
 	"description": "Woodcutting bot for yew trees at Edgeville",
 	"credentials": {
-		"username": "your_username",
-		"password": "your_password"
+		"username": "postmandad",
+		"password": "minecraftandrs"
 	},
 	"skill_settings": {
 		"tree_type": "yew",
