@@ -78,23 +78,23 @@ INVENTORY_TAB_REGION = Region(632, 173, 20, 27)  # Inventory tab button [UNVERIF
 # Login Screen Regions
 # ============================================================================
 
-LOGIN_EXISTING_USER_BUTTON = Region(408, 305, 120, 25)  # Existing user button [VERIFIED]
-LOGIN_BUTTON_REGION = Region(251, 336, 120, 25)  # Login button [VERIFIED]
-LOGIN_CLICK_HERE_TO_PLAY_REGION = Region(287, 329, 210, 70)  # Click here to play area [VERIFIED]
+LOGIN_EXISTING_USER_BUTTON = Region(400, 279, 123, 25)  # Existing user button [VERIFIED]
+LOGIN_BUTTON_REGION = Region(237, 306, 130, 29)  # Login button [VERIFIED]
+LOGIN_CLICK_HERE_TO_PLAY_REGION = Region(283, 301, 203, 72)  # Click here to play area [VERIFIED]
 
 
 # ============================================================================
 # UI Regions
 # ============================================================================
 
-UI_LOGOUT_ICON_REGION = Region(631, 471, 21, 25)  # Logout icon in game [VERIFIED]
+UI_LOGOUT_ICON_REGION = Region(626, 466, 33, 36)  # Logout icon in game [VERIFIED]
 UI_SKILLS_TAB_REGION = Region(565, 172, 22, 22)  # Skills tab region [UNVERIFIED]
 
 UI_PRAYER_ORB_REGION = Region(547, 83, 17, 17)  # Prayer orb region
 UI_RUN_ORB_REGION = Region(555, 115, 22, 18)  # Run orb region
 
-UI_LOGOUT_BUTTON_REGION = Region(578, 424, 129, 20)  # Logout button
-UI_LOGOUT_WORLD_SWITCHER_REGION = Region(577, 373, 130, 22)  # World switcher button
+UI_LOGOUT_BUTTON_REGION = Region(570, 414, 144, 36)  # Logout button
+UI_LOGOUT_WORLD_SWITCHER_REGION = Region(570, 366, 144, 36)  # World switcher button
 
 # ============================================================================
 # Overlay Regions

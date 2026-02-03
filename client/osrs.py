@@ -87,13 +87,17 @@ class OSRS:
             print("No password found in profile configuration")
             return False
         
+        username = self.profile_config["credentials"]["username"]
         password = self.profile_config["credentials"]["password"]
         
+        if not username:
+            print("Username is empty in profile configuration")
+            return False
         if not password:
             print("Password is empty in profile configuration")
             return False
         
-        return self.login(password)
+        return self.login(username, password)
 
     def validate_interact_text(self, expected_text):
         """
@@ -292,13 +296,12 @@ class OSRS:
         game_state = self.api.get_game_state()
         return bool(game_state and game_state.get("isLoggedIn", False))
 
-    def login(self, password: str) -> bool:
+    def login(self, username: str, password: str) -> bool:
         """.
         Log into OSRS using existing user credentials.
         
-        Assumes username is remembered and cursor starts on password field.
-        
         Args:
+            username: Account username to enter
             password: Account password to enter
             
         Returns:
@@ -321,11 +324,22 @@ class OSRS:
         # Click "Existing User" button
         if DEBUG:
             print("Clicking 'Existing User' button...")
-        self.window.capture()
         self.window.move_mouse_to(LOGIN_EXISTING_USER_BUTTON.random_point())
         self.window.click()
         time.sleep(random.uniform(*TIMING.LOGIN_BUTTON_DELAY))
         
+        # Type username
+        if DEBUG:
+            print("Entering username...")
+        self.keyboard.type_text(username)
+        time.sleep(random.uniform(*TIMING.INTERFACE_TRANSITION))
+
+        # Press tab to move to password field
+        if DEBUG:
+            print("Pressing Tab to move to password field...")
+        keyboard.press_and_release('tab')
+        time.sleep(random.uniform(*TIMING.INTERFACE_TRANSITION))
+
         # Type password
         if DEBUG:
             print("Entering password...")
@@ -335,7 +349,6 @@ class OSRS:
         # Click login button
         if DEBUG:
             print("Clicking login button...")
-        self.window.capture()
         self.window.move_mouse_to(LOGIN_BUTTON_REGION.random_point())
         self.window.click()
         
@@ -396,7 +409,6 @@ class OSRS:
         # Click logout icon to open the menu
         if DEBUG:
             print("Clicking logout icon...")
-        self.window.capture()
         self.window.move_mouse_to(UI_LOGOUT_ICON_REGION.random_point())
         self.window.click()
         time.sleep(random.uniform(*TIMING.LOGOUT_PANEL_DELAY))
@@ -404,12 +416,14 @@ class OSRS:
         # Verify logout panel opened by checking for "Logout" text
         if DEBUG:
             print("Verifying logout panel opened...")
-        self.window.capture()
-        logout_text = self.window.read_text(UI_LOGOUT_BUTTON_REGION, debug=True)
+        sidebar = self.api.get_sidebar_tab("logout")
+        if not sidebar:
+            print("✗ Failed to retrieve logout sidebar data")
+            return False
         
-        if not logout_text or "logout" not in logout_text.lower():
+        if not sidebar.get('isOpen', False):
             if DEBUG:
-                print(f"Logout panel did not open. Another interface may have priority. Extracted text: {logout_text}")
+                print("Logout panel did not open. Another interface may have priority.")
             return False
         
         if DEBUG:

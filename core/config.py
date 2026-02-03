@@ -11,7 +11,7 @@ from dataclasses import dataclass, field, asdict
 from pathlib import Path
 
 # Global debug flag - set to True to enable info-level print statements
-DEBUG = False
+DEBUG = True
 
 
 @dataclass

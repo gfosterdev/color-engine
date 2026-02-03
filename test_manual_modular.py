@@ -1261,15 +1261,19 @@ class ModularTester:
         
         # Get password from user input
         try:
+            username = input("\nEnter username: ").strip()
             password = input("\nEnter password (or press Ctrl+C to cancel): ").strip()
             
+            if not username:
+                print("✗ No username entered")
+                return
             if not password:
                 print("✗ No password entered")
                 return
             
             osrs = self.init_osrs()
             print("\nAttempting login...")
-            result = osrs.login(password)
+            result = osrs.login(username, password)
             
             if result:
                 print("✓ Login successful!")
