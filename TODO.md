@@ -29,7 +29,9 @@
         - shortcuts
 4. Magic handler
     - methods
+        - open_magic_tab
         - cast_spell
         - can_cast_spell
+            - has required level/runes
         - is_spell_active
             - for spells that require a target clicked after the factv (alching, telegrab etc)
