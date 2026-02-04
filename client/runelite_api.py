@@ -165,6 +165,18 @@ class RuneLiteAPI:
         result = self._get("bank")
         return cast(Optional[List[Dict[str, Any]]], result)
     
+    def get_bank_item(self, item_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Returns bank info filtered by item_id
+        """
+        result = self._get("bank")
+        bank_items = cast(Optional[List[Dict[str, Any]]], result)
+        if bank_items is not None:
+            for item in bank_items:
+                if item.get('id') == item_id:
+                    return item
+        return None
+
     # World Data
     def get_npcs(self) -> Optional[List[Dict[str, Any]]]:
         """

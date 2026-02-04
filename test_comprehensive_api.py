@@ -458,6 +458,33 @@ def test_performance(api: RuneLiteAPI):
     total_avg = sum(r[0] for r in results.values()) / len(results)
     print(f"\n📊 Average response time: {total_avg:.1f}ms")
 
+def test_bank(api: RuneLiteAPI):
+    """
+    Bank API output
+    """
+    print_header("🏦 BANK TEST")
+    
+    item_id = input("Enter item ID to check in bank (or press Enter to skip): ")
+    if item_id.strip().isdigit():
+        item_id = int(item_id.strip())
+        bank_slot = api.get_bank_item(item_id)
+        if bank_slot:
+            print(f"✅ Item ID {item_id} found in bank:")
+            print(f"  Slot:     {bank_slot.get('slot', 'N/A')}")
+            print(f"  Quantity: {bank_slot.get('quantity', 0)}")
+        else:
+            print(f"❌ Item ID {item_id} not found in bank")
+    else:
+        bank = api.get_bank()
+        if bank:
+            print(f"✅ Retrieved {len(bank)} bank items:\n")
+            for i, item in enumerate(bank, 1):
+                qty = item.get('quantity', 1)
+                qty_str = f" x{qty}" if qty > 1 else ""
+                slot = item.get('slot', -1)
+                print(f"  {i}. ID {item.get('id')}{qty_str} (Slot {slot})")
+        else:
+            print("❌ Could not retrieve bank items or bank is closed")
 
 def monitor_mining(api: RuneLiteAPI):
     """Real-time mining monitor - perfect for bots!"""
@@ -585,6 +612,7 @@ def print_menu():
     print("  w - Test widgets")
     print("  s - Test sidebar tabs")
     print("  d - Test specific sidebar tab")
+    print("  b - Test bank")
     print("\n❌ Exit:")
     print("  0 - Quit")
     print("\n" + "=" * 80)
@@ -630,6 +658,7 @@ def main():
             'w': lambda: (test_widgets(api), input("\n⚡ Press Enter to continue...")),
             's': lambda: (test_sidebars(api), input("\n⚡ Press Enter to continue...")),
             'd': lambda: (test_sidebar(api), input("\n⚡ Press Enter to continue...")),
+            'b': lambda: (test_bank(api), input("\n⚡ Press Enter to continue...")),
         }
 
         # Wait for key presses and dispatch immediately
