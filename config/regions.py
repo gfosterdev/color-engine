@@ -28,6 +28,7 @@ BANK_DEPOSIT_EQUIPMENT_REGION = Region(466, 300, 26, 26)  # Deposit worn items b
 BANK_TOGGLE_ITEM_REGION = Region(138, 342, 41, 14)  # Withdraw as item toggle [VERIFIED]
 BANK_TOGGLE_NOTE_REGION = Region(187, 342, 39, 13)  # Withdraw as note toggle [VERIFIED]
 
+BANK_ITEMS_DISPLAY_REGION = Region(22, 83, 460, 210)  # Area where bank items are displayed [VERIFIED]
 
 # ============================================================================
 # Other Interface Regions

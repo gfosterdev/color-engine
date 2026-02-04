@@ -467,11 +467,17 @@ def test_bank(api: RuneLiteAPI):
     item_id = input("Enter item ID to check in bank (or press Enter to skip): ")
     if item_id.strip().isdigit():
         item_id = int(item_id.strip())
-        bank_slot = api.get_bank_item(item_id)
-        if bank_slot:
+        item = api.get_bank_item(item_id)
+        if item:
             print(f"✅ Item ID {item_id} found in bank:")
-            print(f"  Slot:     {bank_slot.get('slot', 'N/A')}")
-            print(f"  Quantity: {bank_slot.get('quantity', 0)}")
+            print(f"  Slot:     {item.get('slot', 'N/A')}")
+            print(f"  Quantity: {item.get('quantity', 0)}")
+            widget = item.get('widget', None)
+            if widget:
+                print(f"  x: {widget.get('x', 'N/A')}, y: {widget.get('y', 'N/A')}, width: {widget.get('width', 'N/A')}, height: {widget.get('height', 'N/A')}")
+                print(f"  Is Accessible: {widget.get('accessible', False)}")
+                print(f"  Name: {widget.get('name', 'N/A')}")
+                print(f"  Text: {widget.get('text', 'N/A')}")
         else:
             print(f"❌ Item ID {item_id} not found in bank")
     else:

@@ -1327,13 +1327,110 @@ public class HttpServerPlugin extends Plugin
 
     public void handleBank(HttpExchange exchange) throws IOException
     {
-        JsonArray bankData = invokeAndWait(() -> {
+        // Parse query parameters: /bank?itemId=995
+        String query = exchange.getRequestURI().getQuery();
+        Integer targetItemId = null;
+        
+        if (query != null)
+        {
+            Map<String, String> params = new java.util.HashMap<>();
+            for (String param : query.split("&"))
+            {
+                String[] pair = param.split("=");
+                if (pair.length == 2)
+                {
+                    params.put(pair[0], pair[1]);
+                }
+            }
+            
+            if (params.containsKey("itemId"))
+            {
+                try
+                {
+                    targetItemId = Integer.parseInt(params.get("itemId"));
+                }
+                catch (NumberFormatException ex)
+                {
+                    exchange.sendResponseHeaders(400, 0);
+                    exchange.getResponseBody().close();
+                    return;
+                }
+            }
+        }
+        
+        final Integer itemIdParam = targetItemId;
+        
+        Object bankData = invokeAndWait(() -> {
             ItemContainer bankContainer = client.getItemContainer(InventoryID.BANK);
             if (bankContainer == null) return null;
 
-            JsonArray items = new JsonArray();
             Item[] bankItems = bankContainer.getItems();
-
+            
+            // If itemId parameter is provided, search for that item and return its data
+            if (itemIdParam != null)
+            {
+                // Search for the item in the bank
+                int foundSlot = -1;
+                for (int i = 0; i < bankItems.length; i++)
+                {
+                    if (bankItems[i].getId() == itemIdParam)
+                    {
+                        foundSlot = i;
+                        break;
+                    }
+                }
+                
+                if (foundSlot == -1)
+                {
+                    // Item not found in bank
+                    return null;
+                }
+                
+                Item item = bankItems[foundSlot];
+                JsonObject itemData = new JsonObject();
+                itemData.addProperty("slot", foundSlot);
+                itemData.addProperty("id", item.getId());
+                itemData.addProperty("quantity", item.getQuantity());
+                
+                // Get widget data from BankMain.ITEMS children
+                Widget bankItemsWidget = client.getWidget(WidgetInfo.BANK_ITEM_CONTAINER);
+                if (bankItemsWidget != null)
+                {
+                    Widget[] children = bankItemsWidget.getChildren();
+                    if (children != null && foundSlot < children.length)
+                    {
+                        Widget slotWidget = children[foundSlot];
+                        if (slotWidget != null)
+                        {
+                            JsonObject widgetData = new JsonObject();
+                            widgetData.addProperty("id", slotWidget.getId());
+                            widgetData.addProperty("itemId", slotWidget.getItemId());
+                            widgetData.addProperty("itemQuantity", slotWidget.getItemQuantity());
+                            
+                            Point canvasLocation = slotWidget.getCanvasLocation();
+                            if (canvasLocation != null)
+                            {
+                                widgetData.addProperty("x", canvasLocation.getX());
+                                widgetData.addProperty("y", canvasLocation.getY());
+                            }
+                            
+                            widgetData.addProperty("width", slotWidget.getWidth());
+                            widgetData.addProperty("height", slotWidget.getHeight());
+                            boolean isAccessible = (canvasLocation.getY() + slotWidget.getHeight()) < (bankItemsWidget.getCanvasLocation().getY() + bankItemsWidget.getHeight());
+                            widgetData.addProperty("accessible", isAccessible);
+                            widgetData.addProperty("name", slotWidget.getName());
+                            widgetData.addProperty("text", slotWidget.getText());
+                            
+                            itemData.add("widget", widgetData);
+                        }
+                    }
+                }
+                
+                return itemData;
+            }
+            
+            // Otherwise, return all bank items as array
+            JsonArray items = new JsonArray();
             for (int i = 0; i < bankItems.length; i++)
             {
                 Item item = bankItems[i];

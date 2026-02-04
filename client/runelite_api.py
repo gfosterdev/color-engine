@@ -169,13 +169,8 @@ class RuneLiteAPI:
         """
         Returns bank info filtered by item_id
         """
-        result = self._get("bank")
-        bank_items = cast(Optional[List[Dict[str, Any]]], result)
-        if bank_items is not None:
-            for item in bank_items:
-                if item.get('id') == item_id:
-                    return item
-        return None
+        result = self._get(f"bank?itemId={item_id}")
+        return cast(Optional[Dict[str, Any]], result)
 
     # World Data
     def get_npcs(self) -> Optional[List[Dict[str, Any]]]:
