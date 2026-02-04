@@ -796,6 +796,45 @@ class ModularTester:
         else:
             print("✗ Bank not found")
     
+    def test_banking_withdraw_item(self):
+        """Withdraw item from bank."""
+        osrs = self.init_osrs()
+        iface = self.init_interfaces()
+        
+        if not self.ensure_window():
+            return
+        
+        if not iface.is_bank_open():
+            print("\n✗ Bank is not open! Open it first.")
+            return
+        
+        # Test with iron ore (item ID 440)
+        item_id_input = input("Enter item ID to withdraw (e.g., 440 for Iron ore): ").strip()
+        quantity_input = input("Enter quantity to withdraw (e.g., 1, 5, 10, All): ").strip()
+
+        # Validate item_id and quantity
+        try:
+            item_id = int(item_id_input)
+        except ValueError:
+            print("✗ Invalid item ID (must be a number)")
+            return
+        
+        # Validate quantity
+        if quantity_input.lower() == 'all':
+            quantity = 'All'
+        else:
+            try:
+                quantity = int(quantity_input)
+                if quantity <= 0:
+                    print("✗ Invalid quantity (must be positive)")
+                    return
+            except ValueError:
+                print("✗ Invalid quantity (must be a number or 'All')")
+                return
+        
+        result = osrs.bank.withdraw_item(item_id, quantity)
+        print(f"Result: {'✓ SUCCESS' if result else '✗ FAILED'}")
+    
     # =================================================================
     # GAME OBJECT INTERACTION TESTS
     # =================================================================
@@ -1548,6 +1587,7 @@ class ModularTester:
             'c': ("Close Bank", self.test_banking_close),
             's': ("Search Bank", self.test_banking_search),
             'f': ("Find Bank", self.test_banking_find),
+            'w': ("Withdraw Item", self.test_banking_withdraw_item),
         }
         
         print("\n" + "="*60)
@@ -1558,6 +1598,7 @@ class ModularTester:
         print("C - Close Bank")
         print("S - Search Bank (for 'iron')")
         print("F - Find Bank (with camera)")
+        print("W - Withdraw Item (Iron ore)")
         print("\nESC - Back to Main Menu")
         print("="*60)
         

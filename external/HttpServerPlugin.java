@@ -1418,8 +1418,8 @@ public class HttpServerPlugin extends Plugin
                             widgetData.addProperty("height", slotWidget.getHeight());
                             boolean isAccessible = (canvasLocation.getY() + slotWidget.getHeight()) < (bankItemsWidget.getCanvasLocation().getY() + bankItemsWidget.getHeight());
                             widgetData.addProperty("accessible", isAccessible);
+                            widgetData.addProperty("hidden", slotWidget.isHidden());
                             widgetData.addProperty("name", slotWidget.getName());
-                            widgetData.addProperty("text", slotWidget.getText());
                             
                             itemData.add("widget", widgetData);
                         }

@@ -476,8 +476,8 @@ def test_bank(api: RuneLiteAPI):
             if widget:
                 print(f"  x: {widget.get('x', 'N/A')}, y: {widget.get('y', 'N/A')}, width: {widget.get('width', 'N/A')}, height: {widget.get('height', 'N/A')}")
                 print(f"  Is Accessible: {widget.get('accessible', False)}")
+                print(f"  Is Hidden: {widget.get('hidden', False)}")
                 print(f"  Name: {widget.get('name', 'N/A')}")
-                print(f"  Text: {widget.get('text', 'N/A')}")
         else:
             print(f"❌ Item ID {item_id} not found in bank")
     else:

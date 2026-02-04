@@ -167,7 +167,10 @@ class RuneLiteAPI:
     
     def get_bank_item(self, item_id: int) -> Optional[Dict[str, Any]]:
         """
-        Returns bank info filtered by item_id
+        Get bank item information by item ID.
+
+        Returns:
+            Dictionary with id, quantity, slot, x, y, width, height, accessible (can click), hidden (not visible), name (<col=ff9040>Name</col>)
         """
         result = self._get(f"bank?itemId={item_id}")
         return cast(Optional[Dict[str, Any]], result)

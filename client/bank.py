@@ -1,5 +1,6 @@
 from typing import Optional
 from util import Window
+from util.window_util import Region
 from util.types import Polygon
 from config.game_objects import BankObjects
 from config.regions import (
@@ -8,6 +9,7 @@ from config.regions import (
     BANK_DEPOSIT_EQUIPMENT_REGION
 )
 from config.timing import TIMING
+from core.config import DEBUG
 import time
 import random
 
@@ -133,14 +135,14 @@ class BankManager:
         time.sleep(random.uniform(*TIMING.BANK_DEPOSIT_ACTION))
         return True
     
-    def withdraw_item(self, item_name: str, quantity: int = 1) -> bool:
+    def withdraw_item(self, item_id: int, quantity: int | str = 1, search: bool = False) -> bool:
         """
         Withdraw an item from the bank.
         
         Args:
-            item_name: Name of the item to withdraw
-            quantity: Number to withdraw
-            
+            item_id: ID of the item to withdraw
+            quantity: Number to withdraw [1, 5, 10, "All"]
+            search: Whether to search for the item if not immediately accessible
         Returns:
             True if withdrawal was attempted
         """
@@ -148,16 +150,56 @@ class BankManager:
             print("Bank not open, cannot withdraw")
             return False
         
-        print(f"Withdrawing {quantity}x {item_name}...")
+        # Validate quantity
+        if isinstance(quantity, int):
+            if quantity not in [1, 5, 10]:
+                print("Quantity must be 1, 5, 10, or 'All'")
+                return False
+        elif quantity != "All":
+            print("Quantity must be 1, 5, 10, or 'All'")
+            return False
         
-        # Use bank search
-        if self.search(item_name):
+        if DEBUG:
+            print(f"Withdrawing {quantity} {item_id}...")
+        
+        # Should search
+        if search:
+            # Type into search box
+            if not self.search(str(item_id)):
+                print("Failed to perform bank search")
+                return False
             time.sleep(random.uniform(*TIMING.BANK_SEARCH_TYPE))
-            # TODO: Click on the item in bank grid
-            # This requires bank grid slot detection
-            return True
+
+        # Grab bank item info via api
+        item = self.api.get_bank_item(item_id)
+        if not item:
+            print(f"Item ID {item_id} not found in bank")
+            return False
         
-        return False
+        widget = item.get('widget', None)
+        if not widget:
+            print(f"Item ID {item_id} has no widget data")
+            return False
+
+        if not widget.get('accessible', False) and not widget.get('hidden', False):
+            if search:
+                print(f"Item ID {item_id} is still not accessible after search")
+                return False
+            if DEBUG:
+                print(f"Item ID {item_id} is not accessible in bank (may need to search)")
+            return self.withdraw_item(item_id, quantity, search=True)
+        
+        if DEBUG:
+            print("Item found without search, moving to item...")
+        # Move mouse to item
+        item_region = Region(widget['x'], widget['y'], widget['width'], widget['height'])
+        self.window.move_mouse_to(item_region.random_point())
+        time.sleep(random.uniform(*TIMING.MOUSE_MOVE_MEDIUM))
+        # Click to withdraw
+        self.osrs.click(f"Withdraw-{quantity}", None)
+        time.sleep(random.uniform(*TIMING.BANK_WITHDRAW_ACTION))
+        
+        return True
     
     def search(self, search_text: str) -> bool:
         """
@@ -178,10 +220,6 @@ class BankManager:
         self.window.move_mouse_to(BANK_SEARCH_REGION.random_point())
         self.window.click()
         time.sleep(random.uniform(*TIMING.INTERFACE_TRANSITION))
-        
-        # Clear existing text
-        self.keyboard.press_hotkey('ctrl', 'a')
-        time.sleep(random.uniform(*TIMING.MICRO_DELAY))
         
         # Type search text
         self.keyboard.type_text(search_text)
