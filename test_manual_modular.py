@@ -3960,6 +3960,307 @@ class ModularTester:
         print("="*60)
         
         self._run_submenu(test_map)
+    
+    # =================================================================
+    # COMBAT TESTS
+    # =================================================================
+    
+    def test_player_combat_state(self):
+        """Test reading player combat state (health, prayer, special attack)."""
+        print("\n=== Player Combat State Test ===")
+        osrs = self.init_osrs()
+        
+        print("\nReading player combat state...")
+        print("\nHealth:")
+        health = osrs.combat.get_health()
+        max_health = osrs.combat.get_max_health()
+        health_percent = osrs.combat.get_health_percent()
+        print(f"  Current: {health}/{max_health} ({health_percent}%)")
+        
+        print("\nPrayer:")
+        prayer = osrs.combat.get_prayer()
+        max_prayer = osrs.combat.get_max_prayer()
+        prayer_percent = osrs.combat.get_prayer_percent()
+        print(f"  Current: {prayer}/{max_prayer} ({prayer_percent}%)")
+        
+        print("\nSpecial Attack:")
+        special = osrs.combat.get_special_attack()
+        print(f"  Energy: {special}%")
+        
+        print("\nCombat State:")
+        in_combat = osrs.combat.is_player_in_combat()
+        print(f"  In Combat: {in_combat}")
+        
+        target = osrs.combat.get_current_target()
+        if target:
+            print(f"\nCurrent Target:")
+            print(f"  Name: {target.get('name')}")
+            print(f"  ID: {target.get('id')}")
+            print(f"  Combat Level: {target.get('combatLevel')}")
+            print(f"  Health: {target.get('health')}/{target.get('maxHealth')}")
+            print(f"  Is Dying: {target.get('isDying')}")
+        else:
+            print("\n  No current target")
+        
+        print("\n✓ Player combat state retrieved")
+    
+    def test_npc_actor_data(self):
+        """Test enhanced NPC Actor data from API."""
+        print("\n=== NPC Actor Data Test ===")
+        api = self.init_api()
+        
+        print("\nFetching NPCs in viewport with Actor data...")
+        npcs = api.get_npcs_in_viewport()
+        
+        if not npcs:
+            print("✗ No NPCs in viewport")
+            return
+        
+        print(f"\n✓ Found {len(npcs)} NPCs in viewport")
+        print("\nShowing first 5 NPCs with enhanced data:\n")
+        
+        for i, npc in enumerate(npcs[:5]):
+            print(f"NPC {i+1}:")
+            print(f"  Name: {npc.get('name')}")
+            print(f"  ID: {npc.get('id')}")
+            print(f"  Combat Level: {npc.get('combatLevel')}")
+            print(f"  Position: ({npc.get('worldX')}, {npc.get('worldY')})")
+            print(f"  Screen: ({npc.get('x')}, {npc.get('y')})")
+            print(f"  Interacting With: {npc.get('interactingWith')}")
+            print(f"  Is Dying: {npc.get('isDying')}")
+            print(f"  Animation ID: {npc.get('animation')}")
+            print(f"  Graphic ID: {npc.get('graphicId')}")
+            print(f"  Overhead Text: {npc.get('overheadText')}")
+            print(f"  Overhead Icon: {npc.get('overheadIcon')}")
+            if npc.get('healthRatio') is not None:
+                health_percent = int((npc.get('healthRatio') / npc.get('healthScale')) * 100)
+                print(f"  Health: {npc.get('healthRatio')}/{npc.get('healthScale')} ({health_percent}%)")
+            print()
+    
+    def test_threshold_checks(self):
+        """Test health and prayer threshold checks."""
+        print("\n=== Threshold Checks Test ===")
+        osrs = self.init_osrs()
+        
+        threshold = input("\nEnter health threshold % to test (default 50): ").strip()
+        health_threshold = int(threshold) if threshold else 50
+        
+        threshold = input("Enter prayer threshold % to test (default 25): ").strip()
+        prayer_threshold = int(threshold) if threshold else 25
+        
+        print(f"\nTesting thresholds...")
+        print(f"  Health threshold: {health_threshold}%")
+        print(f"  Prayer threshold: {prayer_threshold}%")
+        
+        should_eat = osrs.combat.should_eat(health_threshold)
+        should_drink = osrs.combat.should_drink_prayer(prayer_threshold)
+        
+        health_percent = osrs.combat.get_health_percent()
+        prayer_percent = osrs.combat.get_prayer_percent()
+        
+        print(f"\nCurrent Status:")
+        print(f"  Health: {health_percent}% - Should eat: {should_eat}")
+        print(f"  Prayer: {prayer_percent}% - Should drink: {should_drink}")
+        
+        print("\n✓ Threshold checks complete")
+    
+    def test_engage_specific_npc(self):
+        """Test engaging a specific NPC in combat."""
+        print("\n=== Engage NPC Test ===")
+        osrs = self.init_osrs()
+        
+        npc_id = input("\nEnter NPC ID to attack: ").strip()
+        if not npc_id:
+            print("✗ No NPC ID provided")
+            return
+        
+        npc_id = int(npc_id)
+        attack_option = input("Enter attack option (default 'Attack'): ").strip() or "Attack"
+        
+        print(f"\nAttempting to engage NPC {npc_id} with option '{attack_option}'...")
+        print("This will filter out NPCs already in combat with others.")
+        
+        success = osrs.combat.engage_npc(npc_id, attack_option)
+        
+        if success:
+            print(f"✓ Successfully engaged NPC!")
+            time.sleep(1.0)
+            
+            # Check if now in combat
+            in_combat = osrs.combat.is_player_in_combat()
+            print(f"  In combat: {in_combat}")
+            
+            target = osrs.combat.get_current_target()
+            if target:
+                print(f"  Target: {target.get('name')} (ID: {target.get('id')})")
+        else:
+            print("✗ Failed to engage NPC (may not be available)")
+    
+    def test_eat_specific_food(self):
+        """Test eating specific food item."""
+        print("\n=== Eat Food Test ===")
+        osrs = self.init_osrs()
+        
+        food_id = input("\nEnter food item ID: ").strip()
+        if not food_id:
+            print("✗ No food ID provided")
+            return
+        
+        food_id = int(food_id)
+        
+        print(f"\nAttempting to eat food {food_id}...")
+        
+        health_before = osrs.combat.get_health()
+        print(f"  Health before: {health_before}")
+        
+        success = osrs.combat.eat_food(food_id)
+        
+        if success:
+            print("✓ Food eaten")
+            time.sleep(1.0)
+            
+            health_after = osrs.combat.get_health()
+            print(f"  Health after: {health_after}")
+            print(f"  Healed: +{health_after - health_before if health_before else '?'}")
+        else:
+            print("✗ Failed to eat food (may not be in inventory)")
+    
+    def test_drink_specific_potion(self):
+        """Test drinking specific potion."""
+        print("\n=== Drink Potion Test ===")
+        osrs = self.init_osrs()
+        
+        potion_id = input("\nEnter potion item ID: ").strip()
+        if not potion_id:
+            print("✗ No potion ID provided")
+            return
+        
+        potion_id = int(potion_id)
+        
+        print(f"\nAttempting to drink potion {potion_id}...")
+        
+        success = osrs.combat.drink_potion(potion_id)
+        
+        if success:
+            print("✓ Potion consumed")
+            time.sleep(1.0)
+            
+            # Show updated stats (could be boosted combat stats or prayer)
+            print("\nUpdated Stats:")
+            print(f"  Prayer: {osrs.combat.get_prayer()}/{osrs.combat.get_max_prayer()}")
+            print(f"  Special: {osrs.combat.get_special_attack()}%")
+        else:
+            print("✗ Failed to drink potion (may not be in inventory)")
+    
+    def test_combat_wait_methods(self):
+        """Test combat wait methods (requires being in combat)."""
+        print("\n=== Combat Wait Methods Test ===")
+        osrs = self.init_osrs()
+        
+        print("\nThis test requires you to be in combat.")
+        print("Options:")
+        print("1 - Wait until not in combat")
+        print("2 - Wait until target dead")
+        
+        choice = input("\nSelect test (1 or 2): ").strip()
+        
+        if choice == "1":
+            print("\nWaiting for combat to end (60s timeout)...")
+            success = osrs.combat.wait_until_not_in_combat(timeout=60.0)
+            if success:
+                print("✓ Combat ended")
+            else:
+                print("✗ Timeout reached (still in combat)")
+        
+        elif choice == "2":
+            print("\nWaiting for target to die (60s timeout)...")
+            success = osrs.combat.wait_until_target_dead(timeout=60.0)
+            if success:
+                print("✓ Target died")
+            else:
+                print("✗ Timeout reached (target still alive or lost)")
+        else:
+            print("✗ Invalid choice")
+    
+    def test_npc_engagement_filtering(self):
+        """Test NPC engagement filtering (shows available vs engaged NPCs)."""
+        print("\n=== NPC Engagement Filtering Test ===")
+        osrs = self.init_osrs()
+        
+        npc_id = input("\nEnter NPC ID to check: ").strip()
+        if not npc_id:
+            print("✗ No NPC ID provided")
+            return
+        
+        npc_id = int(npc_id)
+        
+        print(f"\nChecking engagement status for NPC ID {npc_id}...")
+        
+        # Get all NPCs with this ID
+        npcs = osrs.api.get_npcs_in_viewport()
+        if not npcs:
+            print("✗ No NPCs in viewport")
+            return
+        
+        matching_npcs = [npc for npc in npcs if npc.get('id') == npc_id]
+        
+        if not matching_npcs:
+            print(f"✗ No NPCs with ID {npc_id} found")
+            return
+        
+        print(f"\n✓ Found {len(matching_npcs)} NPC(s) with ID {npc_id}\n")
+        
+        player_data = osrs.api.get_player()
+        player_name = player_data.get('name') if player_data else None
+        
+        available_count = 0
+        for i, npc in enumerate(matching_npcs):
+            interacting = npc.get('interactingWith')
+            is_available = interacting is None or interacting == player_name
+            
+            print(f"NPC {i+1}:")
+            print(f"  Name: {npc.get('name')}")
+            print(f"  Position: ({npc.get('worldX')}, {npc.get('worldY')})")
+            print(f"  Interacting With: {interacting if interacting else 'None'}")
+            print(f"  Available to Attack: {'YES' if is_available else 'NO (engaged)'}")
+            print()
+            
+            if is_available:
+                available_count += 1
+        
+        print(f"Summary: {available_count}/{len(matching_npcs)} NPCs available")
+        print("✓ Engagement filtering check complete")
+    
+    def run_combat_tests(self):
+        """Run combat testing menu."""
+        self.current_menu = "combat"
+        
+        test_map = {
+            's': ("Player Combat State", self.test_player_combat_state),
+            'a': ("NPC Actor Data", self.test_npc_actor_data),
+            't': ("Threshold Checks", self.test_threshold_checks),
+            'e': ("Engage Specific NPC", self.test_engage_specific_npc),
+            'f': ("Eat Specific Food", self.test_eat_specific_food),
+            'p': ("Drink Specific Potion", self.test_drink_specific_potion),
+            'w': ("Combat Wait Methods", self.test_combat_wait_methods),
+            'n': ("NPC Engagement Filtering", self.test_npc_engagement_filtering),
+        }
+        
+        print("\n" + "="*60)
+        print("COMBAT HANDLER TESTS")
+        print("="*60)
+        print("S - Player Combat State (health, prayer, special, target)")
+        print("A - NPC Actor Data (enhanced NPC information)")
+        print("T - Threshold Checks (should_eat, should_drink_prayer)")
+        print("E - Engage Specific NPC (filtered by engagement status)")
+        print("F - Eat Specific Food (consume food item)")
+        print("P - Drink Specific Potion (consume potion)")
+        print("W - Combat Wait Methods (wait_until_not_in_combat, wait_until_target_dead)")
+        print("N - NPC Engagement Filtering (show available vs engaged)")
+        print("\nESC - Back to Main Menu")
+        print("="*60)
+        
+        self._run_submenu(test_map)
 
 
     def _run_submenu(self, test_map):
@@ -4004,6 +4305,7 @@ class ModularTester:
             'p': ("Pathfinding", self.run_pathfinding_tests),
             'm': ("Mining Skill", self.run_mining_tests),
             'w': ("Woodcutting Skill", self.run_woodcutting_tests),
+            'c': ("Combat Handler", self.run_combat_tests),
         }
         
         def print_main_menu():
@@ -4022,7 +4324,8 @@ class ModularTester:
             print("0 - Navigation Tests")
             print("P - Pathfinding Tests")
             print("M - Mining Skill Tests")
-            print("W - Woodcutting Skill Tests (NEW)")
+            print("W - Woodcutting Skill Tests")
+            print("C - Combat Handler Tests (NEW)")
             print("\nESC - Exit")
             print("="*60)
         

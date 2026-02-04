@@ -29,6 +29,7 @@ import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.api.Perspective;
 import net.runelite.client.callback.ClientThread;
+import net.runelite.client.game.NpcUtil;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.http.api.RuneLiteAPI;
@@ -43,6 +44,9 @@ public class HttpServerPlugin extends Plugin
 
     @Inject
     private ClientThread clientThread;
+
+    @Inject
+    private NpcUtil npcUtil;
 
     private HttpServer server;
 
@@ -193,6 +197,17 @@ public class HttpServerPlugin extends Plugin
             JsonObject data = new JsonObject();
             data.addProperty("inCombat", localPlayer.getInteracting() != null);
             data.addProperty("combatLevel", localPlayer.getCombatLevel());
+            
+            // Auto-retaliate status (VarPlayer 172: 0 = enabled, 1 = disabled)
+            data.addProperty("autoRetaliate", client.getVarpValue(172) == 0);
+            
+            // Poison/venom status (VarPlayer 102 = poison, 1308 = venom)
+            int poisonValue = client.getVarpValue(102);
+            int venomValue = client.getVarpValue(1308);
+            data.addProperty("isPoisoned", poisonValue > 0);
+            data.addProperty("isVenomed", venomValue > 0);
+            data.addProperty("poisonDamage", poisonValue);
+            data.addProperty("venomDamage", venomValue);
 
             Actor target = localPlayer.getInteracting();
             if (target != null) {
@@ -212,6 +227,7 @@ public class HttpServerPlugin extends Plugin
                     }
                     targetData.addProperty("health", health);
                     targetData.addProperty("maxHealth", maxHealth);
+                    targetData.addProperty("isDying", npcUtil.isDying(npc));
                 }
 
                 data.add("target", targetData);
@@ -442,6 +458,10 @@ public class HttpServerPlugin extends Plugin
                 {
                     if (npc == null) continue;
                     
+                    // Filter out NPCs that are interacting with anything
+                    Actor interacting = npc.getInteracting();
+                    if (interacting != null) continue;
+                    
                     // Check if NPC ID matches any of the target IDs
                     boolean matches = false;
                     for (int targetId : targetIds)
@@ -576,6 +596,25 @@ public class HttpServerPlugin extends Plugin
                     npcData.addProperty("worldY", wp.getY());
                     npcData.addProperty("x", point.getX());
                     npcData.addProperty("y", point.getY());
+                    npcData.addProperty("combatLevel", npc.getCombatLevel());
+                    
+                    // Enhanced Actor data
+                    Actor interacting = npc.getInteracting();
+                    if (interacting != null) {
+                        npcData.addProperty("interactingWith", interacting.getName());
+                    } else {
+                        npcData.addProperty("interactingWith", (String) null);
+                    }
+                    npcData.addProperty("isDying", npcUtil.isDying(npc));
+                    npcData.addProperty("animation", npc.getAnimation());
+                    npcData.addProperty("graphicId", npc.getGraphic());
+                    npcData.addProperty("overheadText", npc.getOverheadText());
+                    
+                    // Health data
+                    if (npc.getHealthRatio() != -1) {
+                        npcData.addProperty("healthRatio", npc.getHealthRatio());
+                        npcData.addProperty("healthScale", npc.getHealthScale());
+                    }
 
                     SimplePolygon hull = (SimplePolygon) npc.getConvexHull();
                     JsonObject hullData = new JsonObject();

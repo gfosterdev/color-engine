@@ -109,10 +109,52 @@ class RuneLiteAPI:
         Get combat state and target info.
         
         Returns:
-            Dictionary with inCombat, autoRetaliate, and target information
+            Dictionary with:
+            - inCombat: bool - Whether player is in combat
+            - combatLevel: int - Player combat level
+            - autoRetaliate: bool - Auto-retaliate setting (True = enabled)
+            - isPoisoned: bool - Whether player is poisoned
+            - isVenomed: bool - Whether player is venomed
+            - poisonDamage: int - Poison damage value
+            - venomDamage: int - Venom damage value
+            - target: dict - Current target info (name, id, combatLevel, health, maxHealth, isDying)
         """
         result = self._get("combat")
         return cast(Optional[Dict[str, Any]], result)
+    
+    def get_auto_retaliate(self) -> Optional[bool]:
+        """
+        Get auto-retaliate status.
+        
+        Returns:
+            True if auto-retaliate is enabled, False if disabled, None on error
+        """
+        combat_data = self.get_combat()
+        if combat_data:
+            return combat_data.get('autoRetaliate')
+        return None
+    
+    def get_poison_status(self) -> Optional[Dict[str, Any]]:
+        """
+        Get poison/venom status.
+        
+        Returns:
+            Dictionary with:
+            - isPoisoned: bool - Whether player is poisoned
+            - isVenomed: bool - Whether player is venomed
+            - poisonDamage: int - Poison damage value
+            - venomDamage: int - Venom damage value
+            Returns None on error
+        """
+        combat_data = self.get_combat()
+        if combat_data:
+            return {
+                'isPoisoned': combat_data.get('isPoisoned', False),
+                'isVenomed': combat_data.get('isVenomed', False),
+                'poisonDamage': combat_data.get('poisonDamage', 0),
+                'venomDamage': combat_data.get('venomDamage', 0)
+            }
+        return None
     
     def get_animation(self) -> Optional[Dict[str, Any]]:
         """
@@ -343,16 +385,29 @@ class RuneLiteAPI:
 
     def get_npcs_in_viewport(self) -> Optional[List[Dict[str, Any]]]:
         """
-        Get all NPCs currently visible in the viewport.
+        Get all NPCs currently visible in the viewport with enhanced Actor data.
         
         Returns:
-            List of NPC dictionaries with name, id, combatLevel, distanceFromPlayer,
-            worldX, worldY, plane
+            List of NPC dictionaries with:
+            - name: str - NPC name
+            - id: int - NPC ID
+            - worldX, worldY: int - World coordinates
+            - x, y: int - Screen coordinates
+            - combatLevel: int - Combat level
+            - interactingWith: str|None - Name of entity NPC is interacting with
+            - isDying: bool - Whether NPC is dying
+            - animation: int - Current animation ID
+            - graphicId: int - Current graphic ID
+            - overheadText: str|None - Overhead text if any
+            - overheadIcon: str|None - Prayer protection icon (MELEE, RANGED, MAGIC, etc.)
+            - healthRatio: int - Current health ratio (if available)
+            - healthScale: int - Max health scale (if available)
+            - hull: dict - Convex hull polygon data with points array
         """
         result = self._get("npcs_in_viewport")
         return cast(Optional[List[Dict[str, Any]]], result)
 
-    def get_entity_in_viewport(self, entity_ids: Union[int, List[int]], entity_type: str, world_x: Optional[int] = None, world_y: Optional[int] = None, selection: str = "random") -> Optional[Dict[str, Any]]:
+    def get_entity_in_viewport(self, entity_ids: Union[int, List[int]], entity_type: str, world_x: Optional[int] = None, world_y: Optional[int] = None, selection: str = "random", filterNpcInteracting: bool = False) -> Optional[Dict[str, Any]]:
         """
         Get entity (NPC or game object) in viewport if it exists.
         If more than one exists and no coordinates provided, returns based on selection mode.
@@ -387,6 +442,12 @@ class RuneLiteAPI:
         result = cast(Optional[List[Dict[str, Any]]], result)
         if result and len(result) > 0:
             filtered = [entity for entity in result if entity.get('id') in entity_ids]
+            print(filtered)
+            # If filtering NPCs by interacting target
+            if filterNpcInteracting and entity_type == "npc":
+                player = self.get_player()
+                player_name = player.get('name') if player else None
+                filtered = [entity for entity in filtered if entity.get('interactingWith') == player_name or entity.get('interactingWith') is None]
             
             # If coordinates provided, filter by exact location
             if world_x is not None and world_y is not None:

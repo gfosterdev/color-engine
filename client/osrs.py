@@ -9,6 +9,7 @@ from client.navigation import NavigationManager
 from client.runelite_api import RuneLiteAPI
 from client.camera_controller import CameraController
 from client.bank import BankManager
+from client.combat import CombatHandler
 from core.config import DEBUG
 from config.regions import (
     INTERACT_TEXT_REGION,
@@ -38,6 +39,7 @@ class OSRS:
         self.navigation = NavigationManager(self.window)
         self.keyboard = KeyboardInput()
         self.bank = BankManager(self)
+        self.combat = CombatHandler(self)
     
     def click(self, option: str, target: Optional[str] = None):
         """
@@ -164,7 +166,7 @@ class OSRS:
             
         return False
     
-    def find_entity(self, entity_ids: Union[int, List[int]], entity_type: str) -> Optional[dict]:
+    def find_entity(self, entity_ids: Union[int, List[int]], entity_type: str, globalAfterSearch: bool = False) -> Optional[dict]:
         """
         Find an entity (game object or NPC) by ID(s), using camera adjustment if needed.
         
@@ -175,7 +177,7 @@ class OSRS:
         Args:
             entity_ids: Game object ID(s) or NPC ID(s) to search for (single int or list)
             entity_type: Type of entity - either "npc" or "object"
-            
+            globalAfterSearch: If True, perform a global search after viewport search fails (default: False)
         Returns:
             Entity dictionary with hull data if found in viewport, None otherwise
         """
@@ -189,7 +191,12 @@ class OSRS:
         # First check if entity already in viewport
         if DEBUG:
             print(f"[find_entity] Checking if {entity_type} {entity_ids} exists in viewport...")
-        entity = self.api.get_entity_in_viewport(entity_ids=entity_ids, entity_type=entity_type, selection="nearest")
+        entity = self.api.get_entity_in_viewport(
+            entity_ids=entity_ids, 
+            entity_type=entity_type, 
+            selection="nearest", 
+            filterNpcInteracting=True if entity_type == "npc" else False
+        )
         
         if entity:
             if DEBUG:
@@ -235,7 +242,14 @@ class OSRS:
         
         # Verify entity is now in viewport - pass world coords to get the specific entity
         time.sleep(random.uniform(0.3, 0.5))  # Brief delay for render
-        entity = self.api.get_entity_in_viewport(entity_ids, entity_type, world_x, world_y)
+        if globalAfterSearch:
+            entity = self.api.get_entity_in_viewport(
+                entity_ids=entity_ids, 
+                entity_type=entity_type,
+                filterNpcInteracting=True if entity_type == "npc" else False
+            )
+        else:
+            entity = self.api.get_entity_in_viewport(entity_ids, entity_type, world_x, world_y, filterNpcInteracting=True if entity_type == "npc" else False)
         
         if entity:
             if DEBUG:
