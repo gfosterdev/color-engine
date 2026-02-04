@@ -205,7 +205,10 @@ class InventoryManager:
         count = 0
         for slot in self.slots:
             if not slot.is_empty and slot.item_id == item_id:
-                count += 1
+                if slot.quantity and slot.quantity > 1:
+                    count += slot.quantity
+                else:
+                    count += 1
         return count
 
     def is_full(self) -> bool:

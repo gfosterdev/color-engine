@@ -166,6 +166,32 @@ class RuneLiteAPI:
         result = self._get("animation")
         return cast(Optional[Dict[str, Any]], result)
     
+    # Magic & Spellbook
+    def get_selected_widget(self) -> Optional[Dict[str, Any]]:
+        """
+        Get currently selected widget (for spell selection detection).
+        
+        Returns:
+            Dictionary with selectedSpellId, selectedWidgetId for detecting
+            active spells awaiting targets (alchemy, telegrab, etc.)
+        """
+        result = self._get("selected_widget")
+        return cast(Optional[Dict[str, Any]], result)
+    
+    def get_magic_level(self) -> Optional[int]:
+        """
+        Get player's current magic level (boosted).
+        
+        Returns:
+            Magic level as integer, None if unavailable
+        """
+        stats = self.get_stats()
+        if stats:
+            magic_stat = next((s for s in stats if s['stat'] == 'Magic'), None)
+            if magic_stat:
+                return magic_stat.get('boostedLevel', magic_stat.get('level', 1))
+        return None
+    
     # Inventory & Equipment
     def get_inventory(self) -> Optional[List[Dict[str, Any]]]:
         """

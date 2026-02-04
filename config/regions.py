@@ -76,6 +76,33 @@ INVENTORY_TAB_REGION = Region(632, 173, 20, 27)  # Inventory tab button [UNVERIF
 
 
 # ============================================================================
+# Magic Tab Regions
+# ============================================================================
+
+MAGIC_TAB_REGION = Region(597, 173, 20, 27)  # Magic tab button (F6) [UNVERIFIED]
+MAGIC_SPELLBOOK_REGION = Region(559, 205, 180, 250)  # Main spellbook area [UNVERIFIED]
+
+# Combat spell regions (column 1-4, row 1-4 grid)
+MAGIC_WIND_STRIKE = Region(559, 205, 32, 32)  # Wind Strike [UNVERIFIED]
+MAGIC_WATER_STRIKE = Region(559, 240, 32, 32)  # Water Strike [UNVERIFIED]
+MAGIC_EARTH_STRIKE = Region(559, 275, 32, 32)  # Earth Strike [UNVERIFIED]
+MAGIC_FIRE_STRIKE = Region(559, 310, 32, 32)  # Fire Strike [UNVERIFIED]
+
+# Utility spell regions
+MAGIC_LOW_ALCHEMY = Region(625, 240, 32, 32)  # Low Alchemy [UNVERIFIED]
+MAGIC_HIGH_ALCHEMY = Region(552, 325, 24, 24)  # High Alchemy [VERIFIED]
+MAGIC_TELEKINETIC_GRAB = Region(656, 253, 24, 24)  # Telegrab [VERIFIED]
+MAGIC_SUPERHEAT_ITEM = Region(660, 345, 32, 32)  # Superheat Item [UNVERIFIED]
+
+# Teleport spell regions
+MAGIC_VARROCK_TELEPORT = Region(578, 253, 24, 24)  # Varrock Teleport [VERIFIED]
+MAGIC_LUMBRIDGE_TELEPORT = Region(630, 253, 24, 24)  # Lumbridge Teleport [VERIFIED]
+MAGIC_FALADOR_TELEPORT = Region(708, 253, 24, 24)  # Falador Teleport [VERIFIED]
+MAGIC_CAMELOT_TELEPORT = Region(695, 275, 32, 32)  # Camelot Teleport [UNVERIFIED]
+MAGIC_ARDOUGNE_TELEPORT = Region(695, 310, 32, 32)  # Ardougne Teleport [UNVERIFIED]
+
+
+# ============================================================================
 # Login Screen Regions
 # ============================================================================
 

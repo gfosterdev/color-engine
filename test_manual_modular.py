@@ -4289,6 +4289,259 @@ class ModularTester:
             
             time.sleep(0.05)
     
+    # =================================================================
+    # MAGIC TESTS
+    # =================================================================
+    
+    def test_open_magic_tab(self):
+        """Test opening the magic tab."""
+        print("\n=== Open Magic Tab Test ===")
+        osrs = self.init_osrs()
+        
+        print("\nAttempting to open magic tab...")
+        success = osrs.magic.open_magic_tab()
+        
+        if success:
+            print("✓ Magic tab opened successfully")
+            print(f"  Is magic tab open: {osrs.magic.is_magic_tab_open()}")
+        else:
+            print("✗ Failed to open magic tab")
+    
+    def test_magic_level(self):
+        """Test getting magic level from API."""
+        print("\n=== Magic Level Test ===")
+        osrs = self.init_osrs()
+        
+        magic_level = osrs.api.get_magic_level()
+        if magic_level is not None:
+            print(f"✓ Current Magic Level: {magic_level}")
+        else:
+            print("✗ Failed to get magic level from API")
+    
+    def test_check_spell_requirements(self):
+        """Test checking if player can cast specific spells."""
+        print("\n=== Spell Requirements Test ===")
+        osrs = self.init_osrs()
+        
+        from config.spells import StandardSpells
+        
+        # Test a few common spells
+        test_spells = [
+            StandardSpells.HIGH_LEVEL_ALCHEMY,
+            StandardSpells.VARROCK_TELEPORT,
+            StandardSpells.LUMBRIDGE_TELEPORT,
+            StandardSpells.FIRE_BLAST,
+        ]
+        
+        print("\nChecking spell requirements:\n")
+        for spell in test_spells:
+            can_cast = osrs.magic.can_cast_spell(spell)
+            has_runes = osrs.magic.has_runes(spell)
+            magic_level = osrs.api.get_magic_level()
+            
+            status = "✓ CAN CAST" if can_cast else "✗ CANNOT CAST"
+            print(f"{status} - {spell.name} (Lvl {spell.level_required})")
+            print(f"  Your Level: {magic_level}")
+            print(f"  Has Runes: {has_runes}")
+            if spell.runes_required:
+                print(f"  Required Runes:")
+                for rune_id, qty in spell.runes_required.items():
+                    from config.items import Runes
+                    rune = Runes.find_by_id(rune_id)
+                    rune_name = rune.name if rune else f"Rune {rune_id}"
+                    osrs.inventory.populate()
+                    current = osrs.inventory.count_item(rune_id)
+                    print(f"    {rune_name}: {current}/{qty}")
+            print()
+    
+    def test_cast_spell(self):
+        """Test casting a specific spell."""
+        print("\n=== Cast Spell Test ===")
+        osrs = self.init_osrs()
+        
+        from config.spells import StandardSpells
+        
+        print("\nAvailable spells to test:")
+        print("1 - High Level Alchemy")
+        print("2 - Varrock Teleport")
+        print("3 - Lumbridge Teleport")
+        print("4 - Falador Teleport")
+        print("5 - Camelot Teleport")
+        
+        choice = input("\nSelect spell (1-5): ").strip()
+        
+        spell_map = {
+            '1': StandardSpells.HIGH_LEVEL_ALCHEMY,
+            '2': StandardSpells.VARROCK_TELEPORT,
+            '3': StandardSpells.LUMBRIDGE_TELEPORT,
+            '4': StandardSpells.FALADOR_TELEPORT,
+            '5': StandardSpells.CAMELOT_TELEPORT,
+        }
+        
+        spell = spell_map.get(choice)
+        if not spell:
+            print("✗ Invalid choice")
+            return
+        
+        # Check if can cast
+        if not osrs.magic.can_cast_spell(spell):
+            print(f"✗ Cannot cast {spell.name} - check requirements")
+            return
+        
+        print(f"\nCasting {spell.name}...")
+        success = osrs.magic.cast_spell(spell)
+        
+        if success:
+            print("✓ Spell cast successfully")
+            
+            # For spells that require target, check if spell is active
+            if spell.requires_target:
+                time.sleep(0.5)
+                if osrs.magic.is_spell_active(spell.name):
+                    print("✓ Spell is active and awaiting target")
+                    print(f"  Active spell: {spell.name}")
+                else:
+                    print("⚠ Spell may not require target or already completed")
+        else:
+            print("✗ Failed to cast spell")
+    
+    def test_is_spell_active(self):
+        """Test detecting active spell state."""
+        print("\n=== Is Spell Active Test ===")
+        osrs = self.init_osrs()
+        
+        spell = input("\nEnter spell name to check if active (e.g. 'Varrock Teleport'): ").strip()
+        
+        while True:
+            if keyboard.is_pressed('esc'):
+                break
+            
+            if keyboard.is_pressed('space'):
+                is_active = osrs.magic.is_spell_active(spell)
+                
+                print(f"\n{'✓' if is_active else '✗'} Spell Active: {spell}")
+                
+                time.sleep(0.5)  # Debounce
+            
+            time.sleep(0.05)
+    
+    def test_rune_counting(self):
+        """Test rune counting in inventory."""
+        print("\n=== Rune Counting Test ===")
+        osrs = self.init_osrs()
+        
+        from config.items import Runes
+        
+        # Get all runes
+        all_runes = [
+            Runes.AIR_RUNE,
+            Runes.WATER_RUNE,
+            Runes.EARTH_RUNE,
+            Runes.FIRE_RUNE,
+            Runes.MIND_RUNE,
+            Runes.BODY_RUNE,
+            Runes.COSMIC_RUNE,
+            Runes.CHAOS_RUNE,
+            Runes.NATURE_RUNE,
+            Runes.LAW_RUNE,
+            Runes.DEATH_RUNE,
+            Runes.BLOOD_RUNE,
+            Runes.SOUL_RUNE,
+        ]
+        
+        print("\nCounting runes in inventory:\n")
+        osrs.inventory.populate()
+        
+        found_any = False
+        for rune in all_runes:
+            count = osrs.inventory.count_item(rune.id)
+            if count > 0:
+                print(f"✓ {rune.name}: {count}")
+                found_any = True
+        
+        if not found_any:
+            print("⚠ No runes found in inventory")
+    
+    def test_wait_for_spell_cast(self):
+        """Test waiting for spell cast animation."""
+        print("\n=== Wait for Spell Cast Test ===")
+        osrs = self.init_osrs()
+        
+        from config.spells import StandardSpells
+        
+        print("\nThis test will cast a spell and wait for the animation.")
+        print("Make sure you have the required runes!")
+        
+        # Use Varrock teleport as it has a clear animation
+        spell = StandardSpells.VARROCK_TELEPORT
+        
+        if not osrs.magic.can_cast_spell(spell):
+            print(f"✗ Cannot cast {spell.name} - check requirements")
+            return
+        
+        print(f"\nCasting {spell.name}...")
+        success = osrs.magic.cast_spell(spell)
+        
+        if not success:
+            print("✗ Failed to cast spell")
+            return
+        
+        print("Waiting for spell cast animation...")
+        animation_detected = osrs.magic.wait_for_spell_cast(timeout=5.0)
+        
+        if animation_detected:
+            print("✓ Spell cast animation detected and completed")
+        else:
+            print("⚠ Animation not detected (may have already completed)")
+    
+    def run_magic_tests(self):
+        """Run magic testing menu."""
+        self.current_menu = "magic"
+        
+        test_map = {
+            'o': ("Open Magic Tab", self.test_open_magic_tab),
+            'l': ("Get Magic Level", self.test_magic_level),
+            'r': ("Check Spell Requirements", self.test_check_spell_requirements),
+            'c': ("Cast Spell", self.test_cast_spell),
+            'a': ("Is Spell Active", self.test_is_spell_active),
+            'n': ("Count Runes", self.test_rune_counting),
+            'w': ("Wait for Spell Cast", self.test_wait_for_spell_cast),
+        }
+        
+        print("\n" + "="*60)
+        print("MAGIC HANDLER TESTS")
+        print("="*60)
+        print("O - Open Magic Tab")
+        print("L - Get Magic Level")
+        print("R - Check Spell Requirements")
+        print("C - Cast Spell")
+        print("A - Is Spell Active (requires target spell)")
+        print("N - Count Runes in Inventory")
+        print("W - Wait for Spell Cast Animation")
+        print("\nESC - Return to Main Menu")
+        print("="*60)
+        
+        while True:
+            if keyboard.is_pressed('esc'):
+                self.current_menu = "main"
+                time.sleep(0.3)  # Debounce
+                return
+            
+            for key, (desc, func) in test_map.items():
+                if keyboard.is_pressed(key):
+                    try:
+                        print(f"\n>>> {desc}")
+                        func()
+                    except Exception as e:
+                        print(f"\n✗ ERROR: {e}")
+                        import traceback
+                        traceback.print_exc()
+                    
+                    time.sleep(0.5)  # Debounce
+                    break
+            
+            time.sleep(0.05)
+    
     def run(self):
         """Main testing loop."""
         menu_map = {
@@ -4306,6 +4559,7 @@ class ModularTester:
             'm': ("Mining Skill", self.run_mining_tests),
             'w': ("Woodcutting Skill", self.run_woodcutting_tests),
             'c': ("Combat Handler", self.run_combat_tests),
+            'g': ("Magic Handler", self.run_magic_tests),
         }
         
         def print_main_menu():
@@ -4325,7 +4579,8 @@ class ModularTester:
             print("P - Pathfinding Tests")
             print("M - Mining Skill Tests")
             print("W - Woodcutting Skill Tests")
-            print("C - Combat Handler Tests (NEW)")
+            print("C - Combat Handler Tests")
+            print("G - Magic Handler Tests (NEW)")
             print("\nESC - Exit")
             print("="*60)
         

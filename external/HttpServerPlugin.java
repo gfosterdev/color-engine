@@ -87,6 +87,7 @@ public class HttpServerPlugin extends Plugin
         server.createContext("/widgets", this::handleWidgets);
         server.createContext("/sidebar", this::handleSidebars);
         server.createContext("/sidebar/", this::handleSidebarDispatcher);
+        server.createContext("/selected_widget", this::handleSelectedWidget);
 
         // Client state
         server.createContext("/viewport", this::handleViewport);
@@ -1362,6 +1363,51 @@ public class HttpServerPlugin extends Plugin
         });
 
         sendJsonResponse(exchange, widgetsData);
+    }
+
+    public void handleSelectedWidget(HttpExchange exchange) throws IOException
+    {
+        JsonObject selectedData = invokeAndWait(() -> {
+            JsonObject data = new JsonObject();
+            
+            // Get the selected widget (spell) ID
+            // This is used to detect when a spell has been selected and is awaiting a target
+            // (e.g., High Alchemy, Telekinetic Grab, etc.)
+            Widget selectedWidget = client.getSelectedWidget();
+            
+            if (selectedWidget != null)
+            {
+                data.addProperty("selectedWidgetId", selectedWidget.getId());
+                data.addProperty("selectedWidgetName", selectedWidget.getName());
+                data.addProperty("hasSelection", true);
+                
+                // Try to extract spell information if it's a magic spell
+                // The widget ID can be parsed to determine the specific spell
+                int widgetId = selectedWidget.getId();
+                data.addProperty("widgetIdPacked", widgetId);
+                
+                // Unpack widget ID to get parent and child
+                int parentId = widgetId >> 16;
+                int childId = widgetId & 0xFFFF;
+                data.addProperty("parentWidgetId", parentId);
+                data.addProperty("childWidgetId", childId);
+            }
+            else
+            {
+                data.addProperty("hasSelection", false);
+                data.addProperty("selectedWidgetId", -1);
+                data.addProperty("selectedWidgetName", "");
+            }
+            
+            // Also check for selected spell via VarPlayer (alternative detection method)
+            // VarPlayer 276 tracks autocast spell selection in some cases
+            int selectedSpellVarp = client.getVarpValue(276);
+            data.addProperty("selectedSpellVarp", selectedSpellVarp);
+            
+            return data;
+        });
+        
+        sendJsonResponse(exchange, selectedData);
     }
 
     public void handleBank(HttpExchange exchange) throws IOException

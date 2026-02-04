@@ -10,6 +10,7 @@ from client.runelite_api import RuneLiteAPI
 from client.camera_controller import CameraController
 from client.bank import BankManager
 from client.combat import CombatHandler
+from client.magic import MagicHandler
 from core.config import DEBUG
 from config.regions import (
     INTERACT_TEXT_REGION,
@@ -40,6 +41,7 @@ class OSRS:
         self.keyboard = KeyboardInput()
         self.bank = BankManager(self)
         self.combat = CombatHandler(self)
+        self.magic = MagicHandler(self)
     
     def click(self, option: str, target: Optional[str] = None):
         """
