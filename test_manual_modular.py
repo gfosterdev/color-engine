@@ -3240,7 +3240,7 @@ class ModularTester:
                 entity_type = "object"
                 choice = 1
             elif keyboard.is_pressed('2'):
-                entity_ids = Bankers.BANKER  # All banker IDs
+                entity_ids = Bankers.BANKER.ids  # All banker IDs
                 entity_type = "npc"
                 choice = 2
             elif keyboard.is_pressed('3'):
@@ -3311,9 +3311,9 @@ class ModularTester:
                 print(f"  Weapon slot (3): {weapon_name} (ID: {weapon_id})")
                 
                 pickaxe_ids = [
-                    Tools.BRONZE_PICKAXE, Tools.IRON_PICKAXE, Tools.STEEL_PICKAXE,
-                    Tools.MITHRIL_PICKAXE, Tools.ADAMANT_PICKAXE, Tools.RUNE_PICKAXE,
-                    Tools.DRAGON_PICKAXE, Tools.CRYSTAL_PICKAXE
+                    Tools.BRONZE_PICKAXE.id, Tools.IRON_PICKAXE.id, Tools.STEEL_PICKAXE.id,
+                    Tools.MITHRIL_PICKAXE.id, Tools.ADAMANT_PICKAXE.id, Tools.RUNE_PICKAXE.id,
+                    Tools.DRAGON_PICKAXE.id, Tools.CRYSTAL_PICKAXE.id
                 ]
                 
                 if weapon_id in pickaxe_ids:
@@ -3398,13 +3398,13 @@ class ModularTester:
         if objects:
             # Define common ore types to check
             ore_types = {
-                "Iron": OreRocks.IRON,
-                "Copper": OreRocks.COPPER,
-                "Tin": OreRocks.TIN,
-                "Coal": OreRocks.COAL,
-                "Mithril": OreRocks.MITHRIL,
-                "Adamantite": OreRocks.ADAMANTITE,
-                "Runite": OreRocks.RUNITE,
+                "Iron": OreRocks.IRON_ORE_ROCK.ids,
+                "Copper": OreRocks.COPPER_ORE_ROCK.ids,
+                "Tin": OreRocks.TIN_ORE_ROCK.ids,
+                "Coal": OreRocks.COAL_ROCK.ids,
+                "Mithril": OreRocks.MITHRIL_ORE_ROCK.ids,
+                "Adamantite": OreRocks.ADAMANTITE_ORE_ROCK.ids,
+                "Runite": OreRocks.RUNITE_ORE_ROCK.ids,
             }
             
             found_ores = {}
@@ -3455,7 +3455,7 @@ class ModularTester:
             return
         
         # Filter for iron rocks (or any common ore)
-        all_rock_ids = OreRocks.IRON + OreRocks.COPPER + OreRocks.TIN
+        all_rock_ids = OreRocks.IRON_ORE_ROCK.ids + OreRocks.COPPER_ORE_ROCK.ids + OreRocks.TIN_ORE_ROCK.ids
         rocks = [obj for obj in objects if obj.get('id') in all_rock_ids]
         
         if not rocks:
@@ -3543,7 +3543,7 @@ class ModularTester:
         print("This test monitors for ore respawn after mining.")
         print("Make sure you're near ore rocks and start mining!")
         
-        all_rock_ids = OreRocks.IRON + OreRocks.COPPER + OreRocks.TIN
+        all_rock_ids = OreRocks.IRON_ORE_ROCK.ids + OreRocks.COPPER_ORE_ROCK.ids + OreRocks.TIN_ORE_ROCK.ids
         mining_animation_id = 628
         
         print("\nWaiting for mining to start...")
@@ -3742,12 +3742,12 @@ class ModularTester:
         
         # Filter for different tree types
         tree_types = {
-            'Normal': Trees.TREE,
-            'Oak': Trees.OAK,
-            'Willow': Trees.WILLOW,
-            'Maple': Trees.MAPLE,
-            'Yew': Trees.YEW,
-            'Magic': Trees.MAGIC,
+            'Normal': Trees.TREE.ids,
+            'Oak': Trees.OAK_TREE.ids,
+            'Willow': Trees.WILLOW_TREE.ids,
+            'Maple': Trees.MAPLE_TREE.ids,
+            'Yew': Trees.YEW_TREE.ids,
+            'Magic': Trees.MAGIC_TREE.ids,
         }
         
         for tree_name, tree_ids in tree_types.items():
@@ -3785,7 +3785,7 @@ class ModularTester:
             return
         
         # Filter for yew trees
-        all_tree_ids = Trees.YEW + Trees.OAK + Trees.WILLOW
+        all_tree_ids = Trees.YEW_TREE.ids + Trees.OAK_TREE.ids + Trees.WILLOW_TREE.ids
         trees = [obj for obj in objects if obj.get('id') in all_tree_ids]
         
         if not trees:
@@ -3873,7 +3873,7 @@ class ModularTester:
         print("This test monitors for tree respawn after cutting.")
         print("Make sure you're near trees and start cutting!")
         
-        all_tree_ids = Trees.YEW + Trees.OAK + Trees.WILLOW
+        all_tree_ids = Trees.YEW_TREE.ids + Trees.OAK_TREE.ids + Trees.WILLOW_TREE.ids
         woodcutting_animation_id = 879
         
         print("\nWaiting for woodcutting to start...")

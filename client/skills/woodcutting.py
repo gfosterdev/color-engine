@@ -248,7 +248,7 @@ class WoodcuttingBot(SkillBotBase):
         # If bank is already open, proceed to deposit
         if self.osrs.interfaces.is_bank_open():
             # Check for birds nests before depositing (for tracking)
-            nest_ids = BirdsNests.all()
+            nest_ids = BirdsNests.all_ids()
             for nest_id in nest_ids:
                 nest_count = self.osrs.inventory.count_item(nest_id)
                 if nest_count > 0:

@@ -3,6 +3,7 @@ from util import Window
 from util.window_util import Region
 from util.types import Polygon
 from config.game_objects import BankObjects
+from config import items
 from config.regions import (
     BANK_SEARCH_REGION,
     BANK_DEPOSIT_INVENTORY_REGION,
@@ -159,13 +160,20 @@ class BankManager:
             print("Quantity must be 1, 5, 10, or 'All'")
             return False
         
+        # Item constant
+        item_constant = items.find_item(item_id)
+        if not item_constant:
+            print("ITEM IS NOT CONFIGURED IN ITEMS.PY, CANNOT WITHDRAW")
+            raise ValueError("Item ID not configured in items.py")
+            return False
+
         if DEBUG:
-            print(f"Withdrawing {quantity} {item_id}...")
+            print(f"Withdrawing {quantity} {item_constant.name}...")
         
         # Should search
         if search:
             # Type into search box
-            if not self.search(str(item_id)):
+            if not self.search(item_constant.name):
                 print("Failed to perform bank search")
                 return False
             time.sleep(random.uniform(*TIMING.BANK_SEARCH_TYPE))
@@ -198,7 +206,11 @@ class BankManager:
         # Click to withdraw
         self.osrs.click(f"Withdraw-{quantity}", None)
         time.sleep(random.uniform(*TIMING.BANK_WITHDRAW_ACTION))
-        
+
+        if search:
+            # Close search box
+            self._click_search_box()
+
         return True
     
     def search(self, search_text: str) -> bool:
@@ -217,9 +229,7 @@ class BankManager:
         print(f"Searching bank for: {search_text}")
         
         # Click on search box
-        self.window.move_mouse_to(BANK_SEARCH_REGION.random_point())
-        self.window.click()
-        time.sleep(random.uniform(*TIMING.INTERFACE_TRANSITION))
+        self._click_search_box()
         
         # Type search text
         self.keyboard.type_text(search_text)
@@ -245,3 +255,11 @@ class BankManager:
         
         print("No bank objects found")
         return None
+
+    def _click_search_box(self):
+        """
+        Clicks search box UI element
+        """
+        self.window.move_mouse_to(BANK_SEARCH_REGION.random_point())
+        self.window.click()
+        time.sleep(random.uniform(*TIMING.INTERFACE_TRANSITION))

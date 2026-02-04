@@ -22,9 +22,9 @@ INTERACT_TEXT_REGION = Region(12, 28, 350, 30)  # Hover text at top left [VERIFI
 
 BANK_TITLE_REGION = Region(187, 40, 150, 25)  # Bank title area [VERIFIED]
 BANK_REARRANGE_MODE_REGION = Region(29, 318, 102, 21)  # Rearrange mode button [VERIFIED]
-BANK_SEARCH_REGION = Region(85, 45, 400, 20)  # Bank search box [UNVERIFIED]
-BANK_DEPOSIT_INVENTORY_REGION = Region(430, 299, 26, 27)  # Deposit inventory button [VERIFIED]
-BANK_DEPOSIT_EQUIPMENT_REGION = Region(466, 300, 26, 26)  # Deposit worn items button [VERIFIED]
+BANK_SEARCH_REGION = Region(294, 294, 46, 36)  # Bank search box [VERIFIED]
+BANK_DEPOSIT_INVENTORY_REGION = Region(424, 294, 36, 36)  # Deposit inventory button [VERIFIED]
+BANK_DEPOSIT_EQUIPMENT_REGION = Region(461, 294, 36, 36)  # Deposit worn items button [VERIFIED]
 BANK_TOGGLE_ITEM_REGION = Region(138, 342, 41, 14)  # Withdraw as item toggle [VERIFIED]
 BANK_TOGGLE_NOTE_REGION = Region(187, 342, 39, 13)  # Withdraw as note toggle [VERIFIED]
 

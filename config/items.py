@@ -10,41 +10,72 @@ https://github.com/runelite/runelite/blob/master/runelite-api/src/main/java/net/
 Usage:
     from config.items import Ores, Food, Potions
     
-    ore_ids = Ores.all()
-    iron_ore_id = Ores.IRON_ORE
-    shark_id = Food.SHARK
+    # Access item ID
+    iron_ore = Ores.IRON_ORE
+    iron_ore_id = iron_ore.id
+    iron_ore_name = iron_ore.name
+    
+    # Get all items in category
+    all_ores = Ores.all()  # Returns List[Item]
+    all_ore_ids = Ores.all_ids()  # Returns List[int]
+    
+    # Item works as int in comparisons
+    if item_id == Ores.IRON_ORE:  # Uses __eq__ with id
+        print(f"Found {Ores.IRON_ORE.name}")
 """
 
+from dataclasses import dataclass
 from typing import List, Optional
+
+
+@dataclass(frozen=True)
+class Item:
+    """Represents an OSRS item with ID and display name."""
+    id: int
+    name: str
+    
+    def __int__(self) -> int:
+        """Allow implicit conversion to int for backward compatibility."""
+        return self.id
+    
+    def __eq__(self, other) -> bool:
+        """Allow comparison with integers and other Items."""
+        if isinstance(other, int):
+            return self.id == other
+        elif isinstance(other, Item):
+            return self.id == other.id
+        return False
+    
+    def __hash__(self) -> int:
+        """Make Item hashable for use in sets/dicts."""
+        return hash(self.id)
 
 
 class ItemCategory:
     """Base class for item categories with helper methods."""
     
     @classmethod
-    def all(cls) -> List[int]:
-        """Return all item IDs in this category."""
-        all_ids = []
+    def all(cls) -> List[Item]:
+        """Return all items in this category."""
+        items = []
         for attr_name in dir(cls):
             if not attr_name.startswith('_') and attr_name.isupper():
                 attr_value = getattr(cls, attr_name)
-                if isinstance(attr_value, (int, list)):
-                    if isinstance(attr_value, int):
-                        all_ids.append(attr_value)
-                    else:
-                        all_ids.extend(attr_value)
-        return all_ids
+                if isinstance(attr_value, Item):
+                    items.append(attr_value)
+        return items
     
     @classmethod
-    def find_by_id(cls, item_id: int) -> Optional[str]:
-        """Find the name of an item by its ID."""
-        for attr_name in dir(cls):
-            if not attr_name.startswith('_') and attr_name.isupper():
-                attr_value = getattr(cls, attr_name)
-                if isinstance(attr_value, int) and attr_value == item_id:
-                    return attr_name
-                elif isinstance(attr_value, list) and item_id in attr_value:
-                    return attr_name
+    def all_ids(cls) -> List[int]:
+        """Return all item IDs in this category."""
+        return [item.id for item in cls.all()]
+    
+    @classmethod
+    def find_by_id(cls, item_id: int) -> Optional[Item]:
+        """Find an item by its ID."""
+        for item in cls.all():
+            if item.id == item_id:
+                return item
         return None
 
 
@@ -56,52 +87,52 @@ class Ores(ItemCategory):
     """Mining ore item IDs."""
     
     # Basic ores
-    COPPER_ORE = 436
-    TIN_ORE = 438
-    IRON_ORE = 440
-    COAL = 453
+    COPPER_ORE = Item(436, "Copper ore")
+    TIN_ORE = Item(438, "Tin ore")
+    IRON_ORE = Item(440, "Iron ore")
+    COAL = Item(453, "Coal")
     
     # Clay
-    CLAY = 434
-    SOFT_CLAY = 1761
+    CLAY = Item(434, "Clay")
+    SOFT_CLAY = Item(1761, "Soft clay")
     
     # Precious metals
-    SILVER_ORE = 442
-    GOLD_ORE = 444
+    SILVER_ORE = Item(442, "Silver ore")
+    GOLD_ORE = Item(444, "Gold ore")
     
     # High-level ores
-    MITHRIL_ORE = 447
-    ADAMANTITE_ORE = 449
-    RUNITE_ORE = 451
+    MITHRIL_ORE = Item(447, "Mithril ore")
+    ADAMANTITE_ORE = Item(449, "Adamantite ore")
+    RUNITE_ORE = Item(451, "Runite ore")
     
     # Special ores
-    SANDSTONE_1KG = 6971
-    SANDSTONE_2KG = 6973
-    SANDSTONE_5KG = 6975
-    SANDSTONE_10KG = 6977
-    GRANITE_500G = 6979
-    GRANITE_2KG = 6981
-    GRANITE_5KG = 6983
-    AMETHYST = 21347
+    SANDSTONE_1KG = Item(6971, "Sandstone (1kg)")
+    SANDSTONE_2KG = Item(6973, "Sandstone (2kg)")
+    SANDSTONE_5KG = Item(6975, "Sandstone (5kg)")
+    SANDSTONE_10KG = Item(6977, "Sandstone (10kg)")
+    GRANITE_500G = Item(6979, "Granite (500g)")
+    GRANITE_2KG = Item(6981, "Granite (2kg)")
+    GRANITE_5KG = Item(6983, "Granite (5kg)")
+    AMETHYST = Item(21347, "Amethyst")
     
     # Gems from mining
-    UNCUT_SAPPHIRE = 1623
-    UNCUT_EMERALD = 1621
-    UNCUT_RUBY = 1619
-    UNCUT_DIAMOND = 1617
+    UNCUT_SAPPHIRE = Item(1623, "Uncut sapphire")
+    UNCUT_EMERALD = Item(1621, "Uncut emerald")
+    UNCUT_RUBY = Item(1619, "Uncut ruby")
+    UNCUT_DIAMOND = Item(1617, "Uncut diamond")
 
 
 class Bars(ItemCategory):
     """Smithing bar item IDs."""
     
-    BRONZE_BAR = 2349
-    IRON_BAR = 2351
-    STEEL_BAR = 2353
-    SILVER_BAR = 2355
-    GOLD_BAR = 2357
-    MITHRIL_BAR = 2359
-    ADAMANTITE_BAR = 2361
-    RUNITE_BAR = 2363
+    BRONZE_BAR = Item(2349, "Bronze bar")
+    IRON_BAR = Item(2351, "Iron bar")
+    STEEL_BAR = Item(2353, "Steel bar")
+    SILVER_BAR = Item(2355, "Silver bar")
+    GOLD_BAR = Item(2357, "Gold bar")
+    MITHRIL_BAR = Item(2359, "Mithril bar")
+    ADAMANTITE_BAR = Item(2361, "Adamantite bar")
+    RUNITE_BAR = Item(2363, "Runite bar")
 
 
 # ============================================================================
@@ -111,24 +142,24 @@ class Bars(ItemCategory):
 class Logs(ItemCategory):
     """Woodcutting log item IDs."""
     
-    LOGS = 1511
-    OAK_LOGS = 1521
-    WILLOW_LOGS = 1519
-    MAPLE_LOGS = 1517
-    YEW_LOGS = 1515
-    MAGIC_LOGS = 1513
-    REDWOOD_LOGS = 19669
-    TEAK_LOGS = 6333
-    MAHOGANY_LOGS = 6332
+    LOGS = Item(1511, "Logs")
+    OAK_LOGS = Item(1521, "Oak logs")
+    WILLOW_LOGS = Item(1519, "Willow logs")
+    MAPLE_LOGS = Item(1517, "Maple logs")
+    YEW_LOGS = Item(1515, "Yew logs")
+    MAGIC_LOGS = Item(1513, "Magic logs")
+    REDWOOD_LOGS = Item(19669, "Redwood logs")
+    TEAK_LOGS = Item(6333, "Teak logs")
+    MAHOGANY_LOGS = Item(6332, "Mahogany logs")
 
 
 class Planks(ItemCategory):
     """Plank item IDs for construction."""
     
-    PLANK = 960
-    OAK_PLANK = 8778
-    TEAK_PLANK = 8780
-    MAHOGANY_PLANK = 8782
+    PLANK = Item(960, "Plank")
+    OAK_PLANK = Item(8778, "Oak plank")
+    TEAK_PLANK = Item(8780, "Teak plank")
+    MAHOGANY_PLANK = Item(8782, "Mahogany plank")
 
 
 # ============================================================================
@@ -139,62 +170,62 @@ class RawFish(ItemCategory):
     """Raw fish item IDs."""
     
     # Low level
-    RAW_SHRIMPS = 317
-    RAW_SARDINE = 327
-    RAW_HERRING = 345
-    RAW_ANCHOVIES = 321
-    RAW_MACKEREL = 353
-    RAW_TROUT = 335
-    RAW_COD = 341
-    RAW_PIKE = 349
-    RAW_SALMON = 331
+    RAW_SHRIMPS = Item(317, "Raw shrimps")
+    RAW_SARDINE = Item(327, "Raw sardine")
+    RAW_HERRING = Item(345, "Raw herring")
+    RAW_ANCHOVIES = Item(321, "Raw anchovies")
+    RAW_MACKEREL = Item(353, "Raw mackerel")
+    RAW_TROUT = Item(335, "Raw trout")
+    RAW_COD = Item(341, "Raw cod")
+    RAW_PIKE = Item(349, "Raw pike")
+    RAW_SALMON = Item(331, "Raw salmon")
     
     # Mid level
-    RAW_TUNA = 359
-    RAW_LOBSTER = 377
-    RAW_BASS = 363
-    RAW_SWORDFISH = 371
-    RAW_MONKFISH = 7944
+    RAW_TUNA = Item(359, "Raw tuna")
+    RAW_LOBSTER = Item(377, "Raw lobster")
+    RAW_BASS = Item(363, "Raw bass")
+    RAW_SWORDFISH = Item(371, "Raw swordfish")
+    RAW_MONKFISH = Item(7944, "Raw monkfish")
     
     # High level
-    RAW_SHARK = 383
-    RAW_SEA_TURTLE = 395
-    RAW_MANTA_RAY = 389
-    RAW_ANGLERFISH = 13439
+    RAW_SHARK = Item(383, "Raw shark")
+    RAW_SEA_TURTLE = Item(395, "Raw sea turtle")
+    RAW_MANTA_RAY = Item(389, "Raw manta ray")
+    RAW_ANGLERFISH = Item(13439, "Raw anglerfish")
     
     # Special
-    RAW_KARAMBWAN = 3142
+    RAW_KARAMBWAN = Item(3142, "Raw karambwan")
 
 
 class CookedFish(ItemCategory):
     """Cooked fish item IDs."""
     
     # Low level
-    SHRIMPS = 315
-    SARDINE = 325
-    HERRING = 347
-    ANCHOVIES = 319
-    MACKEREL = 355
-    TROUT = 333
-    COD = 339
-    PIKE = 351
-    SALMON = 329
+    SHRIMPS = Item(315, "Shrimps")
+    SARDINE = Item(325, "Sardine")
+    HERRING = Item(347, "Herring")
+    ANCHOVIES = Item(319, "Anchovies")
+    MACKEREL = Item(355, "Mackerel")
+    TROUT = Item(333, "Trout")
+    COD = Item(339, "Cod")
+    PIKE = Item(351, "Pike")
+    SALMON = Item(329, "Salmon")
     
     # Mid level
-    TUNA = 361
-    LOBSTER = 379
-    BASS = 365
-    SWORDFISH = 373
-    MONKFISH = 7946
+    TUNA = Item(361, "Tuna")
+    LOBSTER = Item(379, "Lobster")
+    BASS = Item(365, "Bass")
+    SWORDFISH = Item(373, "Swordfish")
+    MONKFISH = Item(7946, "Monkfish")
     
     # High level
-    SHARK = 385
-    SEA_TURTLE = 397
-    MANTA_RAY = 391
-    ANGLERFISH = 13441
+    SHARK = Item(385, "Shark")
+    SEA_TURTLE = Item(397, "Sea turtle")
+    MANTA_RAY = Item(391, "Manta ray")
+    ANGLERFISH = Item(13441, "Anglerfish")
     
     # Special
-    COOKED_KARAMBWAN = 3144
+    COOKED_KARAMBWAN = Item(3144, "Cooked karambwan")
 
 
 # ============================================================================
@@ -205,41 +236,41 @@ class Food(ItemCategory):
     """General food item IDs."""
     
     # Bread and baked goods
-    BREAD = 2309
-    CAKE = 1891
-    CHOCOLATE_CAKE = 1897
-    MEAT_PIE = 2327
+    BREAD = Item(2309, "Bread")
+    CAKE = Item(1891, "Cake")
+    CHOCOLATE_CAKE = Item(1897, "Chocolate cake")
+    MEAT_PIE = Item(2327, "Meat pie")
     
     # Cooked meats
-    COOKED_CHICKEN = 2140
-    COOKED_MEAT = 2142
+    COOKED_CHICKEN = Item(2140, "Cooked chicken")
+    COOKED_MEAT = Item(2142, "Cooked meat")
     
     # Pizza
-    PLAIN_PIZZA = 2289
-    MEAT_PIZZA = 2293
-    ANCHOVY_PIZZA = 2297
-    PINEAPPLE_PIZZA = 2301
+    PLAIN_PIZZA = Item(2289, "Plain pizza")
+    MEAT_PIZZA = Item(2293, "Meat pizza")
+    ANCHOVY_PIZZA = Item(2297, "Anchovy pizza")
+    PINEAPPLE_PIZZA = Item(2301, "Pineapple pizza")
     
     # Potatoes
-    BAKED_POTATO = 6701
-    POTATO_WITH_BUTTER = 6703
-    POTATO_WITH_CHEESE = 6705
+    BAKED_POTATO = Item(6701, "Baked potato")
+    POTATO_WITH_BUTTER = Item(6703, "Potato with butter")
+    POTATO_WITH_CHEESE = Item(6705, "Potato with cheese")
     
     # Fruit
-    BANANA = 1963
-    STRAWBERRY = 5504
-    PINEAPPLE = 2114
+    BANANA = Item(1963, "Banana")
+    STRAWBERRY = Item(5504, "Strawberry")
+    PINEAPPLE = Item(2114, "Pineapple")
     
     # High-tier food
-    SHARK = 385
-    MANTA_RAY = 391
-    ANGLERFISH = 13441
-    DARK_CRAB = 11936
+    SHARK = Item(385, "Shark")
+    MANTA_RAY = Item(391, "Manta ray")
+    ANGLERFISH = Item(13441, "Anglerfish")
+    DARK_CRAB = Item(11936, "Dark crab")
     
     # Combo foods
-    PURPLE_SWEETS = 10476
-    SARADOMIN_BREW4 = 6685
-    SUPER_RESTORE4 = 3024
+    PURPLE_SWEETS = Item(10476, "Purple sweets")
+    SARADOMIN_BREW4 = Item(6685, "Saradomin brew(4)")
+    SUPER_RESTORE4 = Item(3024, "Super restore(4)")
 
 
 # ============================================================================
@@ -250,48 +281,48 @@ class Potions(ItemCategory):
     """Potion item IDs (4-dose versions)."""
     
     # Combat potions
-    ATTACK_POTION4 = 2428
-    STRENGTH_POTION4 = 113
-    DEFENCE_POTION4 = 2432
-    RANGING_POTION4 = 2444
-    MAGIC_POTION4 = 3040
+    ATTACK_POTION4 = Item(2428, "Attack potion(4)")
+    STRENGTH_POTION4 = Item(113, "Strength potion(4)")
+    DEFENCE_POTION4 = Item(2432, "Defence potion(4)")
+    RANGING_POTION4 = Item(2444, "Ranging potion(4)")
+    MAGIC_POTION4 = Item(3040, "Magic potion(4)")
     
     # Super potions
-    SUPER_ATTACK4 = 2436
-    SUPER_STRENGTH4 = 2440
-    SUPER_DEFENCE4 = 2442
-    SUPER_RANGING4 = 2444
-    SUPER_MAGIC_POTION4 = 3024
+    SUPER_ATTACK4 = Item(2436, "Super attack(4)")
+    SUPER_STRENGTH4 = Item(2440, "Super strength(4)")
+    SUPER_DEFENCE4 = Item(2442, "Super defence(4)")
+    SUPER_RANGING4 = Item(2444, "Super ranging(4)")
+    SUPER_MAGIC_POTION4 = Item(3024, "Super magic potion(4)")
     
     # Combat utility
-    SUPER_COMBAT_POTION4 = 12695
-    COMBAT_POTION4 = 9739
-    BASTION_POTION4 = 22461
-    BATTLEMAGE_POTION4 = 22470
+    SUPER_COMBAT_POTION4 = Item(12695, "Super combat potion(4)")
+    COMBAT_POTION4 = Item(9739, "Combat potion(4)")
+    BASTION_POTION4 = Item(22461, "Bastion potion(4)")
+    BATTLEMAGE_POTION4 = Item(22470, "Battlemage potion(4)")
     
     # Restoration
-    RESTORE_POTION4 = 2430
-    SUPER_RESTORE4 = 3024
-    PRAYER_POTION4 = 2434
-    SANFEW_SERUM4 = 10925
+    RESTORE_POTION4 = Item(2430, "Restore potion(4)")
+    SUPER_RESTORE4 = Item(3024, "Super restore(4)")
+    PRAYER_POTION4 = Item(2434, "Prayer potion(4)")
+    SANFEW_SERUM4 = Item(10925, "Sanfew serum(4)")
     
     # Utility
-    ENERGY_POTION4 = 3008
-    SUPER_ENERGY4 = 3016
-    STAMINA_POTION4 = 12625
-    ANTIPOISON4 = 2446
-    SUPER_ANTIPOISON4 = 2448
-    ANTIDOTE_PLUS_PLUS4 = 5952
-    ANTIFIRE_POTION4 = 2452
-    SUPER_ANTIFIRE_POTION4 = 21987
-    EXTENDED_ANTIFIRE4 = 11951
-    EXTENDED_SUPER_ANTIFIRE4 = 22209
+    ENERGY_POTION4 = Item(3008, "Energy potion(4)")
+    SUPER_ENERGY4 = Item(3016, "Super energy(4)")
+    STAMINA_POTION4 = Item(12625, "Stamina potion(4)")
+    ANTIPOISON4 = Item(2446, "Antipoison(4)")
+    SUPER_ANTIPOISON4 = Item(2448, "Super antipoison(4)")
+    ANTIDOTE_PLUS_PLUS4 = Item(5952, "Antidote++(4)")
+    ANTIFIRE_POTION4 = Item(2452, "Antifire potion(4)")
+    SUPER_ANTIFIRE_POTION4 = Item(21987, "Super antifire potion(4)")
+    EXTENDED_ANTIFIRE4 = Item(11951, "Extended antifire(4)")
+    EXTENDED_SUPER_ANTIFIRE4 = Item(22209, "Extended super antifire(4)")
     
     # Saradomin brews
-    SARADOMIN_BREW4 = 6685
-    SARADOMIN_BREW3 = 6687
-    SARADOMIN_BREW2 = 6689
-    SARADOMIN_BREW1 = 6691
+    SARADOMIN_BREW4 = Item(6685, "Saradomin brew(4)")
+    SARADOMIN_BREW3 = Item(6687, "Saradomin brew(3)")
+    SARADOMIN_BREW2 = Item(6689, "Saradomin brew(2)")
+    SARADOMIN_BREW1 = Item(6691, "Saradomin brew(1)")
 
 
 # ============================================================================
@@ -302,69 +333,69 @@ class Herbs(ItemCategory):
     """Herb item IDs (grimy and clean)."""
     
     # Grimy herbs
-    GRIMY_GUAM_LEAF = 199
-    GRIMY_MARRENTILL = 201
-    GRIMY_TARROMIN = 203
-    GRIMY_HARRALANDER = 205
-    GRIMY_RANARR_WEED = 207
-    GRIMY_IRIT_LEAF = 209
-    GRIMY_AVANTOE = 211
-    GRIMY_KWUARM = 213
-    GRIMY_CADANTINE = 215
-    GRIMY_DWARF_WEED = 217
-    GRIMY_TORSTOL = 219
-    GRIMY_LANTADYME = 2485
-    GRIMY_SNAPDRAGON = 3000
+    GRIMY_GUAM_LEAF = Item(199, "Grimy guam leaf")
+    GRIMY_MARRENTILL = Item(201, "Grimy marrentill")
+    GRIMY_TARROMIN = Item(203, "Grimy tarromin")
+    GRIMY_HARRALANDER = Item(205, "Grimy harralander")
+    GRIMY_RANARR_WEED = Item(207, "Grimy ranarr weed")
+    GRIMY_IRIT_LEAF = Item(209, "Grimy irit leaf")
+    GRIMY_AVANTOE = Item(211, "Grimy avantoe")
+    GRIMY_KWUARM = Item(213, "Grimy kwuarm")
+    GRIMY_CADANTINE = Item(215, "Grimy cadantine")
+    GRIMY_DWARF_WEED = Item(217, "Grimy dwarf weed")
+    GRIMY_TORSTOL = Item(219, "Grimy torstol")
+    GRIMY_LANTADYME = Item(2485, "Grimy lantadyme")
+    GRIMY_SNAPDRAGON = Item(3000, "Grimy snapdragon")
     
     # Clean herbs
-    GUAM_LEAF = 249
-    MARRENTILL = 251
-    TARROMIN = 253
-    HARRALANDER = 255
-    RANARR_WEED = 257
-    IRIT_LEAF = 259
-    AVANTOE = 261
-    KWUARM = 263
-    CADANTINE = 265
-    DWARF_WEED = 267
-    TORSTOL = 269
-    LANTADYME = 2481
-    SNAPDRAGON = 3051
+    GUAM_LEAF = Item(249, "Guam leaf")
+    MARRENTILL = Item(251, "Marrentill")
+    TARROMIN = Item(253, "Tarromin")
+    HARRALANDER = Item(255, "Harralander")
+    RANARR_WEED = Item(257, "Ranarr weed")
+    IRIT_LEAF = Item(259, "Irit leaf")
+    AVANTOE = Item(261, "Avantoe")
+    KWUARM = Item(263, "Kwuarm")
+    CADANTINE = Item(265, "Cadantine")
+    DWARF_WEED = Item(267, "Dwarf weed")
+    TORSTOL = Item(269, "Torstol")
+    LANTADYME = Item(2481, "Lantadyme")
+    SNAPDRAGON = Item(3051, "Snapdragon")
 
 
 class Seeds(ItemCategory):
     """Farming seed item IDs."""
     
     # Herbs
-    GUAM_SEED = 5291
-    MARRENTILL_SEED = 5292
-    TARROMIN_SEED = 5293
-    HARRALANDER_SEED = 5294
-    RANARR_SEED = 5295
-    IRIT_SEED = 5297
-    AVANTOE_SEED = 5298
-    KWUARM_SEED = 5299
-    CADANTINE_SEED = 5301
-    DWARF_WEED_SEED = 5303
-    TORSTOL_SEED = 5304
-    LANTADYME_SEED = 5302
-    SNAPDRAGON_SEED = 5300
+    GUAM_SEED = Item(5291, "Guam seed")
+    MARRENTILL_SEED = Item(5292, "Marrentill seed")
+    TARROMIN_SEED = Item(5293, "Tarromin seed")
+    HARRALANDER_SEED = Item(5294, "Harralander seed")
+    RANARR_SEED = Item(5295, "Ranarr seed")
+    IRIT_SEED = Item(5297, "Irit seed")
+    AVANTOE_SEED = Item(5298, "Avantoe seed")
+    KWUARM_SEED = Item(5299, "Kwuarm seed")
+    CADANTINE_SEED = Item(5301, "Cadantine seed")
+    DWARF_WEED_SEED = Item(5303, "Dwarf weed seed")
+    TORSTOL_SEED = Item(5304, "Torstol seed")
+    LANTADYME_SEED = Item(5302, "Lantadyme seed")
+    SNAPDRAGON_SEED = Item(5300, "Snapdragon seed")
     
     # Allotments
-    POTATO_SEED = 5318
-    ONION_SEED = 5319
-    CABBAGE_SEED = 5324
-    TOMATO_SEED = 5322
-    SWEETCORN_SEED = 5320
-    STRAWBERRY_SEED = 5323
-    WATERMELON_SEED = 5321
+    POTATO_SEED = Item(5318, "Potato seed")
+    ONION_SEED = Item(5319, "Onion seed")
+    CABBAGE_SEED = Item(5324, "Cabbage seed")
+    TOMATO_SEED = Item(5322, "Tomato seed")
+    SWEETCORN_SEED = Item(5320, "Sweetcorn seed")
+    STRAWBERRY_SEED = Item(5323, "Strawberry seed")
+    WATERMELON_SEED = Item(5321, "Watermelon seed")
     
     # Trees
-    ACORN = 5312
-    WILLOW_SEED = 5313
-    MAPLE_SEED = 5314
-    YEW_SEED = 5315
-    MAGIC_SEED = 5316
+    ACORN = Item(5312, "Acorn")
+    WILLOW_SEED = Item(5313, "Willow seed")
+    MAPLE_SEED = Item(5314, "Maple seed")
+    YEW_SEED = Item(5315, "Yew seed")
+    MAGIC_SEED = Item(5316, "Magic seed")
 
 
 # ============================================================================
@@ -375,31 +406,31 @@ class Runes(ItemCategory):
     """Rune item IDs."""
     
     # Elemental runes
-    AIR_RUNE = 556
-    WATER_RUNE = 555
-    EARTH_RUNE = 557
-    FIRE_RUNE = 554
+    AIR_RUNE = Item(556, "Air rune")
+    WATER_RUNE = Item(555, "Water rune")
+    EARTH_RUNE = Item(557, "Earth rune")
+    FIRE_RUNE = Item(554, "Fire rune")
     
     # Catalytic runes
-    MIND_RUNE = 558
-    BODY_RUNE = 559
-    COSMIC_RUNE = 564
-    CHAOS_RUNE = 562
-    NATURE_RUNE = 561
-    LAW_RUNE = 563
-    DEATH_RUNE = 560
-    BLOOD_RUNE = 565
-    SOUL_RUNE = 566
-    ASTRAL_RUNE = 9075
-    WRATH_RUNE = 21880
+    MIND_RUNE = Item(558, "Mind rune")
+    BODY_RUNE = Item(559, "Body rune")
+    COSMIC_RUNE = Item(564, "Cosmic rune")
+    CHAOS_RUNE = Item(562, "Chaos rune")
+    NATURE_RUNE = Item(561, "Nature rune")
+    LAW_RUNE = Item(563, "Law rune")
+    DEATH_RUNE = Item(560, "Death rune")
+    BLOOD_RUNE = Item(565, "Blood rune")
+    SOUL_RUNE = Item(566, "Soul rune")
+    ASTRAL_RUNE = Item(9075, "Astral rune")
+    WRATH_RUNE = Item(21880, "Wrath rune")
     
     # Combination runes
-    MIST_RUNE = 4695
-    DUST_RUNE = 4696
-    MUD_RUNE = 4698
-    SMOKE_RUNE = 4697
-    STEAM_RUNE = 4694
-    LAVA_RUNE = 4699
+    MIST_RUNE = Item(4695, "Mist rune")
+    DUST_RUNE = Item(4696, "Dust rune")
+    MUD_RUNE = Item(4698, "Mud rune")
+    SMOKE_RUNE = Item(4697, "Smoke rune")
+    STEAM_RUNE = Item(4694, "Steam rune")
+    LAVA_RUNE = Item(4699, "Lava rune")
 
 
 # ============================================================================
@@ -410,28 +441,28 @@ class Gems(ItemCategory):
     """Gem item IDs."""
     
     # Uncut gems
-    UNCUT_OPAL = 1625
-    UNCUT_JADE = 1627
-    UNCUT_RED_TOPAZ = 1629
-    UNCUT_SAPPHIRE = 1623
-    UNCUT_EMERALD = 1621
-    UNCUT_RUBY = 1619
-    UNCUT_DIAMOND = 1617
-    UNCUT_DRAGONSTONE = 1631
-    UNCUT_ONYX = 6571
-    UNCUT_ZENYTE = 19496
+    UNCUT_OPAL = Item(1625, "Uncut opal")
+    UNCUT_JADE = Item(1627, "Uncut jade")
+    UNCUT_RED_TOPAZ = Item(1629, "Uncut red topaz")
+    UNCUT_SAPPHIRE = Item(1623, "Uncut sapphire")
+    UNCUT_EMERALD = Item(1621, "Uncut emerald")
+    UNCUT_RUBY = Item(1619, "Uncut ruby")
+    UNCUT_DIAMOND = Item(1617, "Uncut diamond")
+    UNCUT_DRAGONSTONE = Item(1631, "Uncut dragonstone")
+    UNCUT_ONYX = Item(6571, "Uncut onyx")
+    UNCUT_ZENYTE = Item(19496, "Uncut zenyte")
     
     # Cut gems
-    OPAL = 1609
-    JADE = 1611
-    RED_TOPAZ = 1613
-    SAPPHIRE = 1607
-    EMERALD = 1605
-    RUBY = 1603
-    DIAMOND = 1601
-    DRAGONSTONE = 1615
-    ONYX = 6573
-    ZENYTE = 19501
+    OPAL = Item(1609, "Opal")
+    JADE = Item(1611, "Jade")
+    RED_TOPAZ = Item(1613, "Red topaz")
+    SAPPHIRE = Item(1607, "Sapphire")
+    EMERALD = Item(1605, "Emerald")
+    RUBY = Item(1603, "Ruby")
+    DIAMOND = Item(1601, "Diamond")
+    DRAGONSTONE = Item(1615, "Dragonstone")
+    ONYX = Item(6573, "Onyx")
+    ZENYTE = Item(19501, "Zenyte")
 
 
 # ============================================================================
@@ -442,41 +473,41 @@ class Tools(ItemCategory):
     """Tool item IDs."""
     
     # Mining
-    BRONZE_PICKAXE = 1265
-    IRON_PICKAXE = 1267
-    STEEL_PICKAXE = 1269
-    MITHRIL_PICKAXE = 1273
-    ADAMANT_PICKAXE = 1271
-    RUNE_PICKAXE = 1275
-    DRAGON_PICKAXE = 11920
-    CRYSTAL_PICKAXE = 23680
+    BRONZE_PICKAXE = Item(1265, "Bronze pickaxe")
+    IRON_PICKAXE = Item(1267, "Iron pickaxe")
+    STEEL_PICKAXE = Item(1269, "Steel pickaxe")
+    MITHRIL_PICKAXE = Item(1273, "Mithril pickaxe")
+    ADAMANT_PICKAXE = Item(1271, "Adamant pickaxe")
+    RUNE_PICKAXE = Item(1275, "Rune pickaxe")
+    DRAGON_PICKAXE = Item(11920, "Dragon pickaxe")
+    CRYSTAL_PICKAXE = Item(23680, "Crystal pickaxe")
     
     # Woodcutting
-    BRONZE_AXE = 1351
-    IRON_AXE = 1349
-    STEEL_AXE = 1353
-    MITHRIL_AXE = 1355
-    ADAMANT_AXE = 1357
-    RUNE_AXE = 1359
-    DRAGON_AXE = 6739
-    CRYSTAL_AXE = 23677
+    BRONZE_AXE = Item(1351, "Bronze axe")
+    IRON_AXE = Item(1349, "Iron axe")
+    STEEL_AXE = Item(1353, "Steel axe")
+    MITHRIL_AXE = Item(1355, "Mithril axe")
+    ADAMANT_AXE = Item(1357, "Adamant axe")
+    RUNE_AXE = Item(1359, "Rune axe")
+    DRAGON_AXE = Item(6739, "Dragon axe")
+    CRYSTAL_AXE = Item(23677, "Crystal axe")
     
     # Fishing
-    SMALL_FISHING_NET = 303
-    FISHING_ROD = 307
-    FLY_FISHING_ROD = 309
-    HARPOON = 311
-    LOBSTER_POT = 301
-    BARBARIAN_ROD = 11323
-    KARAMBWAN_VESSEL = 3157
+    SMALL_FISHING_NET = Item(303, "Small fishing net")
+    FISHING_ROD = Item(307, "Fishing rod")
+    FLY_FISHING_ROD = Item(309, "Fly fishing rod")
+    HARPOON = Item(311, "Harpoon")
+    LOBSTER_POT = Item(301, "Lobster pot")
+    BARBARIAN_ROD = Item(11323, "Barbarian rod")
+    KARAMBWAN_VESSEL = Item(3157, "Karambwan vessel")
     
     # Other tools
-    HAMMER = 2347
-    SAW = 8794
-    CHISEL = 1755
-    NEEDLE = 1733
-    KNIFE = 946
-    TINDERBOX = 590
+    HAMMER = Item(2347, "Hammer")
+    SAW = Item(8794, "Saw")
+    CHISEL = Item(1755, "Chisel")
+    NEEDLE = Item(1733, "Needle")
+    KNIFE = Item(946, "Knife")
+    TINDERBOX = Item(590, "Tinderbox")
 
 
 # ============================================================================
@@ -487,46 +518,47 @@ class Weapons(ItemCategory):
     """Weapon item IDs."""
     
     # Swords (rune tier as example)
-    BRONZE_SWORD = 1277
-    IRON_SWORD = 1279
-    STEEL_SWORD = 1281
-    MITHRIL_SWORD = 1285
-    ADAMANT_SWORD = 1287
-    RUNE_SWORD = 1289
+    BRONZE_SWORD = Item(1277, "Bronze sword")
+    IRON_SWORD = Item(1279, "Iron sword")
+    STEEL_SWORD = Item(1281, "Steel sword")
+    MITHRIL_SWORD = Item(1285, "Mithril sword")
+    ADAMANT_SWORD = Item(1287, "Adamant sword")
+    RUNE_SWORD = Item(1289, "Rune sword")
     
     # Scimitars
-    BRONZE_SCIMITAR = 1321
-    IRON_SCIMITAR = 1323
-    STEEL_SCIMITAR = 1325
-    MITHRIL_SCIMITAR = 1329
-    ADAMANT_SCIMITAR = 1331
-    RUNE_SCIMITAR = 1333
-    DRAGON_SCIMITAR = 4587
+    BRONZE_SCIMITAR = Item(1321, "Bronze scimitar")
+    IRON_SCIMITAR = Item(1323, "Iron scimitar")
+    STEEL_SCIMITAR = Item(1325, "Steel scimitar")
+    MITHRIL_SCIMITAR = Item(1329, "Mithril scimitar")
+    ADAMANT_SCIMITAR = Item(1331, "Adamant scimitar")
+    RUNE_SCIMITAR = Item(1333, "Rune scimitar")
+    DRAGON_SCIMITAR = Item(4587, "Dragon scimitar")
     
     # Special weapons
-    ABYSSAL_WHIP = 4151
-    DRAGON_DAGGER = 1215
-    DRAGON_CLAWS = 13652
-    ARMADYL_GODSWORD = 11802
-    SARADOMIN_GODSWORD = 11806
-    ZAMORAK_GODSWORD = 11808
-    BANDOS_GODSWORD = 11804
+    ABYSSAL_WHIP = Item(4151, "Abyssal whip")
+    DRAGON_DAGGER = Item(1215, "Dragon dagger")
+    DRAGON_CLAWS = Item(13652, "Dragon claws")
+    ARMADYL_GODSWORD = Item(11802, "Armadyl godsword")
+    SARADOMIN_GODSWORD = Item(11806, "Saradomin godsword")
+    ZAMORAK_GODSWORD = Item(11808, "Zamorak godsword")
+    BANDOS_GODSWORD = Item(11804, "Bandos godsword")
     
     # Ranged
-    SHORTBOW = 841
-    LONGBOW = 839
-    MAGIC_SHORTBOW = 861
-    MAGIC_LONGBOW = 859
-    DARK_BOW = 11235
-    TWISTED_BOW = 20997
-    TOXIC_BLOWPIPE = 12926
+    SHORTBOW = Item(841, "Shortbow")
+    LONGBOW = Item(839, "Longbow")
+    OAK_LONGBOW = Item(845, "Oak longbow")
+    MAGIC_SHORTBOW = Item(861, "Magic shortbow")
+    MAGIC_LONGBOW = Item(859, "Magic longbow")
+    DARK_BOW = Item(11235, "Dark bow")
+    TWISTED_BOW = Item(20997, "Twisted bow")
+    TOXIC_BLOWPIPE = Item(12926, "Toxic blowpipe")
     
     # Staves
-    STAFF_OF_AIR = 1381
-    STAFF_OF_WATER = 1383
-    STAFF_OF_EARTH = 1385
-    STAFF_OF_FIRE = 1387
-    ANCIENT_STAFF = 4675
+    STAFF_OF_AIR = Item(1381, "Staff of air")
+    STAFF_OF_WATER = Item(1383, "Staff of water")
+    STAFF_OF_EARTH = Item(1385, "Staff of earth")
+    STAFF_OF_FIRE = Item(1387, "Staff of fire")
+    ANCIENT_STAFF = Item(4675, "Ancient staff")
 
 
 # ============================================================================
@@ -537,36 +569,36 @@ class Armor(ItemCategory):
     """Armor item IDs (examples of common sets)."""
     
     # Rune armor
-    RUNE_FULL_HELM = 1163
-    RUNE_PLATEBODY = 1127
-    RUNE_PLATELEGS = 1079
-    RUNE_PLATESKIRT = 1093
-    RUNE_KITESHIELD = 1201
+    RUNE_FULL_HELM = Item(1163, "Rune full helm")
+    RUNE_PLATEBODY = Item(1127, "Rune platebody")
+    RUNE_PLATELEGS = Item(1079, "Rune platelegs")
+    RUNE_PLATESKIRT = Item(1093, "Rune plateskirt")
+    RUNE_KITESHIELD = Item(1201, "Rune kiteshield")
     
     # Dragon armor
-    DRAGON_FULL_HELM = 11335
-    DRAGON_CHAINBODY = 3140
-    DRAGON_PLATELEGS = 4087
-    DRAGON_PLATESKIRT = 4585
-    DRAGON_SQUARE_SHIELD = 1187
+    DRAGON_FULL_HELM = Item(11335, "Dragon full helm")
+    DRAGON_CHAINBODY = Item(3140, "Dragon chainbody")
+    DRAGON_PLATELEGS = Item(4087, "Dragon platelegs")
+    DRAGON_PLATESKIRT = Item(4585, "Dragon plateskirt")
+    DRAGON_SQUARE_SHIELD = Item(1187, "Dragon square shield")
     
     # Barrows armor
-    AHRIMS_HOOD = 4708
-    AHRIMS_ROBETOP = 4712
-    AHRIMS_ROBESKIRT = 4714
-    AHRIMS_STAFF = 4710
+    AHRIMS_HOOD = Item(4708, "Ahrim's hood")
+    AHRIMS_ROBETOP = Item(4712, "Ahrim's robetop")
+    AHRIMS_ROBESKIRT = Item(4714, "Ahrim's robeskirt")
+    AHRIMS_STAFF = Item(4710, "Ahrim's staff")
     
-    DHAROKS_HELM = 4716
-    DHAROKS_PLATEBODY = 4720
-    DHAROKS_PLATELEGS = 4722
-    DHAROKS_GREATAXE = 4718
+    DHAROKS_HELM = Item(4716, "Dharok's helm")
+    DHAROKS_PLATEBODY = Item(4720, "Dharok's platebody")
+    DHAROKS_PLATELEGS = Item(4722, "Dharok's platelegs")
+    DHAROKS_GREATAXE = Item(4718, "Dharok's greataxe")
     
     # God Wars armor
-    BANDOS_CHESTPLATE = 11832
-    BANDOS_TASSETS = 11834
-    ARMADYL_HELMET = 11826
-    ARMADYL_CHESTPLATE = 11828
-    ARMADYL_CHAINSKIRT = 11830
+    BANDOS_CHESTPLATE = Item(11832, "Bandos chestplate")
+    BANDOS_TASSETS = Item(11834, "Bandos tassets")
+    ARMADYL_HELMET = Item(11826, "Armadyl helmet")
+    ARMADYL_CHESTPLATE = Item(11828, "Armadyl chestplate")
+    ARMADYL_CHAINSKIRT = Item(11830, "Armadyl chainskirt")
 
 
 # ============================================================================
@@ -576,20 +608,20 @@ class Armor(ItemCategory):
 class Currency(ItemCategory):
     """Currency and valuable item IDs."""
     
-    COINS = 995
-    PLATINUM_TOKEN = 13204
+    COINS = Item(995, "Coins")
+    PLATINUM_TOKEN = Item(13204, "Platinum token")
     
     # Tokkul
-    TOKKUL = 6529
+    TOKKUL = Item(6529, "Tokkul")
     
     # Chaos/Death runes (often used as currency)
-    CHAOS_RUNE = 562
-    DEATH_RUNE = 560
+    CHAOS_RUNE = Item(562, "Chaos rune")
+    DEATH_RUNE = Item(560, "Death rune")
     
     # Valuable items
-    UNCUT_ONYX = 6571
-    DRAGON_BONES = 536
-    SUPERIOR_DRAGON_BONES = 22124
+    UNCUT_ONYX = Item(6571, "Uncut onyx")
+    DRAGON_BONES = Item(536, "Dragon bones")
+    SUPERIOR_DRAGON_BONES = Item(22124, "Superior dragon bones")
 
 
 # ============================================================================
@@ -600,32 +632,32 @@ class Ammunition(ItemCategory):
     """Ammunition item IDs."""
     
     # Arrows
-    BRONZE_ARROW = 882
-    IRON_ARROW = 884
-    STEEL_ARROW = 886
-    MITHRIL_ARROW = 888
-    ADAMANT_ARROW = 890
-    RUNE_ARROW = 892
-    DRAGON_ARROW = 11212
-    AMETHYST_ARROW = 21326
+    BRONZE_ARROW = Item(882, "Bronze arrow")
+    IRON_ARROW = Item(884, "Iron arrow")
+    STEEL_ARROW = Item(886, "Steel arrow")
+    MITHRIL_ARROW = Item(888, "Mithril arrow")
+    ADAMANT_ARROW = Item(890, "Adamant arrow")
+    RUNE_ARROW = Item(892, "Rune arrow")
+    DRAGON_ARROW = Item(11212, "Dragon arrow")
+    AMETHYST_ARROW = Item(21326, "Amethyst arrow")
     
     # Bolts
-    BRONZE_BOLTS = 877
-    IRON_BOLTS = 9140
-    STEEL_BOLTS = 9141
-    MITHRIL_BOLTS = 9142
-    ADAMANT_BOLTS = 9143
-    RUNITE_BOLTS = 9144
-    DRAGON_BOLTS = 21905
+    BRONZE_BOLTS = Item(877, "Bronze bolts")
+    IRON_BOLTS = Item(9140, "Iron bolts")
+    STEEL_BOLTS = Item(9141, "Steel bolts")
+    MITHRIL_BOLTS = Item(9142, "Mithril bolts")
+    ADAMANT_BOLTS = Item(9143, "Adamant bolts")
+    RUNITE_BOLTS = Item(9144, "Runite bolts")
+    DRAGON_BOLTS = Item(21905, "Dragon bolts")
     
     # Javelins
-    BRONZE_JAVELIN = 825
-    IRON_JAVELIN = 826
-    STEEL_JAVELIN = 827
-    MITHRIL_JAVELIN = 828
-    ADAMANT_JAVELIN = 829
-    RUNE_JAVELIN = 830
-    DRAGON_JAVELIN = 19484
+    BRONZE_JAVELIN = Item(825, "Bronze javelin")
+    IRON_JAVELIN = Item(826, "Iron javelin")
+    STEEL_JAVELIN = Item(827, "Steel javelin")
+    MITHRIL_JAVELIN = Item(828, "Mithril javelin")
+    ADAMANT_JAVELIN = Item(829, "Adamant javelin")
+    RUNE_JAVELIN = Item(830, "Rune javelin")
+    DRAGON_JAVELIN = Item(19484, "Dragon javelin")
 
 
 # ============================================================================
@@ -635,44 +667,44 @@ class Ammunition(ItemCategory):
 class Bones(ItemCategory):
     """Bone item IDs for prayer training."""
     
-    BONES = 526
-    BURNT_BONES = 528
-    WOLF_BONES = 2859
-    BAT_BONES = 530
-    BIG_BONES = 532
-    BABYDRAGON_BONES = 534
-    DRAGON_BONES = 536
-    WYVERN_BONES = 6812
-    DAGANNOTH_BONES = 6729
-    SUPERIOR_DRAGON_BONES = 22124
+    BONES = Item(526, "Bones")
+    BURNT_BONES = Item(528, "Burnt bones")
+    WOLF_BONES = Item(2859, "Wolf bones")
+    BAT_BONES = Item(530, "Bat bones")
+    BIG_BONES = Item(532, "Big bones")
+    BABYDRAGON_BONES = Item(534, "Babydragon bones")
+    DRAGON_BONES = Item(536, "Dragon bones")
+    WYVERN_BONES = Item(6812, "Wyvern bones")
+    DAGANNOTH_BONES = Item(6729, "Dagannoth bones")
+    SUPERIOR_DRAGON_BONES = Item(22124, "Superior dragon bones")
     
     # Special bones
-    OURG_BONES = 4834
-    HYDRA_BONES = 22783
+    OURG_BONES = Item(4834, "Ourg bones")
+    HYDRA_BONES = Item(22783, "Hydra bones")
 
 
 class BirdsNests(ItemCategory):
     """Birds nest item IDs (common woodcutting drops)."""
     
     # Seed nests
-    BIRDS_NEST_SEEDS = 5070
+    BIRDS_NEST_SEEDS = Item(5070, "Bird nest")
     
     # Ring nests
-    BIRDS_NEST_RING = 5071
+    BIRDS_NEST_RING = Item(5071, "Bird nest")
     
     # Empty nests
-    BIRDS_NEST_EMPTY = 5072
+    BIRDS_NEST_EMPTY = Item(5072, "Bird nest")
     
     # Specific content nests
-    BIRDS_NEST_MARIGOLD = 5073
-    BIRDS_NEST_WILLOW = 5074
+    BIRDS_NEST_MARIGOLD = Item(5073, "Bird nest")
+    BIRDS_NEST_WILLOW = Item(5074, "Bird nest")
     
     # Clue nest
-    BIRDS_NEST_CLUE = 7413
+    BIRDS_NEST_CLUE = Item(7413, "Bird nest")
     
     # God eggs (rare)
-    BIRD_NEST_SARADOMIN = 22798
-    BIRD_NEST_GUTHIX = 22800
+    BIRD_NEST_SARADOMIN = Item(22798, "Bird nest (Saradomin)")
+    BIRD_NEST_GUTHIX = Item(22800, "Bird nest (Guthix)")
 
 
 # ============================================================================
@@ -712,7 +744,7 @@ def find_item_category(item_id: int) -> Optional[str]:
     }
     
     for category_name, category_cls in categories.items():
-        if item_id in category_cls.all():
+        if item_id in category_cls.all_ids():
             return category_name
     
     return None
@@ -720,13 +752,13 @@ def find_item_category(item_id: int) -> Optional[str]:
 
 def find_item_name(item_id: int) -> Optional[str]:
     """
-    Find the specific name of an item by its ID.
+    Find the display name of an item by its ID.
     
     Args:
         item_id: Item ID to search for
         
     Returns:
-        Item name (e.g., "IRON_ORE", "SHARK") or None if not found
+        Item display name (e.g., "Iron ore", "Shark") or None if not found
     """
     categories = [
         Ores, Bars, Logs, Planks, RawFish, CookedFish, Food,
@@ -735,8 +767,32 @@ def find_item_name(item_id: int) -> Optional[str]:
     ]
     
     for category in categories:
-        name = category.find_by_id(item_id)
-        if name:
-            return name
+        item = category.find_by_id(item_id)
+        if item:
+            return item.name
+    
+    return None
+
+
+def find_item(item_id: int) -> Optional[Item]:
+    """
+    Find an Item object by its ID.
+    
+    Args:
+        item_id: Item ID to search for
+        
+    Returns:
+        Item object or None if not found
+    """
+    categories = [
+        Ores, Bars, Logs, Planks, RawFish, CookedFish, Food,
+        Potions, Herbs, Seeds, Runes, Gems, Tools, Weapons,
+        Armor, Currency, Ammunition, Bones, BirdsNests
+    ]
+    
+    for category in categories:
+        item = category.find_by_id(item_id)
+        if item:
+            return item
     
     return None
