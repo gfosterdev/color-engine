@@ -329,7 +329,7 @@ class CombatHandler:
             return False
         
         # Use inventory manager to click the food item
-        success = self.inventory.click_item(item_id)
+        success = self.inventory.click_item(item_id, "Eat")
         
         if success:
             # Wait for eating animation/game tick
@@ -351,7 +351,7 @@ class CombatHandler:
             return False
         
         # Use inventory manager to click the potion
-        success = self.inventory.click_item(item_id)
+        success = self.inventory.click_item(item_id, "Drink")
         
         if success:
             # Wait for drinking animation

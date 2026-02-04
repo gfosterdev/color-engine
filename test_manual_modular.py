@@ -4119,7 +4119,7 @@ class ModularTester:
             print("✓ Food eaten")
             time.sleep(1.0)
             
-            health_after = osrs.combat.get_health()
+            health_after = osrs.combat.get_health() or 0
             print(f"  Health after: {health_after}")
             print(f"  Healed: +{health_after - health_before if health_before else '?'}")
         else:

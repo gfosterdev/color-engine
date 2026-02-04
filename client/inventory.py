@@ -328,5 +328,52 @@ class InventoryManager:
         print(f"Dropped {drop_count} items with ID {item_id}")
         return drop_count
     
+    def click_item(self, item_id: int, action: str) -> bool:
+        """
+        Click on a specific item in inventory by its item ID.
+        
+        Args:
+            item_id: Item ID to click
+            action: Action to perform on the item (e.g., "Use", "Examine")
+        """
+        if not item_id or not action:
+            print("Item ID and action are required")
+            return False
+        
+        if not self.is_inventory_open():
+            self.open_inventory()
+            import time
+            time.sleep(random.uniform(*TIMING.INVENTORY_TAB_OPEN))
+        
+        # Populate inventory data from API
+        self.populate()
+        
+        # Find the item in inventory by ID
+        slot_index = None
+        for slot in self.slots:
+            if slot.item_id == item_id:
+                slot_index = slot.index
+                break
+        
+        if slot_index is None:
+            print(f"Item with ID {item_id} not found in inventory")
+            return False
+        
+        # Move to slot and perform action
+        slot = self.slots[slot_index - 1]
+        self.window.move_mouse_to(slot.region.random_point())
+
+        import time
+        time.sleep(random.uniform(*TIMING.MOUSE_MOVE_MEDIUM))
+
+        if not self.osrs.validate_interact_text(action):
+            print(f"{action} action not found in menu for item ID {item_id}")
+            return False
+        
+        # Click the specified action on the item
+        self.osrs.click(action, None)
+        time.sleep(random.uniform(*TIMING.INVENTORY_SLOT_ACTION))
+        
+        return True
 
 import random
