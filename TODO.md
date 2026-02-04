@@ -1,8 +1,6 @@
 # To Do
 
-1. Bank functionality
-    - Withdraw specific item
-2. Combat handler class
+1. Combat handler class
     - properties
         - current target info
             - health left
@@ -17,18 +15,18 @@
         - engage_npc
             - use osrs.find_entity method
             - use osrs.click method
-3. Equipment handler
+2. Equipment handler
     - properties
         - each equipment slot data
     - methods
         - get_equipped_weapon
         - get_equipment
-4. Navigation extended
+3. Navigation extended
     - Have multiple target world tiles on the path
     - Can interact with path blockers:
         - gates
         - shortcuts
-5. Magic handler
+4. Magic handler
     - methods
         - cast_spell
         - can_cast_spell
