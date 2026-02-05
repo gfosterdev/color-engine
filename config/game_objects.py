@@ -94,7 +94,7 @@ class BankObjects(ObjectCategory):
     # Bank booths (common in cities)
     BANK_BOOTH = GameObject(
         name="Bank booth",
-        ids=[10355, 10356, 10357, 10583, 6084, 6083, 11744, 11758, 12798, 12799, 12800, 12801, 14367, 14368],
+        ids=[10355, 10356, 10357, 10583, 6084, 6083, 11744, 11758, 12798, 12799, 12800, 12801, 14367, 14368, 18491, 18492, 27291],
         category="banking",
         description="Bank booths found in cities"
     )
@@ -329,6 +329,30 @@ class DoorsAndGates(ObjectCategory):
     
     # Gates (open)
     GATE_OPEN = GameObject("Gate (open)", [1552, 1554, 2514, 2516, 9471, 9473], "doors")
+    
+    # Lumbridge cow pen gate (placeholder IDs - user will verify)
+    LUMBRIDGE_COW_PEN_GATE = GameObject(
+        name="Gate",
+        ids=[1567, 1558, 1559, 1560],
+        category="doors",
+        description="Lumbridge cow pen gate"
+    )
+
+
+# ============================================================================
+# STAIRS & LADDERS
+# ============================================================================
+
+class StairsAndLadders(ObjectCategory):
+    """Stairs and ladder object IDs for vertical navigation."""
+    
+    # Lumbridge castle stairs (placeholder IDs - user will verify)
+    LUMBRIDGE_CASTLE_STAIRS = GameObject(
+        name="Staircase",
+        ids=[56230, 16672, 56231],
+        category="stairs",
+        description="Lumbridge castle stairs for climbing up/down"
+    )
 
 
 # ============================================================================
@@ -352,6 +376,7 @@ def find_object_category(obj_id: int) -> Optional[str]:
         "FishingSpots": FishingSpots,
         "UtilityObjects": UtilityObjects,
         "DoorsAndGates": DoorsAndGates,
+        "StairsAndLadders": StairsAndLadders,
     }
     
     for category_name, category_cls in categories.items():
@@ -371,7 +396,7 @@ def find_object_name(obj_id: int) -> Optional[str]:
     Returns:
         Object display name (e.g., "Iron ore rock", "Bank booth") or None if not found
     """
-    categories = [BankObjects, OreRocks, Trees, FishingSpots, UtilityObjects, DoorsAndGates]
+    categories = [BankObjects, OreRocks, Trees, FishingSpots, UtilityObjects, DoorsAndGates, StairsAndLadders]
     
     for category in categories:
         obj = category.find_by_id(obj_id)
@@ -391,7 +416,7 @@ def find_game_object(obj_id: int) -> Optional[GameObject]:
     Returns:
         GameObject object or None if not found
     """
-    categories = [BankObjects, OreRocks, Trees, FishingSpots, UtilityObjects, DoorsAndGates]
+    categories = [BankObjects, OreRocks, Trees, FishingSpots, UtilityObjects, DoorsAndGates, StairsAndLadders]
     
     for category in categories:
         obj = category.find_by_id(obj_id)

@@ -177,10 +177,13 @@ class CollisionMap:
             # Region not found - assume blocked for safety
             return False
         
-        # Calculate bit index
-        # Each region has 64x64 tiles, each tile has 2 flags (bits)
+        # Calculate bit index with plane offset
+        # Each plane has 64x64 tiles with 2 flags each = 8192 bits = 1024 bytes
+        plane_offset = z * (self.REGION_SIZE * self.REGION_SIZE * 2)  # offset in bits
+        
+        # Each tile has 2 flags (bits)
         tile_index = tile_y * self.REGION_SIZE + tile_x
-        bit_index = tile_index * 2 + flag
+        bit_index = plane_offset + (tile_index * 2) + flag
         
         # Get byte and bit within byte
         byte_index = bit_index // 8

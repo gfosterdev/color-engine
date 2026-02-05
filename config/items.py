@@ -602,6 +602,30 @@ class Armor(ItemCategory):
 
 
 # ============================================================================
+# JEWELRY
+# ============================================================================
+
+class Jewelry(ItemCategory):
+    """Jewelry item IDs (amulets, rings, necklaces)."""
+    
+    # Amulets
+    AMULET_OF_STRENGTH = Item(1725, "Amulet of strength")
+    AMULET_OF_POWER = Item(1731, "Amulet of power")
+    AMULET_OF_GLORY = Item(1712, "Amulet of glory(4)")
+    AMULET_OF_FURY = Item(6585, "Amulet of fury")
+    AMULET_OF_TORTURE = Item(19553, "Amulet of torture")
+    
+    # Necklaces
+    NECKLACE_OF_ANGUISH = Item(19547, "Necklace of anguish")
+    OCCULT_NECKLACE = Item(12002, "Occult necklace")
+    
+    # Rings
+    RING_OF_WEALTH = Item(2572, "Ring of wealth(4)")
+    RING_OF_DUELING = Item(2552, "Ring of dueling(8)")
+    BERSERKER_RING = Item(6737, "Berserker ring")
+
+
+# ============================================================================
 # CURRENCY & VALUABLES
 # ============================================================================
 
@@ -681,6 +705,18 @@ class Bones(ItemCategory):
     # Special bones
     OURG_BONES = Item(4834, "Ourg bones")
     HYDRA_BONES = Item(22783, "Hydra bones")
+
+
+# ============================================================================
+# HIDES
+# ============================================================================
+
+class Hides(ItemCategory):
+    """Hide and leather item IDs."""
+    
+    COWHIDE = Item(1739, "Cowhide")
+    LEATHER = Item(1741, "Leather")
+    HARD_LEATHER = Item(1743, "Hard leather")
 
 
 class BirdsNests(ItemCategory):
@@ -763,7 +799,7 @@ def find_item_name(item_id: int) -> Optional[str]:
     categories = [
         Ores, Bars, Logs, Planks, RawFish, CookedFish, Food,
         Potions, Herbs, Seeds, Runes, Gems, Tools, Weapons,
-        Armor, Currency, Ammunition, Bones, BirdsNests
+        Armor, Jewelry, Currency, Ammunition, Bones, Hides, BirdsNests
     ]
     
     for category in categories:
@@ -787,7 +823,7 @@ def find_item(item_id: int) -> Optional[Item]:
     categories = [
         Ores, Bars, Logs, Planks, RawFish, CookedFish, Food,
         Potions, Herbs, Seeds, Runes, Gems, Tools, Weapons,
-        Armor, Currency, Ammunition, Bones, BirdsNests
+        Armor, Jewelry, Currency, Ammunition, Bones, Hides, BirdsNests
     ]
     
     for category in categories:

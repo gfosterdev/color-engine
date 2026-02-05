@@ -74,6 +74,7 @@ class InterfaceDetector:
         
         widgets = self.api.get_widgets()
         if widgets and widgets.get("isBankOpen", False):
+            print("BANK IS OPEN")
             return True
 
         return False

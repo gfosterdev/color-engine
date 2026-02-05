@@ -343,7 +343,7 @@ class InventoryManager:
             print("Item ID and action are required")
             return False
         
-        if not self.is_inventory_open():
+        if not self.is_inventory_open() and not self.osrs.interfaces.is_bank_open():
             self.open_inventory()
             import time
             time.sleep(random.uniform(*TIMING.INVENTORY_TAB_OPEN))

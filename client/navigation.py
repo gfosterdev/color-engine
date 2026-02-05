@@ -443,7 +443,7 @@ class NavigationManager:
             # Wait for arrival with stuck detection
             time.sleep(random.uniform(*TIMING.GAME_TICK))  # Wait full game tick for movement to register in API
             
-            if not self.wait_until_arrived(wp_x, wp_y, tolerance=2, timeout=30):
+            if not self.wait_until_arrived(wp_x, wp_y, plane=plane, tolerance=2, timeout=30):
                 # Check if we're stuck
                 if self._is_stuck():
                     if DEBUG:
@@ -584,7 +584,7 @@ class NavigationManager:
         
         return False
 
-    def wait_until_arrived(self, target_x: int, target_y: int, tolerance: int = 2, timeout: float = 15.0) -> bool:
+    def wait_until_arrived(self, target_x: int, target_y: int, plane: int = 0, tolerance: int = 2, timeout: float = 15.0) -> bool:
         """
         Wait until player arrives at target coordinates.
         
@@ -594,11 +594,12 @@ class NavigationManager:
         Args:
             target_x: Target world x coordinate
             target_y: Target world y coordinate
+            plane: Target plane/height level (default: 0)
             tolerance: Distance tolerance in tiles (default: 2)
             timeout: Maximum wait time for movement to stop (default: 15s for ~12 tile click)
             
         Returns:
-            True if arrived within tolerance, False if stopped elsewhere or timeout
+            True if arrived within tolerance and correct plane, False if stopped elsewhere or timeout
         """
         # Wait for player to stop moving from the minimap click
         # Max distance ~12 tiles at ~0.6s/tile = ~7-8s typical, 15s timeout is safe
@@ -608,20 +609,31 @@ class NavigationManager:
             return False
         
         # Movement complete - check if we arrived at destination
-        current_pos = self.read_world_coordinates()
-        if current_pos is None:
+        coords = self.api.get_coords()
+        if coords is None or "world" not in coords:
             if DEBUG:
                 print("  ⚠ Could not read coordinates after movement stopped")
             return False
         
-        current_x, current_y = current_pos
+        world = coords["world"]
+        current_x = world.get("x", 0)
+        current_y = world.get("y", 0)
+        current_plane = world.get("plane", 0)
+        
+        # Check plane first - must be exact match
+        if current_plane != plane:
+            if DEBUG:
+                print(f"  ⚠ Stopped at wrong plane: {current_plane} (expected: {plane})")
+            return False
+        
+        # Check x/y distance
         distance = math.sqrt((target_x - current_x)**2 + (target_y - current_y)**2)
         
         if distance <= tolerance:
             return True
         else:
             if DEBUG:
-                print(f"  ⚠ Stopped at ({current_x}, {current_y}) - distance from target: {distance:.1f} tiles")
+                print(f"  ⚠ Stopped at ({current_x}, {current_y}, plane {current_plane}) - distance from target: {distance:.1f} tiles")
             return False
     
     def is_player_moving(self) -> bool:

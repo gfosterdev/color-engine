@@ -448,6 +448,49 @@ public class HttpServerPlugin extends Plugin
 
                         objects.add(objData);
                     }
+                    
+                    // Check wall objects as fallback
+                    WallObject wallObject = tile.getWallObject();
+                    if (wallObject != null)
+                    {
+                        WorldPoint wp = wallObject.getWorldLocation();
+                        
+                        // Create unique key from id, worldX, worldY
+                        String objectKey = wallObject.getId() + "_" + wp.getX() + "_" + wp.getY();
+                        
+                        // Skip if we've already added this object
+                        if (seenObjects.contains(objectKey)) {
+                            continue;
+                        }
+                        seenObjects.add(objectKey);
+
+                        Point point = Perspective.localToCanvas(client, wallObject.getLocalLocation(), plane);
+                        JsonObject objData = new JsonObject();
+                        objData.addProperty("id", wallObject.getId());
+                        objData.addProperty("worldX", wp.getX());
+                        objData.addProperty("worldY", wp.getY());
+                        objData.addProperty("x", point.getX());
+                        objData.addProperty("y", point.getY());
+
+                        SimplePolygon hull = (SimplePolygon) wallObject.getConvexHull();
+                        JsonObject hullData = new JsonObject();
+                        hullData.addProperty("exists", hull != null);
+                        if (hull != null) {
+                            JsonArray pointData = new JsonArray();
+                            List<Point> points = hull.toRuneLitePointList();
+                            for (Point value : points) {
+                                JsonObject pointObj = new JsonObject();
+                                pointObj.addProperty("x", value.getX());
+                                pointObj.addProperty("y", value.getY());
+                                pointData.add(pointObj);
+                            }
+                            hullData.add("points", pointData);
+                        }
+
+                        objData.add("hull", hullData);
+
+                        objects.add(objData);
+                    }
                 }
             }
 
@@ -593,7 +636,7 @@ public class HttpServerPlugin extends Plugin
             else if (searchType.equals("object"))
             {
                 // Search for game objects matching any of the target IDs
-                GameObject closestObject = null;
+                TileObject closestObject = null;
                 int closestObjectDistance = Integer.MAX_VALUE;
                 Scene scene = client.getScene();
                 Tile[][][] tiles = scene.getTiles();
@@ -629,6 +672,44 @@ public class HttpServerPlugin extends Plugin
                             if (distance < closestObjectDistance)
                             {
                                 closestObject = gameObject;
+                                closestObjectDistance = distance;
+                            }
+                        }
+                    }
+                }
+
+                // If no game object found, search wall objects
+                if (closestObject == null)
+                {
+                    for (int x = 0; x < 104; x++)
+                    {
+                        for (int y = 0; y < 104; y++)
+                        {
+                            Tile tile = tiles[plane][x][y];
+                            if (tile == null) continue;
+
+                            WallObject wallObject = tile.getWallObject();
+                            if (wallObject == null) continue;
+                            
+                            // Check if wall object ID matches any of the target IDs
+                            boolean matches = false;
+                            for (int targetId : targetIds)
+                            {
+                                if (wallObject.getId() == targetId)
+                                {
+                                    matches = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (!matches) continue;
+
+                            WorldPoint objPos = wallObject.getWorldLocation();
+                            int distance = objPos.distanceTo(playerPos);
+
+                            if (distance < closestObjectDistance)
+                            {
+                                closestObject = wallObject;
                                 closestObjectDistance = distance;
                             }
                         }
@@ -917,6 +998,23 @@ public class HttpServerPlugin extends Plugin
                         objData.addProperty("id", gameObject.getId());
 
                         WorldPoint wp = gameObject.getWorldLocation();
+                        JsonObject pos = new JsonObject();
+                        pos.addProperty("x", wp.getX());
+                        pos.addProperty("y", wp.getY());
+                        pos.addProperty("plane", wp.getPlane());
+                        objData.add("position", pos);
+
+                        objects.add(objData);
+                    }
+                    
+                    // Check wall objects as fallback
+                    WallObject wallObject = tile.getWallObject();
+                    if (wallObject != null)
+                    {
+                        JsonObject objData = new JsonObject();
+                        objData.addProperty("id", wallObject.getId());
+
+                        WorldPoint wp = wallObject.getWorldLocation();
                         JsonObject pos = new JsonObject();
                         pos.addProperty("x", wp.getX());
                         pos.addProperty("y", wp.getY());
@@ -1529,7 +1627,7 @@ public class HttpServerPlugin extends Plugin
             JsonObject data = new JsonObject();
 
             // Check common interfaces
-            data.addProperty("isBankOpen", client.getWidget(WidgetInfo.BANK_CONTAINER) != null);
+            data.addProperty("isBankOpen", client.getWidget(WidgetInfo.BANK_CONTAINER) != null && !client.getWidget(WidgetInfo.BANK_CONTAINER).isHidden());
 
             // UI Inventory tabs
             Map<String, Integer> uiItems = new java.util.HashMap<>();

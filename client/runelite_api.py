@@ -535,7 +535,6 @@ class RuneLiteAPI:
         result = cast(Optional[List[Dict[str, Any]]], result)
         if result and len(result) > 0:
             filtered = [entity for entity in result if entity.get('id') in entity_ids]
-            print(filtered)
             # If filtering NPCs by interacting target
             if filterNpcInteracting and entity_type == "npc":
                 player = self.get_player()
