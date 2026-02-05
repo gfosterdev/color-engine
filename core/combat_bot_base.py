@@ -258,12 +258,12 @@ class CombatBotBase(ABC):
         Get required inventory layout for all 28 slots.
         
         Returns:
-            Dictionary mapping slot number (1-28) to item ID or None for empty/flexible slots
+            Dictionary mapping slot number (1-28) to item ID or None for empty slots
             Example: {1: Food.LOBSTER.id, 2: Food.LOBSTER.id, 3: None, ..., 28: None}
             
         Note:
-            - Slots with specific item IDs will be validated
-            - Slots with None are flexible (can contain any item or be empty)
+            - Slots with specific item IDs will be validated and required
+            - Slots with None are enforced as empty (must not contain any item)
             - All 28 slots must be defined
         """
         pass
@@ -575,23 +575,33 @@ class CombatBotBase(ABC):
             return
         
         # Bank not open - check if we need to walk to bank first
-        combat_area = self.get_combat_area()
-        if not self._is_near_location(combat_area, tolerance=30):
-            # We're at combat area, need to walk to bank
-            if DEBUG:
-                print("Navigating to bank...")
-            self._start_path_navigation(self.get_path_to_bank(), BotState.BANKING)
+        # Get bank location from the last step of path to bank
+        path_to_bank = self.get_path_to_bank()
+        if path_to_bank.steps:
+            bank_location = (path_to_bank.steps[-1].x, path_to_bank.steps[-1].y, path_to_bank.steps[-1].plane)
+            
+            if self._is_near_location(bank_location, tolerance=10):
+                # Near bank, try to open it
+                if DEBUG:
+                    print("Opening bank...")
+                if self.osrs.bank.open():
+                    if DEBUG:
+                        print("✓ Bank opened")
+                else:
+                    if DEBUG:
+                        print("✗ Failed to open bank")
+                    time.sleep(2)
+            else:
+                # Far from bank, navigate to it
+                if DEBUG:
+                    print("Navigating to bank...")
+                self._start_path_navigation(path_to_bank, BotState.BANKING)
         else:
-            # Near bank, try to open it
+            # No path defined, try to open bank anyway
             if DEBUG:
                 print("Opening bank...")
-            if self.osrs.bank.open():
-                if DEBUG:
-                    print("✓ Bank opened")
-            else:
-                if DEBUG:
-                    print("✗ Failed to open bank")
-                time.sleep(2)
+            self.osrs.bank.open()
+            time.sleep(2)
     
     # ========== Walking State Handler ==========
     
@@ -752,6 +762,7 @@ class CombatBotBase(ABC):
             loot = self.osrs.combat.wait_for_loot(x, y, timeout=10.0, radius=3)
             
             if loot:
+                print(f"  Looting...")
                 # Take loot
                 loot_items = self.get_loot_items()
                 taken, failed = self.osrs.combat.take_loot(loot, loot_items)
@@ -760,6 +771,8 @@ class CombatBotBase(ABC):
                 
                 if DEBUG and taken:
                     print(f"  ✓ Collected {len(taken)} item(s)")
+                if DEBUG and failed:
+                    print(f"  ⚠ Failed to take {len(failed)} item(s)")
         
         # Small delay between kills (anti-ban)
         time.sleep(random.uniform(0.5, 1.5))
@@ -933,30 +946,72 @@ class CombatBotBase(ABC):
         if DEBUG:
             print("  Checking inventory requirements...")
         
-        # Count how many of each item we need
+        # Count how many of each item we need and how many empty slots required
         item_requirements = {}
+        empty_slots_required = 0
         for slot_num in range(1, 29):
             required_item_id = required_inventory.get(slot_num)
-            # Skip None (flexible slots)
             if required_item_id is not None:
                 item_requirements[required_item_id] = item_requirements.get(required_item_id, 0) + 1
+            else:
+                empty_slots_required += 1
         
         if DEBUG:
             print(f"  Required items: {len(item_requirements)} unique item(s)")
             for item_id, qty in item_requirements.items():
                 print(f"    Item ID {item_id}: {qty}x required")
+            print(f"  Empty slots required: {empty_slots_required}")
+        
+        # Get loot and food item IDs for flexible verification
+        loot_items = self.get_loot_items()
+        loot_item_ids = set(item.id for item in loot_items)
+        
+        food_items = self.get_food_items()
+        food_item_ids = set(item.id for item in food_items)
         
         # Verify each required item has correct quantity in inventory
+        # For food items, allow shortage if loot items are present (mid-trip restart)
+        # For non-food items, require exact quantities
         for item_id, required_quantity in item_requirements.items():
             actual_quantity = self.osrs.inventory.count_item(item_id)
             if DEBUG:
                 print(f"  Checking item ID {item_id}: have {actual_quantity}, need {required_quantity}")
-            if actual_quantity < required_quantity:
-                if DEBUG:
-                    print(f"  ✗ Insufficient quantity for item ID {item_id}")
-                return False
+            
+            # If this is NOT a food item, it must match exactly
+            if item_id not in food_item_ids:
+                if actual_quantity != required_quantity:
+                    if DEBUG:
+                        print(f"  ✗ Incorrect quantity for non-food item ID {item_id}")
+                    return False
+            else:
+                # Food items can be less than required (eaten and replaced by loot)
+                # But must have at least minimum food count
+                pass  # Will check minimum food separately
+        
+        # Check minimum food count (sum of all food types)
+        total_food = sum(self.osrs.inventory.count_item(food.id) for food in food_items)
+        min_food = self.get_min_food_count()
+        if total_food < min_food:
+            if DEBUG:
+                print(f"  ✗ Insufficient food: have {total_food}, need at least {min_food}")
+            return False
+        
+        # Verify that any extra items in inventory are loot items only
+        for slot in self.osrs.inventory.slots:
+            if not slot.is_empty:
+                # Skip items that are in our requirements
+                if slot.item_id in item_requirements:
+                    continue
+                # Any other items must be loot items
+                if slot.item_id not in loot_item_ids:
+                    if DEBUG:
+                        print(f"  ✗ Unexpected item ID {slot.item_id} in inventory (not required or loot)")
+                    return False
         
         if DEBUG:
+            loot_count = sum(1 for slot in self.osrs.inventory.slots if not slot.is_empty and slot.item_id in loot_item_ids)
+            if loot_count > 0:
+                print(f"  ✓ Found {loot_count} loot item(s) (allowed for mid-trip restart)")
             print("  ✓ All inventory requirements met")
         
         return True
@@ -1040,6 +1095,10 @@ class CombatBotBase(ABC):
             bank_was_closed = True
             time.sleep(random.uniform(*TIMING.INTERFACE_TRANSITION))
         
+        # Deposit everything before withdrawing
+        self.osrs.bank.deposit_all()
+        time.sleep(random.uniform(*TIMING.BANK_DEPOSIT_ACTION))
+
         # Count how many of each item we need
         item_requirements = {}
         for slot_num in range(1, 29):
@@ -1119,7 +1178,7 @@ class CombatBotBase(ABC):
         total_food = self._count_total_food()
         min_food = self.get_min_food_count()
         
-        if total_food <= min_food:
+        if total_food < min_food:
             return True
         
         # Check if inventory is full (no space for loot)
@@ -1164,7 +1223,7 @@ class CombatBotBase(ABC):
         """
         # Check if we're near combat area
         combat_area = self.get_combat_area()
-        if self._is_near_location(combat_area, tolerance=15):
+        if self._is_near_location(combat_area, tolerance=50):
             # At combat area - check if ready
             if self._verify_combat_ready():
                 return BotState.COMBAT

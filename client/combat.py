@@ -523,6 +523,9 @@ class CombatHandler:
                 # Failed to pick up item
                 failed_items.append(item)
         
+        if DEBUG and len(taken_items) == 0 and len(failed_items) == 0:
+            print(f"[Combat] No matching loot items found to take")
+
         return taken_items, failed_items
 
     # ========== Wait Methods ==========

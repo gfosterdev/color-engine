@@ -203,8 +203,8 @@ class LowLevelMonsters(NPCCategory):
     ROOSTER = NPC("Rooster", [1017, 2693, 2694], "monster_low", "Male chicken variant", combat_level=1)
     
     # Cows
-    COW = NPC("Cow", [81, 397, 955, 1766, 1767, 1768, 2310, 3309, 3311], "monster_low", "Common low-level monster", combat_level=2)
-    COW_CALF = NPC("Cow calf", [1766, 1767, 1768], "monster_low", "Young cow", combat_level=2)
+    COW = NPC("Cow", [2790, 2791, 2792, 2793, 2794, 2795, 2801], "monster_low", "Common low-level monster", combat_level=2)
+    COW_CALF = NPC("Cow calf", [2792, 2794, 2801], "monster_low", "Young cow", combat_level=2)
     
     # Goblins
     GOBLIN = NPC("Goblin", [4279, 4280, 4281, 4282, 4283, 4284, 4285, 4286, 4287, 4288, 4289, 4290, 4291, 4292, 4293, 4294, 4295, 4296, 4297], "monster_low", "Common goblin variants", combat_level=5)

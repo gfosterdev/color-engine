@@ -157,7 +157,7 @@ class CowKillerBot(CombatBotBase):
             ),
             # Open gate to enter cow pen
             NavigationStep(
-                x=3253,
+                x=3251,
                 y=3266,
                 plane=0,
                 object_ids=DoorsAndGates.LUMBRIDGE_COW_PEN_GATE.ids,
@@ -204,7 +204,7 @@ class CowKillerBot(CombatBotBase):
             ),
             # Open gate to exit
             NavigationStep(
-                x=3253,
+                x=3254,
                 y=3266,
                 plane=0,
                 object_ids=DoorsAndGates.LUMBRIDGE_COW_PEN_GATE.ids,

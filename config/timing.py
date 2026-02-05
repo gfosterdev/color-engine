@@ -61,7 +61,7 @@ class TimingProfile:
     COMBAT_FOOD_DELAY = (0.60, 0.80)      # After eating food (1 game tick + buffer)
     COMBAT_POTION_DELAY = (0.30, 0.50)    # After drinking potion
     COMBAT_ENGAGE_WAIT = (0.80, 1.20)     # Wait for combat to start after attack click
-    COMBAT_DEATH_DETECT = (1.50, 2.00)    # Wait to confirm NPC death
+    COMBAT_DEATH_DETECT = (3.50, 4.50)    # Wait to confirm NPC death
     COMBAT_LOOT_DELAY = (2.50, 4.00)      # After picking up loot item
     OBJECT_INTERACT_DELAY = (0.05, 0.10)  # After interacting with game object
     NPC_INTERACT_DELAY = (0.05, 0.10)     # After interacting with NPC
