@@ -5,9 +5,9 @@ Kills cows in the Lumbridge east cow pens and banks cowhides at Lumbridge castle
 This is a low-level combat bot suitable for new accounts.
 """
 
-from typing import List, Dict, Tuple, Optional
+from typing import Any, Callable, List, Dict, Tuple, Optional
 from core.combat_bot_base import CombatBotBase, NavigationPath, NavigationStep
-from core.config import load_profile
+from core.config import DEBUG, load_profile
 from client.osrs import OSRS
 from config.npcs import LowLevelMonsters
 from config.items import Item, CookedFish, Armor, Weapons, Jewelry
@@ -75,7 +75,7 @@ class CowKillerBot(CombatBotBase):
         Returns:
             List containing only cowhide item
         """
-        return [items_module.Hides.COWHIDE]
+        return [items_module.Hides.COWHIDE, items_module.Bones.BONES]
     
     def get_food_items(self) -> List[Item]:
         """
@@ -299,3 +299,30 @@ class CowKillerBot(CombatBotBase):
             inventory[slot] = None
         
         return inventory
+
+    def get_special_loot_actions(self) -> Dict[int, Callable[[Dict[str, Any]], None]]:
+        """
+        Get special actions to perform on specific loot items.
+        
+        For cow killer bot, no special loot actions are needed since we only loot cowhides.
+        
+        Returns:
+            Empty dictionary (no special actions)
+        """
+        return {
+            items_module.Bones.BONES.id: self.bury_bones
+        }
+
+    # ========== Special Loot Handlers ==========
+
+    def bury_bones(self, item: Dict[str, Any]) -> None:
+        """
+        Bury bones after looting them.
+        
+        Args:
+            item: Dictionary containing item information (id, name, quantity)
+        """
+        if DEBUG:
+            print(f"  → Burying bones: {item['name']}")
+        if self.osrs.inventory.count_item(item['id']):
+            self.osrs.inventory.click_item(item['id'], "Bury")

@@ -169,6 +169,20 @@ class CombatBotBase(ABC):
         pass
     
     @abstractmethod
+    def get_special_loot_actions(self) -> Dict[int, Callable[[Dict[str, Any]], None]]:
+        """
+        Get mapping of item ID to special loot handling function.
+        
+        This can be used to define custom processing for specific items when they are looted,
+        such as automatically alching valuable drops, burying bones, or using items immediately.
+        
+        Returns:
+            Dictionary mapping item ID to a function that takes the item dict as argument
+            Example: {Items.DRAGON_BONES.id: self._bury_bones}
+        """
+        return {}
+
+    @abstractmethod
     def get_food_items(self) -> List[Item]:
         """
         Get list of food items to use for healing.
@@ -769,6 +783,9 @@ class CombatBotBase(ABC):
                 
                 self.loot_collected += len(taken)
                 
+                # Pass taken to special loot handling
+                self._handle_special_loot(taken)
+
                 if DEBUG and taken:
                     print(f"  ✓ Collected {len(taken)} item(s)")
                 if DEBUG and failed:
@@ -1128,6 +1145,31 @@ class CombatBotBase(ABC):
         
         return True
     
+    def _handle_special_loot(self, taken: List[Dict[str, Any]]) -> None:
+        """
+        Handle any special loot processing after taking items.
+        
+        This method is called after loot is taken and can be used to process
+        specific items, such as alching, burying bones, or using items immediately.
+
+        Args:
+            taken: List of items that were successfully taken from loot, each item is a dict with keys like 'id', 'name', 'quantity'
+        """
+        special_loot_actions = self.get_special_loot_actions()
+        
+        for item in taken:
+            item_id = item['id']
+            if item_id in special_loot_actions:
+                action_func = special_loot_actions[item_id]
+                if callable(action_func):
+                    if DEBUG:
+                        print(f"  Processing special loot: {item['name']} (ID: {item_id})")
+                    try:
+                        action_func(item)
+                    except Exception as e:
+                        if DEBUG:
+                            print(f"  ✗ Error processing special loot: {e}")
+
     def _count_total_food(self) -> int:
         """
         Count total food items in inventory.

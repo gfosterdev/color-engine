@@ -353,6 +353,22 @@ class StairsAndLadders(ObjectCategory):
         category="stairs",
         description="Lumbridge castle stairs for climbing up/down"
     )
+    
+    # Slayer tower stairs
+    SLAYER_TOWER_STAIRS = GameObject(
+        name="Staircase",
+        ids=[4493],
+        category="stairs",
+        description="Slayer tower staircases for climbing between floors"
+    )
+    
+    # Slayer tower chain (acts like stairs/ladder)
+    SLAYER_TOWER_CHAIN = GameObject(
+        name="Chain",
+        ids=[4495],
+        category="stairs",
+        description="Slayer tower chain for climbing up/down"
+    )
 
 
 # ============================================================================

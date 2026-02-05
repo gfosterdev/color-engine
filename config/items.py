@@ -503,6 +503,7 @@ class Tools(ItemCategory):
     
     # Other tools
     HAMMER = Item(2347, "Hammer")
+    ROCK_HAMMER = Item(4162, "Rock hammer")
     SAW = Item(8794, "Saw")
     CHISEL = Item(1755, "Chisel")
     NEEDLE = Item(1733, "Needle")
@@ -536,6 +537,7 @@ class Weapons(ItemCategory):
     
     # Special weapons
     ABYSSAL_WHIP = Item(4151, "Abyssal whip")
+    GRANITE_MAUL = Item(4153, "Granite maul")
     DRAGON_DAGGER = Item(1215, "Dragon dagger")
     DRAGON_CLAWS = Item(13652, "Dragon claws")
     ARMADYL_GODSWORD = Item(11802, "Armadyl godsword")
@@ -646,6 +648,29 @@ class Currency(ItemCategory):
     UNCUT_ONYX = Item(6571, "Uncut onyx")
     DRAGON_BONES = Item(536, "Dragon bones")
     SUPERIOR_DRAGON_BONES = Item(22124, "Superior dragon bones")
+
+
+# ============================================================================
+# SLAYER DROPS
+# ============================================================================
+
+class SlayerDrops(ItemCategory):
+    """Valuable slayer monster drops."""
+    
+    # Gargoyle drops
+    MYSTIC_ROBE_TOP_DARK = Item(4101, "Mystic robe top (dark)")
+    MYSTIC_ROBE_BOTTOM_DARK = Item(4103, "Mystic robe bottom (dark)")
+    RUNE_FULL_HELM = Item(1163, "Rune full helm")
+    RUNE_PLATELEGS = Item(1079, "Rune platelegs")
+    RUNE_BOOTS = Item(4131, "Rune boots")
+    RUNE_PLATESKIRT = Item(1093, "Rune plateskirt")
+    
+    # Abyssal demon drops
+    ABYSSAL_WHIP_DROP = Item(4151, "Abyssal whip")
+    
+    # Other valuable drops
+    RANARR_SEED = Item(5295, "Ranarr seed")
+    SNAPDRAGON_SEED = Item(5300, "Snapdragon seed")
 
 
 # ============================================================================

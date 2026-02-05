@@ -1,0 +1,413 @@
+"""
+Gargoyle Killer Bot for Slayer Tower.
+
+Kills gargoyles on the second floor of the Slayer Tower in Canifis.
+This is a mid-high level slayer bot requiring 75 Slayer and a rock hammer.
+"""
+
+from typing import List, Dict, Tuple, Optional, Any
+import time
+import random
+
+from core.combat_bot_base import CombatBotBase, NavigationPath, NavigationStep
+from core.config import load_profile
+from client.osrs import OSRS
+from config.npcs import SlayerMonsters
+from config.items import Item, CookedFish, Armor, Weapons, Tools, SlayerDrops
+from config.locations import BankLocations, TrainingLocations
+from config.game_objects import StairsAndLadders
+
+
+class GargoyleKillerBot(CombatBotBase):
+    """
+    Combat bot for killing gargoyles at Slayer Tower.
+    
+    Features:
+    - Kills gargoyles on floor 2 of Slayer Tower
+    - Requires rock hammer to finish off gargoyles (below 10 HP)
+    - Loots valuable drops (granite maul, mystic robes, rune items)
+    - Uses sharks or better for food
+    - Banks at Canifis
+    - Navigates through stairs
+    - Emergency teleport on low health (house teleport or ectophial)
+    """
+    
+    def __init__(self, profile_name: str = "gargoyle_killer_canifis"):
+        """
+        Initialize gargoyle killer bot.
+        
+        Args:
+            profile_name: Configuration profile to load
+        """
+        config = load_profile(profile_name)
+        osrs = OSRS(config)
+        
+        # Initialize base class
+        super().__init__(osrs, config)
+        
+        self.bot_config = config
+    
+    def get_target_npc_ids(self) -> List[int]:
+        """
+        Get list of gargoyle NPC IDs to attack.
+        
+        Returns:
+            List of gargoyle IDs (excludes marble gargoyle superior).
+        """
+        return SlayerMonsters.GARGOYLE.ids
+    
+    def get_combat_area(self) -> Tuple[int, int, int]:
+        """
+        Get combat area center coordinates (Slayer Tower floor 2, gargoyles).
+        
+        Returns:
+            Tuple of (x, y, plane) world coordinates
+        """
+        return TrainingLocations.SLAYER_TOWER_GARGOYLES
+    
+    def get_loot_items(self) -> List[Item]:
+        """
+        Get list of items to loot from gargoyles.
+        
+        Valuable drops:
+        - Granite maul (4153)
+        - Mystic robe top (dark) (4101)
+        - Mystic robe bottom (dark) (4103)
+        - Rune full helm (1163)
+        - Rune platelegs (1079)
+        - Rune boots (4131)
+        - Rune plateskirt (1093)
+        - Seeds (ranarr, snapdragon)
+        
+        Returns:
+            List of valuable items to loot
+        """
+        return [
+            Weapons.GRANITE_MAUL,
+            SlayerDrops.MYSTIC_ROBE_TOP_DARK,
+            SlayerDrops.MYSTIC_ROBE_BOTTOM_DARK,
+            SlayerDrops.RUNE_FULL_HELM,
+            SlayerDrops.RUNE_PLATELEGS,
+            SlayerDrops.RUNE_BOOTS,
+            SlayerDrops.RUNE_PLATESKIRT,
+            SlayerDrops.RANARR_SEED,
+            SlayerDrops.SNAPDRAGON_SEED,
+        ]
+    
+    def get_food_items(self) -> List[Item]:
+        """
+        Get list of food items (shark or better recommended).
+        
+        Returns:
+            List containing shark item
+        """
+        return [CookedFish.SHARK]
+    
+    def get_required_equipment(self) -> Dict[int, int]:
+        """
+        Get required equipment for fighting gargoyles.
+        
+        Equipment requirements:
+        - Melee combat gear (rune or better)
+        - Rock hammer in inventory (required to finish gargoyles)
+        
+        Equipment setup:
+        - Rune full helm
+        - Rune platebody
+        - Rune platelegs
+        - Rune kiteshield
+        - Rune scimitar (or better)
+        - Amulet of strength (or better)
+        
+        Returns:
+            Dictionary mapping equipment slot to item ID
+        """
+        return {
+            0: Armor.RUNE_FULL_HELM.id,      # Head
+            # Slot 2: Neck (optional - amulet of strength)
+            3: Weapons.RUNE_SCIMITAR.id,      # Weapon
+            4: Armor.RUNE_PLATEBODY.id,       # Body
+            5: Armor.RUNE_KITESHIELD.id,      # Shield
+            6: Armor.RUNE_PLATELEGS.id,       # Legs
+            # Slot 10: Feet (optional - rune boots)
+        }
+    
+    def get_path_to_combat_area(self) -> NavigationPath:
+        """
+        Get navigation path from Canifis bank to Slayer Tower gargoyles.
+        
+        Path:
+        1. Exit Canifis bank
+        2. Walk to Slayer Tower entrance
+        3. Climb stairs to floor 1
+        4. Climb stairs to floor 2 (gargoyles)
+        
+        Returns:
+            NavigationPath with steps from bank to combat area
+        """
+        bank_x, bank_y, bank_plane = BankLocations.CANIFIS
+        combat_x, combat_y, combat_plane = TrainingLocations.SLAYER_TOWER_GARGOYLES
+        
+        steps = [
+            # Start at Canifis bank
+            NavigationStep(
+                x=bank_x,
+                y=bank_y,
+                plane=bank_plane
+            ),
+            # Walk to Slayer Tower entrance
+            NavigationStep(
+                x=3428,
+                y=3537,
+                plane=0
+            ),
+            # Walk to ground floor stairs
+            NavigationStep(
+                x=3422,
+                y=3540,
+                plane=0
+            ),
+            # Climb stairs to floor 1
+            NavigationStep(
+                x=3422,
+                y=3540,
+                plane=0,
+                object_ids=StairsAndLadders.SLAYER_TOWER_STAIRS.ids,
+                action_text="Climb-up"
+            ),
+            # Walk to second stairs
+            NavigationStep(
+                x=3418,
+                y=3540,
+                plane=1
+            ),
+            # Climb stairs to floor 2 (gargoyles)
+            NavigationStep(
+                x=3418,
+                y=3540,
+                plane=1,
+                object_ids=StairsAndLadders.SLAYER_TOWER_STAIRS.ids,
+                action_text="Climb-up"
+            ),
+            # Walk to gargoyle area
+            NavigationStep(
+                x=combat_x,
+                y=combat_y,
+                plane=combat_plane
+            ),
+        ]
+        
+        return NavigationPath(steps=steps)
+    
+    def get_path_to_bank(self) -> NavigationPath:
+        """
+        Get navigation path from gargoyle area to Canifis bank.
+        
+        Path:
+        1. Walk to stairs
+        2. Climb down to floor 1
+        3. Climb down to floor 0
+        4. Walk to Canifis bank
+        
+        Returns:
+            NavigationPath with steps from combat area to bank
+        """
+        combat_x, combat_y, combat_plane = TrainingLocations.SLAYER_TOWER_GARGOYLES
+        bank_x, bank_y, bank_plane = BankLocations.CANIFIS
+        
+        steps = [
+            # Start at gargoyle area
+            NavigationStep(
+                x=combat_x,
+                y=combat_y,
+                plane=combat_plane
+            ),
+            # Walk to stairs
+            NavigationStep(
+                x=3418,
+                y=3540,
+                plane=2
+            ),
+            # Climb down to floor 1
+            NavigationStep(
+                x=3418,
+                y=3540,
+                plane=2,
+                object_ids=StairsAndLadders.SLAYER_TOWER_STAIRS.ids,
+                action_text="Climb-down"
+            ),
+            # Walk to next stairs
+            NavigationStep(
+                x=3422,
+                y=3540,
+                plane=1
+            ),
+            # Climb down to ground floor
+            NavigationStep(
+                x=3422,
+                y=3540,
+                plane=1,
+                object_ids=StairsAndLadders.SLAYER_TOWER_STAIRS.ids,
+                action_text="Climb-down"
+            ),
+            # Walk to Canifis bank
+            NavigationStep(
+                x=bank_x,
+                y=bank_y,
+                plane=bank_plane
+            ),
+        ]
+        
+        return NavigationPath(steps=steps)
+    
+    def get_escape_threshold(self) -> int:
+        """
+        Get health percentage threshold for emergency escape.
+        
+        Returns:
+            20 - Emergency escape when health drops below 20% (gargoyles hit hard)
+        """
+        return 20
+    
+    def get_escape_teleport_item_id(self) -> Optional[int]:
+        """
+        Get item ID of emergency teleport item.
+        
+        Returns:
+            None - Configure teleport in profile (house tab, ectophial, etc.)
+        """
+        # User should configure teleport item in their profile
+        # Common options:
+        # - House teleport tab: 8013
+        # - Ectophial: 4251
+        return None
+    
+    def get_food_threshold(self) -> int:
+        """
+        Get health percentage threshold for eating during combat.
+        
+        Returns:
+            60 - Eat when health drops below 60% (gargoyles deal good damage)
+        """
+        return 60
+    
+    def get_min_food_count(self) -> int:
+        """
+        Get minimum food count before returning to bank.
+        
+        Returns:
+            3 - Bank when only 3 sharks remaining
+        """
+        return 3
+    
+    def get_required_inventory(self) -> Dict[int, Optional[int]]:
+        """
+        Get required inventory layout for all 28 slots.
+        
+        Inventory setup:
+        - Slot 1: Rock hammer (REQUIRED - to finish gargoyles)
+        - Slots 2-8: Sharks (7 food items)
+        - Slots 9-28: Flexible (for looting)
+        
+        Returns:
+            Dictionary mapping slot number to item ID or None
+        """
+        inventory = {}
+        
+        # Slot 1: Rock hammer (REQUIRED)
+        inventory[1] = Tools.ROCK_HAMMER.id
+        
+        # Slots 2-8: Sharks for food (7 total)
+        for slot in range(2, 9):
+            inventory[slot] = CookedFish.SHARK.id
+        
+        # Slots 9-28: Flexible for loot
+        for slot in range(9, 29):
+            inventory[slot] = None
+        
+        return inventory
+    
+    def handle_special_loot(self, taken: List[Dict[str, Any]]) -> None:
+        """
+        Handle any special loot processing after taking items.
+        
+        For gargoyles, we may want to automatically alch certain valuable drops or
+        bury bones. This method can be expanded to include such logic.
+        
+        Args:
+            taken: List of items that were successfully taken from loot, each item is a dict with keys like 'id', 'name', 'quantity'
+        """
+        # Example: Automatically alch granite maul if looted
+        for item in taken:
+            if item['id'] == Weapons.GRANITE_MAUL.id:
+                self.osrs.log("Alching granite maul...")
+                self.osrs.inventory.use_item(item['slot'])
+                self.osrs.spellbook.cast_high_alchemy()
+                break
+
+    def should_use_rock_hammer(self) -> bool:
+        """
+        Check if we should use rock hammer on gargoyle.
+        
+        Gargoyles need to be finished with a rock hammer when below 10 HP.
+        This should check the target's HP and use rock hammer if needed.
+        
+        Returns:
+            True if we should use rock hammer, False otherwise
+        """
+        # Get current combat target
+        combat_data = self.api.get_combat_data()
+        if not combat_data or not combat_data.get('interacting_with'):
+            return False
+        
+        # Check if target is a gargoyle
+        target_id = combat_data['interacting_with'].get('id', 0)
+        if target_id not in self.get_target_npc_ids():
+            return False
+        
+        # Check target's HP
+        target_hp = combat_data['interacting_with'].get('health_ratio', 100)
+        target_max_hp = combat_data['interacting_with'].get('health_scale', 100)
+        
+        # Calculate percentage
+        if target_max_hp > 0:
+            hp_percentage = (target_hp / target_max_hp) * 100
+            # Use rock hammer when below 10 HP (roughly 9% for combat level 111)
+            return hp_percentage <= 10
+        
+        return False
+    
+    def use_rock_hammer(self) -> bool:
+        """
+        Use rock hammer on current gargoyle target.
+        
+        Returns:
+            True if rock hammer was used successfully, False otherwise
+        """
+        try:
+            # Find rock hammer in inventory
+            rock_hammer_slot = None
+            inventory_data = self.api.get_inventory()
+            
+            for slot_data in inventory_data:
+                if slot_data['id'] == Tools.ROCK_HAMMER.id:
+                    rock_hammer_slot = slot_data['slot']
+                    break
+            
+            if rock_hammer_slot is None:
+                self.osrs.log("ERROR: Rock hammer not found in inventory!", error=True)
+                return False
+            
+            # Click rock hammer and then click gargoyle
+            self.osrs.inventory.click_slot(rock_hammer_slot)
+            time.sleep(random.uniform(0.1, 0.3))
+            
+            # Click on the gargoyle (use NPC selection)
+            # This will be handled by clicking on the NPC in viewport
+            self.osrs.log("Using rock hammer on gargoyle...")
+            
+            return True
+            
+        except Exception as e:
+            self.osrs.log(f"Error using rock hammer: {e}", error=True)
+            return False
