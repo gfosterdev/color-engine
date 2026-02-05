@@ -16,13 +16,18 @@
             - ~~use osrs.find_entity method~~
             - ~~use osrs.click method~~
     - **See COMBAT_HANDLER_PHASE2.md for Phase 2 features**
-2. Equipment handler
+2. ~~Navigation testing tool~~ ✅ **COMPLETED**
+    - ~~Interactive test file for bot navigation~~
+    - ~~Test coordinate reading, pathfinding, and full navigation cycles~~
+    - ~~Profile-specific testing for each bot~~
+    - ~~See test_navigation.py and NAVIGATION_TESTING.md~~
+3. Equipment handler
     - properties
         - each equipment slot data
     - methods
         - get_equipped_weapon
         - get_equipment
-3. Navigation extended
+4. Navigation extended
     - Have multiple target world tiles on the path
     - Can interact with path blockers:
         - gates

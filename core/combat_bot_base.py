@@ -1091,6 +1091,39 @@ class CombatBotBase(ABC):
         
         return True
     
+    def _calculate_withdrawal_batches(self, quantity: int) -> List[int]:
+        """Calculate withdrawal batches for a given quantity.
+        
+        OSRS only allows withdrawing 1, 5, 10, or All items at a time.
+        This breaks down an arbitrary quantity into valid batches.
+        
+        Args:
+            quantity: Total quantity to withdraw
+            
+        Returns:
+            List of batch sizes (each will be 1, 5, or 10)
+            Example: 17 -> [10, 5, 1, 1]
+        """
+        batches = []
+        remaining = quantity
+        
+        # Withdraw as many 10s as possible
+        tens = remaining // 10
+        for _ in range(tens):
+            batches.append(10)
+        remaining = remaining % 10
+        
+        # Withdraw a 5 if needed
+        if remaining >= 5:
+            batches.append(5)
+            remaining -= 5
+        
+        # Withdraw remaining 1s
+        for _ in range(remaining):
+            batches.append(1)
+        
+        return batches
+    
     def _setup_inventory(self) -> bool:
         """Withdraw required inventory items from bank.
         
@@ -1123,16 +1156,21 @@ class CombatBotBase(ABC):
             if required_item_id is not None:
                 item_requirements[required_item_id] = item_requirements.get(required_item_id, 0) + 1
         
-        # Withdraw each required item
+        # Withdraw each required item in valid batches
         for item_id, quantity in item_requirements.items():
             if DEBUG:
                 print(f"  Withdrawing {quantity}x item ID {item_id}...")
             
-            if not self.osrs.bank.withdraw_item(item_id, quantity=quantity, search=True):
-                print(f"  ✗ Failed to withdraw {quantity}x item ID {item_id}")
-                return False
+            # Calculate withdrawal batches (1, 5, 10)
+            batches = self._calculate_withdrawal_batches(quantity)
             
-            time.sleep(random.uniform(*TIMING.BANK_WITHDRAW_ACTION))
+            # Execute each batch withdrawal
+            for batch_size in batches:
+                if not self.osrs.bank.withdraw_item(item_id, quantity=batch_size, search=True):
+                    print(f"  ✗ Failed to withdraw {batch_size}x item ID {item_id}")
+                    return False
+                
+                time.sleep(random.uniform(*TIMING.BANK_WITHDRAW_ACTION))
         
         # Close bank if we opened it
         if bank_was_closed:

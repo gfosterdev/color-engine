@@ -255,7 +255,7 @@ class TrainingLocations(LocationCategory):
     
     # Slayer
     SLAYER_TOWER_ENTRANCE = (3428, 3537, 0)
-    SLAYER_TOWER_GARGOYLES = (3437, 3536, 2)  # Second floor gargoyle area
+    SLAYER_TOWER_GARGOYLES = (3440, 3544, 2)  # Second floor gargoyle area
     CATACOMBS_OF_KOUREND = (1664, 10050, 0)
     
     # Wilderness

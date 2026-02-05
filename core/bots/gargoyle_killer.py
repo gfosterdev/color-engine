@@ -13,9 +13,9 @@ from core.combat_bot_base import CombatBotBase, NavigationPath, NavigationStep
 from core.config import DEBUG, load_profile
 from client.osrs import OSRS
 from config.npcs import SlayerMonsters
-from config.items import Item, CookedFish, Armor, Weapons, Tools, SlayerDrops
+from config.items import Item, CookedFish, Armor, Weapons, Tools, SlayerDrops, SlayerItems
 from config.locations import BankLocations, TrainingLocations
-from config.game_objects import StairsAndLadders
+from config.game_objects import StairsAndLadders, DoorsAndGates
 from config.spells import StandardSpells
 
 
@@ -102,7 +102,7 @@ class GargoyleKillerBot(CombatBotBase):
         Returns:
             List containing shark item
         """
-        return [CookedFish.COOKED_KARAMBWAN]
+        return [CookedFish.SWORDFISH]
     
     def get_required_equipment(self) -> Dict[int, int]:
         """
@@ -124,12 +124,12 @@ class GargoyleKillerBot(CombatBotBase):
             Dictionary mapping equipment slot to item ID
         """
         return {
-            0: Armor.RUNE_FULL_HELM.id,      # Head
+            0: SlayerItems.NOSE_PEG.id,      # Head
             # Slot 2: Neck (optional - amulet of strength)
-            3: Weapons.RUNE_SCIMITAR.id,      # Weapon
-            4: Armor.RUNE_PLATEBODY.id,       # Body
-            5: Armor.RUNE_KITESHIELD.id,      # Shield
-            6: Armor.RUNE_PLATELEGS.id,       # Legs
+            # 3: Weapons.RUNE_SCIMITAR.id,      # Weapon
+            # 4: Armor.RUNE_PLATEBODY.id,       # Body
+            # 5: Armor.RUNE_KITESHIELD.id,      # Shield
+            # 6: Armor.RUNE_PLATELEGS.id,       # Legs
             # Slot 10: Feet (optional - rune boots)
         }
     
@@ -160,31 +160,35 @@ class GargoyleKillerBot(CombatBotBase):
             NavigationStep(
                 x=3428,
                 y=3537,
-                plane=0
+                plane=0,
+                object_ids=DoorsAndGates.SLAYER_TOWER_DOOR.ids,
+                action_text="Open"
             ),
             # Walk to ground floor stairs
             NavigationStep(
-                x=3422,
-                y=3540,
+                x=3439,
+                y=3538,
                 plane=0
             ),
             # Climb stairs to floor 1
             NavigationStep(
-                x=3422,
-                y=3540,
+                x=3438,
+                y=3538,
                 plane=0,
                 object_ids=StairsAndLadders.SLAYER_TOWER_STAIRS.ids,
                 action_text="Climb-up"
             ),
-            # Walk to second stairs
+            # Walk to bloodveld door
             NavigationStep(
-                x=3418,
-                y=3540,
-                plane=1
+                x=3426,
+                y=3556,
+                plane=1,
+                object_ids=DoorsAndGates.SLAYER_TOWER_BLOODVELD_DOOR.ids,
+                action_text="Open"
             ),
-            # Climb stairs to floor 2 (gargoyles)
+            # Walk to second stairs & climb to floor 2 (gargoyle area)
             NavigationStep(
-                x=3418,
+                x=3412,
                 y=3540,
                 plane=1,
                 object_ids=StairsAndLadders.SLAYER_TOWER_STAIRS.ids,
@@ -320,62 +324,13 @@ class GargoyleKillerBot(CombatBotBase):
         
         # Slots 2-16: Karambwans for food (15 total)
         for slot in range(2, 17):
-            inventory[slot] = CookedFish.COOKED_KARAMBWAN.id
+            inventory[slot] = CookedFish.SWORDFISH.id
         
         # Slots 17-28: Flexible for loot
         for slot in range(17, 29):
             inventory[slot] = None
         
         return inventory
-
-    def should_use_rock_hammer(self) -> bool:
-        """
-        Check if we should use rock hammer on gargoyle.
-        
-        Gargoyles need to be finished with a rock hammer when below 10 HP.
-        This should check the target's HP and use rock hammer if needed.
-        
-        Returns:
-            True if we should use rock hammer, False otherwise
-        """
-        target_health_percent = self.osrs.combat.get_target_health_percent()
-        
-        if target_health_percent is None:
-            if DEBUG:
-                print("Could not get target health percent for rock hammer check")
-            return False
-
-        return target_health_percent <= 10
-    
-    def use_rock_hammer(self) -> bool:
-        """
-        Use rock hammer on current gargoyle target.
-        
-        Returns:
-            True if rock hammer was used successfully, False otherwise
-        """
-        try:            
-            # Click rock hammer and then click gargoyle
-            self.osrs.inventory.click_item(Tools.ROCK_HAMMER.id, "Use")
-            time.sleep(random.uniform(0.1, 0.3))
-            
-            # Click on the gargoyle (use NPC selection)
-            target = self.osrs.combat.get_current_target()
-            if not target:
-                print("No combat target found to use rock hammer on")
-                return False
-            
-            success = self.osrs.click_entity(target, "npc", "Attack")
-            if not success:
-                if DEBUG:
-                    print("Failed to use rock hammer on gargoyle")
-                return False
-                
-            return True
-            
-        except Exception as e:
-            self.osrs.log(f"Error using rock hammer: {e}", error=True)
-            return False
 
     def get_special_loot_actions(self) -> Dict[int, Callable[[Dict[str, Any]], bool]]:
         """

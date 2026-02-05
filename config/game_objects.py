@@ -94,7 +94,8 @@ class BankObjects(ObjectCategory):
     # Bank booths (common in cities)
     BANK_BOOTH = GameObject(
         name="Bank booth",
-        ids=[10355, 10356, 10357, 10583, 6084, 6083, 11744, 11758, 12798, 12799, 12800, 12801, 14367, 14368, 18491, 18492, 27291],
+        ids=[10355, 10356, 10357, 10583, 6084, 6083, 11744, 11758, 12798, 12799, 12800, 12801, 14367, 14368, 18491, 18492, 27291,
+             24347],
         category="banking",
         description="Bank booths found in cities"
     )
@@ -338,6 +339,20 @@ class DoorsAndGates(ObjectCategory):
         description="Lumbridge cow pen gate"
     )
 
+    SLAYER_TOWER_DOOR = GameObject(
+        name="Slayer tower door",
+        ids=[2109, 2110],
+        category="doors",
+        description="Door to enter/exit Slayer tower"
+    )
+
+    SLAYER_TOWER_BLOODVELD_DOOR = GameObject(
+        name="Slayer tower bloodveld door",
+        ids=[2106],
+        category="doors",
+        description="Door to bloodveld room in Slayer tower"
+    )
+
 
 # ============================================================================
 # STAIRS & LADDERS
@@ -357,7 +372,7 @@ class StairsAndLadders(ObjectCategory):
     # Slayer tower stairs
     SLAYER_TOWER_STAIRS = GameObject(
         name="Staircase",
-        ids=[4493],
+        ids=[2114, 2119],
         category="stairs",
         description="Slayer tower staircases for climbing between floors"
     )

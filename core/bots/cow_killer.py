@@ -300,7 +300,7 @@ class CowKillerBot(CombatBotBase):
         
         return inventory
 
-    def get_special_loot_actions(self) -> Dict[int, Callable[[Dict[str, Any]], None]]:
+    def get_special_loot_actions(self) -> Dict[int, Callable[[Dict[str, Any]], bool]]:
         """
         Get special actions to perform on specific loot items.
         
@@ -315,7 +315,7 @@ class CowKillerBot(CombatBotBase):
 
     # ========== Special Loot Handlers ==========
 
-    def bury_bones(self, item: Dict[str, Any]) -> None:
+    def bury_bones(self, item: Dict[str, Any]) -> bool:
         """
         Bury bones after looting them.
         
@@ -326,3 +326,5 @@ class CowKillerBot(CombatBotBase):
             print(f"  → Burying bones: {item['name']}")
         if self.osrs.inventory.count_item(item['id']):
             self.osrs.inventory.click_item(item['id'], "Bury")
+            return True
+        return False

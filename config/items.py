@@ -654,6 +654,15 @@ class Currency(ItemCategory):
 # SLAYER DROPS
 # ============================================================================
 
+class SlayerItems(ItemCategory):
+    """Slayer items."""
+
+    NOSE_PEG = Item(4168, "Nose peg")
+
+# ============================================================================
+# SLAYER DROPS
+# ============================================================================
+
 class SlayerDrops(ItemCategory):
     """Valuable slayer monster drops."""
     
@@ -848,7 +857,8 @@ def find_item(item_id: int) -> Optional[Item]:
     categories = [
         Ores, Bars, Logs, Planks, RawFish, CookedFish, Food,
         Potions, Herbs, Seeds, Runes, Gems, Tools, Weapons,
-        Armor, Jewelry, Currency, Ammunition, Bones, Hides, BirdsNests
+        Armor, Jewelry, Currency, Ammunition, Bones, Hides, BirdsNests,
+        SlayerItems, SlayerDrops
     ]
     
     for category in categories:
