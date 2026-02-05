@@ -169,7 +169,7 @@ class CombatBotBase(ABC):
         pass
     
     @abstractmethod
-    def get_special_loot_actions(self) -> Dict[int, Callable[[Dict[str, Any]], None]]:
+    def get_special_loot_actions(self) -> Dict[int, Callable[[Dict[str, Any]], bool]]:
         """
         Get mapping of item ID to special loot handling function.
         
@@ -1165,7 +1165,9 @@ class CombatBotBase(ABC):
                     if DEBUG:
                         print(f"  Processing special loot: {item['name']} (ID: {item_id})")
                     try:
-                        action_func(item)
+                        success = action_func(item)
+                        if DEBUG:
+                            print(f"  ✓ Special loot action completed for {item['name']}") if success else print(f"  ✗ Special loot action failed for {item['name']}")
                     except Exception as e:
                         if DEBUG:
                             print(f"  ✗ Error processing special loot: {e}")

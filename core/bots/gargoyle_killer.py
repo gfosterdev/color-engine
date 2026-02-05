@@ -5,17 +5,18 @@ Kills gargoyles on the second floor of the Slayer Tower in Canifis.
 This is a mid-high level slayer bot requiring 75 Slayer and a rock hammer.
 """
 
-from typing import List, Dict, Tuple, Optional, Any
+from typing import Callable, List, Dict, Tuple, Optional, Any
 import time
 import random
 
 from core.combat_bot_base import CombatBotBase, NavigationPath, NavigationStep
-from core.config import load_profile
+from core.config import DEBUG, load_profile
 from client.osrs import OSRS
 from config.npcs import SlayerMonsters
 from config.items import Item, CookedFish, Armor, Weapons, Tools, SlayerDrops
 from config.locations import BankLocations, TrainingLocations
 from config.game_objects import StairsAndLadders
+from config.spells import StandardSpells
 
 
 class GargoyleKillerBot(CombatBotBase):
@@ -101,7 +102,7 @@ class GargoyleKillerBot(CombatBotBase):
         Returns:
             List containing shark item
         """
-        return [CookedFish.SHARK]
+        return [CookedFish.COOKED_KARAMBWAN]
     
     def get_required_equipment(self) -> Dict[int, int]:
         """
@@ -317,33 +318,15 @@ class GargoyleKillerBot(CombatBotBase):
         # Slot 1: Rock hammer (REQUIRED)
         inventory[1] = Tools.ROCK_HAMMER.id
         
-        # Slots 2-8: Sharks for food (7 total)
-        for slot in range(2, 9):
-            inventory[slot] = CookedFish.SHARK.id
+        # Slots 2-16: Karambwans for food (15 total)
+        for slot in range(2, 17):
+            inventory[slot] = CookedFish.COOKED_KARAMBWAN.id
         
-        # Slots 9-28: Flexible for loot
-        for slot in range(9, 29):
+        # Slots 17-28: Flexible for loot
+        for slot in range(17, 29):
             inventory[slot] = None
         
         return inventory
-    
-    def handle_special_loot(self, taken: List[Dict[str, Any]]) -> None:
-        """
-        Handle any special loot processing after taking items.
-        
-        For gargoyles, we may want to automatically alch certain valuable drops or
-        bury bones. This method can be expanded to include such logic.
-        
-        Args:
-            taken: List of items that were successfully taken from loot, each item is a dict with keys like 'id', 'name', 'quantity'
-        """
-        # Example: Automatically alch granite maul if looted
-        for item in taken:
-            if item['id'] == Weapons.GRANITE_MAUL.id:
-                self.osrs.log("Alching granite maul...")
-                self.osrs.inventory.use_item(item['slot'])
-                self.osrs.spellbook.cast_high_alchemy()
-                break
 
     def should_use_rock_hammer(self) -> bool:
         """
@@ -355,27 +338,14 @@ class GargoyleKillerBot(CombatBotBase):
         Returns:
             True if we should use rock hammer, False otherwise
         """
-        # Get current combat target
-        combat_data = self.api.get_combat_data()
-        if not combat_data or not combat_data.get('interacting_with'):
+        target_health_percent = self.osrs.combat.get_target_health_percent()
+        
+        if target_health_percent is None:
+            if DEBUG:
+                print("Could not get target health percent for rock hammer check")
             return False
-        
-        # Check if target is a gargoyle
-        target_id = combat_data['interacting_with'].get('id', 0)
-        if target_id not in self.get_target_npc_ids():
-            return False
-        
-        # Check target's HP
-        target_hp = combat_data['interacting_with'].get('health_ratio', 100)
-        target_max_hp = combat_data['interacting_with'].get('health_scale', 100)
-        
-        # Calculate percentage
-        if target_max_hp > 0:
-            hp_percentage = (target_hp / target_max_hp) * 100
-            # Use rock hammer when below 10 HP (roughly 9% for combat level 111)
-            return hp_percentage <= 10
-        
-        return False
+
+        return target_health_percent <= 10
     
     def use_rock_hammer(self) -> bool:
         """
@@ -384,30 +354,60 @@ class GargoyleKillerBot(CombatBotBase):
         Returns:
             True if rock hammer was used successfully, False otherwise
         """
-        try:
-            # Find rock hammer in inventory
-            rock_hammer_slot = None
-            inventory_data = self.api.get_inventory()
-            
-            for slot_data in inventory_data:
-                if slot_data['id'] == Tools.ROCK_HAMMER.id:
-                    rock_hammer_slot = slot_data['slot']
-                    break
-            
-            if rock_hammer_slot is None:
-                self.osrs.log("ERROR: Rock hammer not found in inventory!", error=True)
-                return False
-            
+        try:            
             # Click rock hammer and then click gargoyle
-            self.osrs.inventory.click_slot(rock_hammer_slot)
+            self.osrs.inventory.click_item(Tools.ROCK_HAMMER.id, "Use")
             time.sleep(random.uniform(0.1, 0.3))
             
             # Click on the gargoyle (use NPC selection)
-            # This will be handled by clicking on the NPC in viewport
-            self.osrs.log("Using rock hammer on gargoyle...")
+            target = self.osrs.combat.get_current_target()
+            if not target:
+                print("No combat target found to use rock hammer on")
+                return False
             
+            success = self.osrs.click_entity(target, "npc", "Attack")
+            if not success:
+                if DEBUG:
+                    print("Failed to use rock hammer on gargoyle")
+                return False
+                
             return True
             
         except Exception as e:
             self.osrs.log(f"Error using rock hammer: {e}", error=True)
             return False
+
+    def get_special_loot_actions(self) -> Dict[int, Callable[[Dict[str, Any]], bool]]:
+        """
+        Get special actions to perform on specific loot items.
+        
+        Returns:
+            Empty dictionary (no special actions)
+        """
+        return {
+            SlayerDrops.RUNE_FULL_HELM.id: self.alch_item,
+        }
+
+    # ========== Special Loot Handlers ==========
+
+    def alch_item(self, item: Dict[str, Any]) -> bool:
+        """
+        Alch a specific item immediately after looting.
+        
+        Args:
+            item: Dictionary containing item information (id, name, quantity)
+        """
+        spell = StandardSpells.HIGH_LEVEL_ALCHEMY
+
+        # Check if can cast
+        if not self.osrs.magic.can_cast_spell(spell):
+            if DEBUG:
+                print(f"Cannot alch {item['name']} - insufficient magic level or runes")
+            return False
+
+        # Cast alchemy on the item
+        if not self.osrs.magic.cast_spell_on_item(spell, item.get('id')):
+            if DEBUG:
+                print(f"Failed to cast alchemy on {item['name']}")
+            return False
+        return True

@@ -240,6 +240,23 @@ public class HttpServerPlugin extends Plugin
                     targetData.addProperty("health", health);
                     targetData.addProperty("maxHealth", maxHealth);
                     targetData.addProperty("isDying", npcUtil.isDying(npc));
+
+                    SimplePolygon hull = (SimplePolygon) npc.getConvexHull();
+                    JsonObject hullData = new JsonObject();
+                    hullData.addProperty("exists", hull != null);
+                    if (hull != null) {
+                        JsonArray pointData = new JsonArray();
+                        List<Point> points = hull.toRuneLitePointList();
+                        for (Point value : points) {
+                            JsonObject pointObj = new JsonObject();
+                            pointObj.addProperty("x", value.getX());
+                            pointObj.addProperty("y", value.getY());
+                            pointData.add(pointObj);
+                        }
+                        hullData.add("points", pointData);
+                    }
+
+                    targetData.add("hull", hullData);
                 }
 
                 data.add("target", targetData);

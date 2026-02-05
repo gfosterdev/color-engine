@@ -275,3 +275,29 @@ class MagicHandler:
             time.sleep(0.1)
         
         return casting_detected
+
+    def cast_spell_on_item(self, spell: Spell, item_id: int) -> bool:
+        """
+        Cast a spell on a specific item in the inventory.
+        
+        This is used for spells like Alchemy and Superheat Item that require
+        clicking an inventory item after selecting the spell.
+        
+        Args:
+            spell: The Spell object to cast
+            item_id: The ID of the inventory item to cast the spell on
+        """
+        # First, cast the spell to select it
+        if not self.cast_spell(spell):
+            print(f"Failed to cast {spell.name} to target item")
+            return False
+        
+        # Wait for spell to be active
+        if not self.is_spell_active(spell.name):
+            print(f"Spell {spell.name} was not detected as active after casting")
+            return False
+        
+        # Click the target item in inventory
+        self.inventory.click_item(item_id, "Cast")
+        
+        return True

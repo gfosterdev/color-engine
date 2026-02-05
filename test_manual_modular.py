@@ -656,6 +656,15 @@ class ModularTester:
         except Exception as e:
             print(f"Error: {e}")
     
+    def test_click_inventory_item(self):
+        print("TEST CLICKING ITEM")
+        osrs = self.init_osrs()
+
+        item_id = int(input("itemID: ").strip())
+        action = input("action: ").strip()
+
+        self.osrs.inventory.click_item(item_id, action)
+
     def test_drop_slot(self):
         """
         Drops item at slot.
@@ -1528,6 +1537,7 @@ class ModularTester:
         self.current_menu = "inventory"
         
         test_map = {
+            'c': ("Click inventory item", self.test_click_inventory_item),
             'i': ("Inventory Status", self.test_inventory_status),
             'o': ("Check if Open", self.test_inventory_open_check),
             't': ("Test slot regions", self.test_inventory_regions),
@@ -1540,6 +1550,7 @@ class ModularTester:
         print("\n" + "="*60)
         print("INVENTORY MODULE TESTS")
         print("="*60)
+        print("C - Click inventory item")
         print("I - Inventory Status")
         print("O - Check if Open")
         print("T - Test slot regions")
@@ -4267,6 +4278,32 @@ class ModularTester:
         print(f"Summary: {available_count}/{len(matching_npcs)} NPCs available")
         print("✓ Engagement filtering check complete")
     
+    def test_reengage_current_target(self):
+        """
+        Tests reengage current target
+        """
+        print("Press spacebar once in combat with a target")
+
+        while True:
+            if keyboard.is_pressed('space'):
+                osrs = self.init_osrs()
+                target = osrs.combat.get_current_target()
+                if target:
+                    print(f"Current target: {target.get('name')} (ID: {target.get('id')})")
+                    print("Attempting to re-engage current target...")
+                    success = osrs.click_entity(target, "npc", "Attack")
+                    if success:
+                        print("✓ Re-engagement successful")
+                    else:
+                        print("✗ Re-engagement failed")
+                else:
+                    print("✗ No current target to re-engage")
+                
+                time.sleep(0.5)  # Debounce spacebar
+                
+            
+            time.sleep(0.1)
+
     def run_combat_tests(self):
         """Run combat testing menu."""
         self.current_menu = "combat"
@@ -4280,6 +4317,7 @@ class ModularTester:
             'p': ("Drink Specific Potion", self.test_drink_specific_potion),
             'w': ("Combat Wait Methods", self.test_combat_wait_methods),
             'n': ("NPC Engagement Filtering", self.test_npc_engagement_filtering),
+            'r': ("Re-engage current target", self.test_reengage_current_target)
         }
         
         print("\n" + "="*60)
@@ -4293,6 +4331,7 @@ class ModularTester:
         print("P - Drink Specific Potion (consume potion)")
         print("W - Combat Wait Methods (wait_until_not_in_combat, wait_until_target_dead)")
         print("N - NPC Engagement Filtering (show available vs engaged)")
+        print("R - Re-engage current target")
         print("\nESC - Back to Main Menu")
         print("="*60)
         
@@ -4425,6 +4464,8 @@ class ModularTester:
             return
         
         print(f"\nCasting {spell.name}...")
+        osrs.magic.cast_spell_on_item(spell, 556)
+        return
         success = osrs.magic.cast_spell(spell)
         
         if success:

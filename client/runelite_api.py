@@ -140,7 +140,7 @@ class RuneLiteAPI:
             - isVenomed: bool - Whether player is venomed
             - poisonDamage: int - Poison damage value
             - venomDamage: int - Venom damage value
-            - target: dict - Current target info (name, id, combatLevel, health, maxHealth, isDying)
+            - target: dict - Current target info (name, id, combatLevel, health, maxHealth, isDying, hull {exists, points})
         """
         result = self._get("combat")
         return cast(Optional[Dict[str, Any]], result)
