@@ -215,6 +215,16 @@ public class HttpServerPlugin extends Plugin
                 JsonObject targetData = new JsonObject();
                 targetData.addProperty("name", target.getName());
 
+                // Add target position (world coordinates)
+                WorldPoint targetPos = target.getWorldLocation();
+                if (targetPos != null) {
+                    JsonObject pos = new JsonObject();
+                    pos.addProperty("x", targetPos.getX());
+                    pos.addProperty("y", targetPos.getY());
+                    pos.addProperty("plane", targetPos.getPlane());
+                    targetData.add("position", pos);
+                }
+
                 if (target instanceof NPC) {
                     NPC npc = (NPC) target;
                     targetData.addProperty("id", npc.getId());
@@ -849,11 +859,68 @@ public class HttpServerPlugin extends Plugin
 
     public void handleGroundItems(HttpExchange exchange) throws IOException
     {
+        // Parse optional query parameters for coordinate filtering
+        String query = exchange.getRequestURI().getQuery();
+        Integer targetX = null;
+        Integer targetY = null;
+        Integer targetPlane = null;
+        Integer radius = null;
+        Integer itemIdFilter = null;
+
+        if (query != null)
+        {
+            java.util.Map<String, String> params = new java.util.HashMap<>();
+            for (String param : query.split("&"))
+            {
+                String[] pair = param.split("=");
+                if (pair.length == 2)
+                {
+                    params.put(pair[0], pair[1]);
+                }
+            }
+
+            try
+            {
+                if (params.containsKey("x"))
+                {
+                    targetX = Integer.parseInt(params.get("x"));
+                }
+                if (params.containsKey("y"))
+                {
+                    targetY = Integer.parseInt(params.get("y"));
+                }
+                if (params.containsKey("plane"))
+                {
+                    targetPlane = Integer.parseInt(params.get("plane"));
+                }
+                if (params.containsKey("radius"))
+                {
+                    radius = Integer.parseInt(params.get("radius"));
+                }
+                if (params.containsKey("item_id"))
+                {
+                    itemIdFilter = Integer.parseInt(params.get("item_id"));
+                }
+            }
+            catch (NumberFormatException ex)
+            {
+                exchange.sendResponseHeaders(400, 0);
+                exchange.getResponseBody().close();
+                return;
+            }
+        }
+
+        final Integer finalTargetX = targetX;
+        final Integer finalTargetY = targetY;
+        final Integer finalTargetPlane = targetPlane;
+        final Integer finalRadius = radius;
+        final Integer finalItemIdFilter = itemIdFilter;
+
         JsonArray itemsData = invokeAndWait(() -> {
             JsonArray items = new JsonArray();
             Scene scene = client.getScene();
             Tile[][][] tiles = scene.getTiles();
-            int plane = client.getPlane();
+            int plane = finalTargetPlane != null ? finalTargetPlane : client.getPlane();
 
             for (int x = 0; x < 104; x++)
             {
@@ -862,15 +929,50 @@ public class HttpServerPlugin extends Plugin
                     Tile tile = tiles[plane][x][y];
                     if (tile == null) continue;
 
-                    for (TileItem tileItem : tile.getGroundItems())
+                    WorldPoint wp = tile.getWorldLocation();
+
+                    // If coordinates specified, filter by distance
+                    if (finalTargetX != null && finalTargetY != null)
+                    {
+                        int dx = wp.getX() - finalTargetX;
+                        int dy = wp.getY() - finalTargetY;
+                        double distance = Math.sqrt(dx * dx + dy * dy);
+
+                        if (finalRadius != null)
+                        {
+                            // Check if within radius
+                            if (distance > finalRadius)
+                            {
+                                continue;
+                            }
+                        }
+                        else
+                        {
+                            // Exact coordinate match only
+                            if (dx != 0 || dy != 0)
+                            {
+                                continue;
+                            }
+                        }
+                    }
+
+                    List<TileItem> groundItems = tile.getGroundItems();
+                    if (groundItems == null) continue;
+
+                    for (TileItem tileItem : groundItems)
                     {
                         if (tileItem == null) continue;
+
+                        // Filter by item ID if specified
+                        if (finalItemIdFilter != null && tileItem.getId() != finalItemIdFilter)
+                        {
+                            continue;
+                        }
 
                         JsonObject itemData = new JsonObject();
                         itemData.addProperty("id", tileItem.getId());
                         itemData.addProperty("quantity", tileItem.getQuantity());
 
-                        WorldPoint wp = tile.getWorldLocation();
                         JsonObject pos = new JsonObject();
                         pos.addProperty("x", wp.getX());
                         pos.addProperty("y", wp.getY());

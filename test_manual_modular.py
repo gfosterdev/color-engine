@@ -4093,6 +4093,37 @@ class ModularTester:
             target = osrs.combat.get_current_target()
             if target:
                 print(f"  Target: {target.get('name')} (ID: {target.get('id')})")
+                
+                # Store target position for loot detection
+                target_pos = target.get('position')
+                if target_pos:
+                    print(f"  Position: ({target_pos['x']}, {target_pos['y']}, plane {target_pos['plane']})")
+                    
+                    # Wait for target to die
+                    print("\nWaiting for target to die (60s timeout)...")
+                    if osrs.combat.wait_until_target_dead(timeout=60.0):
+                        print("✓ Target died!")
+                        
+                        # Wait for loot to appear
+                        print("\nWaiting for loot to appear (10s timeout, radius 3)...")
+                        loot = osrs.combat.wait_for_loot(
+                            target_pos['x'], 
+                            target_pos['y'], 
+                            timeout=10.0, 
+                            radius=3
+                        )
+                        
+                        if loot:
+                            print(f"✓ Found {len(loot)} loot item(s):")
+                            for item in loot[:5]:  # Show first 5 items
+                                pos = item['position']
+                                print(f"  - Item ID {item['id']}, Qty: {item['quantity']} at ({pos['x']}, {pos['y']})")
+                        else:
+                            print("⚠ No loot detected (NPC may not have dropped anything)")
+                    else:
+                        print("✗ Timeout waiting for target to die")
+                else:
+                    print("⚠ Could not get target position for loot detection")
         else:
             print("✗ Failed to engage NPC (may not be available)")
     

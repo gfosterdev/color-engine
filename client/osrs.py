@@ -158,7 +158,10 @@ class OSRS:
                     if DEBUG:
                         print(f"Failed to get random point inside polygon: {e}")
                     return False
-                self.window.move_mouse_to(click_point, in_canvas=True)
+                if entity_type == "npc":
+                    self.window.move_mouse_to(click_point, in_canvas=True, duration=random.uniform(*TIMING.MOUSE_MOVE_VERY_SHORT))
+                else:
+                    self.window.move_mouse_to(click_point, in_canvas=True)
                 self.click(action, target)
                 
                 # Use appropriate delay based on entity type

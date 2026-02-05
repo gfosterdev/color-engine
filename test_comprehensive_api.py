@@ -245,6 +245,23 @@ def test_world_data(api: RuneLiteAPI):
             item_counts[item_id] = item_counts.get(item_id, 0) + item.get('quantity', 1)
         
         print(f"  {len(item_counts)} unique item types")
+        
+        # Test coordinate filtering if items exist
+        if items:
+            test_item = items[0]
+            pos = test_item.get('position', {})
+            test_x, test_y, test_plane = pos.get('x'), pos.get('y'), pos.get('plane')
+            
+            if test_x and test_y:
+                # Test exact coordinate match
+                filtered = api.get_ground_items(x=test_x, y=test_y, plane=test_plane)
+                if filtered:
+                    print(f"  ✓ Coordinate filter (exact): {len(filtered)} items at ({test_x}, {test_y})")
+                
+                # Test radius filter
+                radius_filtered = api.get_ground_items(x=test_x, y=test_y, radius=5)
+                if radius_filtered:
+                    print(f"  ✓ Coordinate filter (radius=5): {len(radius_filtered)} items near ({test_x}, {test_y})")
     else:
         print("  No ground items visible")
     
@@ -267,6 +284,51 @@ def test_world_data(api: RuneLiteAPI):
         print(f"  Iron ore rocks (ID 11365): {iron_ore_count}")
     else:
         print("  No objects found")
+
+
+def test_loot_detection(api: RuneLiteAPI):
+    """Test ground item coordinate filtering for loot detection."""
+    print_header("💰 LOOT DETECTION TEST (Coordinate Filtering)")
+    
+    # Get optional x/y coordinates from user
+    print("Enter coordinates to filter by (or press Enter to skip):")
+    x_input = input("  X coordinate: ").strip()
+    y_input = input("  Y coordinate: ").strip()
+    radius_input = input("  Radius (default 3): ").strip()
+    
+    # Parse coordinates
+    filter_x = int(x_input) if x_input else None
+    filter_y = int(y_input) if y_input else None
+    filter_radius = int(radius_input) if radius_input else 3
+    
+    # Test 1: Get all ground items (unfiltered)
+    print("\nTest 1: Get all ground items (unfiltered)")
+    all_items = api.get_ground_items()
+    if all_items:
+        print(f"  ✅ Found {len(all_items)} total items in scene")
+        for item in all_items[:5]:
+            pos = item['position']
+            print(f"     - Item ID {item['id']}, Qty: {item['quantity']} at ({pos['x']}, {pos['y']})")
+        if len(all_items) > 5:
+            print(f"     ... and {len(all_items) - 5} more items")
+    else:
+        print("  ❌ No ground items found")
+    
+    # Test 2: Get items with coordinate filter (if coordinates provided)
+    if filter_x is not None and filter_y is not None:
+        print(f"\nTest 2: Get items near ({filter_x}, {filter_y}) with radius {filter_radius}")
+        filtered_items = api.get_ground_items(x=filter_x, y=filter_y, radius=filter_radius)
+        if filtered_items:
+            print(f"  ✅ Found {len(filtered_items)} items within {filter_radius} tiles:")
+            for item in filtered_items:
+                pos = item['position']
+                dist = ((pos['x'] - filter_x)**2 + (pos['y'] - filter_y)**2)**0.5
+                print(f"     - Item ID {item['id']}, Qty: {item['quantity']} at ({pos['x']}, {pos['y']}) - {dist:.1f} tiles away")
+        else:
+            print(f"  ℹ️  No items found within {filter_radius} tiles of ({filter_x}, {filter_y})")
+    else:
+        print("\nTest 2: Skipped (no coordinates provided)")
+
 
 def test_menu(api: RuneLiteAPI):
     """
@@ -613,6 +675,7 @@ def print_menu():
     print("  8 - Run All Tests")
     print("  9 - Menu State Test (displays current menu state)")
     print("  a - NPCs in Viewport Test")
+    print("  L - Loot Detection Test (coordinate filtering)")
     print("  v - Viewport Data Test")
     print("  i - Inventory Slot Test")
     print("  w - Test widgets")
@@ -659,6 +722,7 @@ def main():
             '8': lambda: (run_all_tests(api), input("\nPress Enter to continue...")),
             '9': lambda: (test_menu(api), input("\n⚡ Press Enter to continue...")),
             'a': lambda: (test_npcs_in_viewport(api), input("\n⚡ Press Enter to continue...")),
+            'L': lambda: (test_loot_detection(api), input("\n⚡ Press Enter to continue...")),
             'v': lambda: (test_viewport_data(api), input("\n⚡ Press Enter to continue...")),
             'i': lambda: (test_inventory(api), input("\n⚡ Press Enter to continue...")),
             'w': lambda: (test_widgets(api), input("\n⚡ Press Enter to continue...")),

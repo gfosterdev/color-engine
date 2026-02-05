@@ -439,3 +439,52 @@ class CombatHandler:
             time.sleep(random.uniform(*TIMING.API_POLL_INTERVAL))
         
         return False
+    
+    def wait_for_loot(self, target_x: int, target_y: int, timeout: float = 10.0, radius: int = 3) -> Optional[List[Dict[str, Any]]]:
+        """
+        Wait for loot to appear at target's death location.
+        
+        Polls ground items at specified coordinates until items appear or timeout.
+        Useful for detecting NPC death drops before attempting to pick them up.
+        
+        Args:
+            target_x: World X coordinate of target's death location
+            target_y: World Y coordinate of target's death location
+            timeout: Maximum time to wait in seconds (default: 10)
+            radius: Search radius in tiles around target location (default: 3)
+            
+        Returns:
+            List of ground item dictionaries if loot appears, None if timed out
+            
+        Example:
+            # Get target position before it dies
+            target = combat.get_current_target()
+            if target and 'position' in target:
+                pos = target['position']
+                # Wait for target to die
+                if combat.wait_until_target_dead():
+                    # Wait for loot to appear
+                    loot = combat.wait_for_loot(pos['x'], pos['y'], timeout=10, radius=3)
+                    if loot:
+                        print(f"Found {len(loot)} items!")
+        """
+        start_time = time.time()
+        
+        if DEBUG:
+            print(f"[Combat] Waiting for loot at ({target_x}, {target_y}) with radius {radius}...")
+        
+        while time.time() - start_time < timeout:
+            # Check for ground items at target location
+            loot = self.api.get_ground_items(x=target_x, y=target_y, radius=radius)
+            
+            if loot and len(loot) > 0:
+                if DEBUG:
+                    print(f"[Combat] Found {len(loot)} items at loot location!")
+                return loot
+            
+            time.sleep(random.uniform(*TIMING.API_POLL_INTERVAL))
+        
+        if DEBUG:
+            print(f"[Combat] No loot appeared within {timeout}s timeout")
+        
+        return None

@@ -275,14 +275,58 @@ class RuneLiteAPI:
         result = self._get("objects")
         return cast(Optional[List[Dict[str, Any]]], result)
     
-    def get_ground_items(self) -> Optional[List[Dict[str, Any]]]:
+    def get_ground_items(
+        self,
+        x: Optional[int] = None,
+        y: Optional[int] = None,
+        plane: Optional[int] = None,
+        radius: Optional[int] = None,
+        item_id: Optional[int] = None
+    ) -> Optional[List[Dict[str, Any]]]:
         """
-        Get all ground items in scene.
+        Get ground items, optionally filtered by location.
+        
+        Args:
+            x: Target world X coordinate (optional)
+            y: Target world Y coordinate (optional)
+            plane: Target plane (optional, defaults to player's current plane)
+            radius: Search radius in tiles (optional, defaults to exact match if x/y provided)
+            item_id: Filter by specific item ID (optional)
         
         Returns:
-            List of ground item dictionaries with id, quantity, worldX, worldY, plane
+            List of ground item dictionaries with id, quantity, position
+            
+        Examples:
+            # Get all items in scene
+            items = api.get_ground_items()
+            
+            # Get items at specific tile
+            items = api.get_ground_items(x=3222, y=3218)
+            
+            # Get items within 5 tiles of coordinate
+            items = api.get_ground_items(x=3222, y=3218, radius=5)
+            
+            # Get all iron ore (item ID 440) within 10 tiles of NPC death location
+            items = api.get_ground_items(x=npc_x, y=npc_y, radius=10, item_id=440)
         """
-        result = self._get("grounditems")
+        params = []
+        if x is not None:
+            params.append(f"x={x}")
+        if y is not None:
+            params.append(f"y={y}")
+        if plane is not None:
+            params.append(f"plane={plane}")
+        if radius is not None:
+            params.append(f"radius={radius}")
+        if item_id is not None:
+            params.append(f"item_id={item_id}")
+        
+        endpoint = "grounditems"
+        if params:
+            endpoint += "?" + "&".join(params)
+        
+        result = self._get(endpoint)
+        print(result)
         return cast(Optional[List[Dict[str, Any]]], result)
     
     # Game State
