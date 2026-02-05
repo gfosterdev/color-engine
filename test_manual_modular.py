@@ -4119,15 +4119,19 @@ class ModularTester:
                                 pos = item['position']
                                 canvas_x = item.get('canvasX')
                                 canvas_y = item.get('canvasY')
+                                item_id = item.get('id')
                                 print(f"  - Item ID {item['id']}, Qty: {item['quantity']} at ({pos['x']}, {pos['y']})")
                                 
-                                # Test moving mouse to canvas position if available
-                                if canvas_x is not None and canvas_y is not None:
-                                    print(f"    Moving mouse to canvas position ({canvas_x}, {canvas_y})...")
-                                    osrs.window.move_mouse_to((canvas_x, canvas_y))
-                                    time.sleep(1.0)  # Pause so user can see the position
-                                else:
-                                    print(f"    ⚠ No canvas position data available")
+                                from config.items import Bones
+                                if item_id and item_id == Bones.BONES.id:
+                                    # Test moving mouse to canvas position if available
+                                    if canvas_x is not None and canvas_y is not None:
+                                        print(f"    Moving mouse to canvas position ({canvas_x}, {canvas_y})...")
+                                        osrs.window.move_mouse_to((canvas_x, canvas_y))
+                                        time.sleep(1.0)  # Pause so user can see the position
+                                        osrs.click("Take", Bones.BONES.name)
+                                    else:
+                                        print(f"    ⚠ No canvas position data available")
                         else:
                             print("⚠ No loot detected (NPC may not have dropped anything)")
                     else:
