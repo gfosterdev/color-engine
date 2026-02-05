@@ -4115,15 +4115,27 @@ class ModularTester:
                         
                         if loot:
                             print(f"✓ Found {len(loot)} loot item(s):")
-                            for item in loot[:5]:  # Show first 5 items
+                            for i, item in enumerate(loot[:5]):  # Show first 5 items
                                 pos = item['position']
+                                canvas_x = item.get('canvasX')
+                                canvas_y = item.get('canvasY')
                                 print(f"  - Item ID {item['id']}, Qty: {item['quantity']} at ({pos['x']}, {pos['y']})")
+                                
+                                # Test moving mouse to canvas position if available
+                                if canvas_x is not None and canvas_y is not None:
+                                    print(f"    Moving mouse to canvas position ({canvas_x}, {canvas_y})...")
+                                    osrs.window.move_mouse_to((canvas_x, canvas_y))
+                                    time.sleep(1.0)  # Pause so user can see the position
+                                else:
+                                    print(f"    ⚠ No canvas position data available")
                         else:
                             print("⚠ No loot detected (NPC may not have dropped anything)")
                     else:
                         print("✗ Timeout waiting for target to die")
                 else:
                     print("⚠ Could not get target position for loot detection")
+            else:
+                print("⚠ Target has no position data")
         else:
             print("✗ Failed to engage NPC (may not be available)")
     

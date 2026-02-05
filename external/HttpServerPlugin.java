@@ -973,11 +973,26 @@ public class HttpServerPlugin extends Plugin
                         itemData.addProperty("id", tileItem.getId());
                         itemData.addProperty("quantity", tileItem.getQuantity());
 
+                        // World position
                         JsonObject pos = new JsonObject();
                         pos.addProperty("x", wp.getX());
                         pos.addProperty("y", wp.getY());
                         pos.addProperty("plane", wp.getPlane());
                         itemData.add("position", pos);
+
+                        // Canvas position (screen coordinates)
+                        LocalPoint localPoint = tile.getLocalLocation();
+                        Point canvasPoint = Perspective.localToCanvas(client, localPoint, plane);
+                        if (canvasPoint != null)
+                        {
+                            itemData.addProperty("canvasX", canvasPoint.getX());
+                            itemData.addProperty("canvasY", canvasPoint.getY());
+                        }
+                        else
+                        {
+                            itemData.addProperty("canvasX", -1);
+                            itemData.addProperty("canvasY", -1);
+                        }
 
                         items.add(itemData);
                     }
