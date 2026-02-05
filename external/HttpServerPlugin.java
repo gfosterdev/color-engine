@@ -59,6 +59,7 @@ public class HttpServerPlugin extends Plugin
         server.createContext("/stats", this::handleStats);
         server.createContext("/player", this::handlePlayer);
         server.createContext("/coords", this::handleCoords);
+        server.createContext("/world_to_canvas", this::handleWorldToCanvas);
         server.createContext("/combat", this::handleCombat);
         server.createContext("/animation", this::handleAnimation);
 
@@ -303,6 +304,86 @@ public class HttpServerPlugin extends Plugin
         });
 
         sendJsonResponse(exchange, coords);
+    }
+
+    public void handleWorldToCanvas(HttpExchange exchange) throws IOException
+    {
+        // Parse query parameters: /world_to_canvas?x=3200&y=3200&plane=0
+        String query = exchange.getRequestURI().getQuery();
+        if (query == null)
+        {
+            exchange.sendResponseHeaders(400, 0);
+            exchange.getResponseBody().close();
+            return;
+        }
+
+        Map<String, String> params = new java.util.HashMap<>();
+        for (String param : query.split("&"))
+        {
+            String[] pair = param.split("=");
+            if (pair.length == 2)
+            {
+                params.put(pair[0], pair[1]);
+            }
+        }
+
+        if (!params.containsKey("x") || !params.containsKey("y"))
+        {
+            exchange.sendResponseHeaders(400, 0);
+            exchange.getResponseBody().close();
+            return;
+        }
+
+        int worldX, worldY, plane;
+        try
+        {
+            worldX = Integer.parseInt(params.get("x"));
+            worldY = Integer.parseInt(params.get("y"));
+            plane = params.containsKey("plane") ? Integer.parseInt(params.get("plane")) : client.getPlane();
+        }
+        catch (NumberFormatException ex)
+        {
+            exchange.sendResponseHeaders(400, 0);
+            exchange.getResponseBody().close();
+            return;
+        }
+
+        JsonObject result = invokeAndWait(() -> {
+            // Create WorldPoint from provided coordinates
+            WorldPoint worldPoint = new WorldPoint(worldX, worldY, plane);
+            
+            // Convert to LocalPoint
+            LocalPoint localPoint = LocalPoint.fromWorld(client, worldPoint);
+            
+            if (localPoint == null)
+            {
+                // Point is not in the current scene
+                return null;
+            }
+            
+            // Convert to canvas coordinates
+            Point canvasPoint = Perspective.localToCanvas(client, localPoint, plane);
+            
+            JsonObject data = new JsonObject();
+            data.addProperty("worldX", worldX);
+            data.addProperty("worldY", worldY);
+            data.addProperty("plane", plane);
+            
+            if (canvasPoint != null)
+            {
+                data.addProperty("canvasX", canvasPoint.getX());
+                data.addProperty("canvasY", canvasPoint.getY());
+            }
+            else
+            {
+                data.add("canvasX", null);
+                data.add("canvasY", null);
+            }
+            
+            return data;
+        });
+
+        sendJsonResponse(exchange, result);
     }
 
     public void getGameObjectsInViewport(HttpExchange exchange) throws IOException

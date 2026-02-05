@@ -104,6 +104,29 @@ class RuneLiteAPI:
         result = self._get("coords")
         return cast(Optional[Dict[str, Any]], result)
     
+    def world_to_canvas(self, x: int, y: int, plane: Optional[int] = None) -> Optional[Dict[str, Any]]:
+        """
+        Convert world coordinates to canvas coordinates.
+        
+        Args:
+            x: World X coordinate
+            y: World Y coordinate
+            plane: World plane (default: current plane)
+            
+        Returns:
+            Dictionary with:
+            - worldX: int - World X coordinate
+            - worldY: int - World Y coordinate
+            - plane: int - World plane
+            - canvasX: int or None - Canvas X coordinate (None if not in scene)
+            - canvasY: int or None - Canvas Y coordinate (None if not in scene)
+        """
+        if plane is not None:
+            result = self._get(f"world_to_canvas?x={x}&y={y}&plane={plane}")
+        else:
+            result = self._get(f"world_to_canvas?x={x}&y={y}")
+        return cast(Optional[Dict[str, Any]], result)
+    
     def get_combat(self) -> Optional[Dict[str, Any]]:
         """
         Get combat state and target info.

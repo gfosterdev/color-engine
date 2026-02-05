@@ -5,10 +5,11 @@ Handles all combat-related operations including engaging NPCs,
 monitoring health/prayer, consuming food/potions, and tracking combat state.
 """
 
-from typing import Dict, List, Optional, Union, Any
+from typing import Dict, List, Optional, Tuple, Union, Any
 import time
 import random
 from config.timing import TIMING
+from config.items import Item, find_item_name
 from core.config import DEBUG
 
 
@@ -288,7 +289,7 @@ class CombatHandler:
             npc_ids = npc_id
         
         # Use osrs.find_entity to locate and make NPC visible (with camera adjustment)
-        found_entity = self.osrs.find_entity(npc_ids, "npc")
+        found_entity = self.osrs.find_entity(npc_ids, "npc", globalAfterSearch=True)
         if not found_entity:
             return False
     
@@ -359,6 +360,104 @@ class CombatHandler:
         
         return success
     
+    # ========== Loot Methods ==========
+
+    def take_loot(self, loot: List[Dict[str, Any]], items: List[Item]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """
+        Take loot from ground based on item IDs.
+        
+        Filters loot items by provided item IDs and attempts to pick them up
+        by clicking on their canvas positions.
+        
+        Args:
+            loot: List of ground item dictionaries from API
+            item_ids: List of item IDs to pick up
+            
+        Returns:
+            Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]: Lists of items successfully taken and failed to take
+        """
+        if not self.window.window:
+            return [], []
+        
+        taken_items = []
+        failed_items = []
+        
+        for item in loot:
+            item_id = item.get('id')
+            
+            # Skip items not in our target list
+            matched_item = None
+            for item_obj in items:
+                if item_obj.id == item_id:
+                    matched_item = item_obj
+                    break
+            if not matched_item:
+                continue
+
+            item['name'] = matched_item.name  # Add name for logging purposes
+
+            # Populate inventory data for collection tracking
+            self.inventory.populate()
+            item_count_before = self.inventory.count_item(item_id)
+            
+            # Get fresh canvas coordinates from world position
+            # This is necessary because player movement after picking up previous items
+            # will invalidate the canvas positions from the initial loot query
+            pos = item.get('position', {})
+            world_x = pos.get('x')
+            world_y = pos.get('y')
+            plane = pos.get('plane')
+            
+            if world_x is None or world_y is None:
+                if DEBUG:
+                    print(f"[Combat] No world position for item ID {item_id}, skipping")
+                failed_items.append(item)
+                continue
+            
+            # Convert world coordinates to current canvas coordinates
+            canvas_data = self.api.world_to_canvas(world_x, world_y, plane)
+            if not canvas_data:
+                if DEBUG:
+                    print(f"[Combat] Failed to get canvas position for item ID {item_id} at ({world_x}, {world_y})")
+                failed_items.append(item)
+                continue
+            
+            canvas_x = canvas_data.get('canvasX')
+            canvas_y = canvas_data.get('canvasY')
+            
+            # Skip if point is not in viewport
+            if canvas_x is None or canvas_y is None:
+                if DEBUG:
+                    print(f"[Combat] Item ID {item_id} at ({world_x}, {world_y}) not in viewport")
+                failed_items.append(item)
+                continue
+            
+            # Move mouse to item position
+            self.window.move_mouse_to((canvas_x, canvas_y))
+            time.sleep(random.uniform(*TIMING.TINY_DELAY))  # Small delay before clicking
+            
+            # Click to take the item
+            self.osrs.click("Take", matched_item.name)
+            
+            # Wait for loot action to complete
+            time.sleep(random.uniform(*TIMING.COMBAT_LOOT_DELAY))
+            
+            # Verify item in inventory
+            self.inventory.populate()
+            item_count_after = self.inventory.count_item(item_id)
+            
+            # Successfully picked up item
+            if item_count_after > item_count_before:
+                taken_items.append(item)
+                if DEBUG:
+                    pos = item['position']
+                    print(f"[Combat] Took item ID {item_id} (Qty: {item['quantity']}) at ({pos['x']}, {pos['y']})")
+            else:
+                # Failed to pick up item
+                failed_items.append(item)
+        
+        return taken_items, failed_items
+
     # ========== Wait Methods ==========
     
     def _wait_for_player_to_stop_moving(self, timeout: float = 5.0) -> bool:
