@@ -19,6 +19,73 @@ class CombatHandler:
     
     Uses RuneLite API for real-time combat state and NPC data.
     Integrates with OSRS class for entity interaction and inventory management.
+
+    Example usage:
+        print("\n=== Engage NPC Test ===")
+        osrs = self.init_osrs()
+        
+        npc_id = input("\nEnter NPC ID to attack: ").strip()
+        if not npc_id:
+            print("✗ No NPC ID provided")
+            return
+        
+        npc_id = int(npc_id)
+        attack_option = input("Enter attack option (default 'Attack'): ").strip() or "Attack"
+        
+        print(f"\nAttempting to engage NPC {npc_id} with option '{attack_option}'...")
+        print("This will filter out NPCs already in combat with others.")
+        
+        success = osrs.combat.engage_npc(npc_id, attack_option)
+        
+        if success:
+            print(f"✓ Successfully engaged NPC!")
+            time.sleep(1.0)
+            
+            # Check if now in combat
+            in_combat = osrs.combat.is_player_in_combat()
+            print(f"  In combat: {in_combat}")
+            
+            target = osrs.combat.get_current_target()
+            if target:
+                print(f"  Target: {target.get('name')} (ID: {target.get('id')})")
+                
+                # Store target position for loot detection
+                target_pos = target.get('position')
+                if target_pos:
+                    print(f"  Position: ({target_pos['x']}, {target_pos['y']}, plane {target_pos['plane']})")
+                    
+                    # Wait for target to die
+                    print("\nWaiting for target to die (60s timeout)...")
+                    if osrs.combat.wait_until_target_dead(timeout=60.0):
+                        print("✓ Target died!")
+                        
+                        # Wait for loot to appear
+                        print("\nWaiting for loot to appear (10s timeout, radius 3)...")
+                        loot = osrs.combat.wait_for_loot(
+                            target_pos['x'], 
+                            target_pos['y'], 
+                            timeout=10.0, 
+                            radius=3
+                        )
+                        
+                        if loot:
+                            print(f"✓ Found {len(loot)} loot item(s):")
+                            from config.items import Bones, Currency
+                            taken, failed = osrs.combat.take_loot(loot, [Bones.BONES, Currency.COINS])
+                            for item in taken:
+                                print(f"Took {item['name']} x{item['quantity']}")
+                            for item in failed:
+                                print(f"Failed to take {item['name']} x{item['quantity']}")
+                        else:
+                            print("⚠ No loot detected (NPC may not have dropped anything)")
+                    else:
+                        print("✗ Timeout waiting for target to die")
+                else:
+                    print("⚠ Could not get target position for loot detection")
+            else:
+                print("⚠ Target has no position data")
+        else:
+            print("✗ Failed to engage NPC (may not be available)")
     """
     
     def __init__(self, osrs_instance):
