@@ -443,7 +443,7 @@ class NavigationManager:
             # Wait for arrival with stuck detection
             time.sleep(random.uniform(*TIMING.GAME_TICK))  # Wait full game tick for movement to register in API
             
-            if not self.wait_until_arrived(wp_x, wp_y, plane=plane, tolerance=2, timeout=30):
+            if not self.wait_until_arrived(wp_x, wp_y, plane=plane, tolerance=2, timeout=60):
                 # Check if we're stuck
                 if self._is_stuck():
                     if DEBUG:

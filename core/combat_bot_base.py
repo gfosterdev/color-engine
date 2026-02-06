@@ -1063,7 +1063,7 @@ class CombatBotBase(ABC):
                     print(f"  Withdrawing and equipping item for slot {slot} (ID: {item_id})...")
                 
                 # Withdraw the item
-                if not self.osrs.bank.withdraw_item(item_id, quantity=1, search=True):
+                if not self.osrs.bank.withdraw_item(item_id, quantity=1):
                     print(f"  ✗ Failed to withdraw item ID {item_id}")
                     return False
                 
@@ -1166,7 +1166,7 @@ class CombatBotBase(ABC):
             
             # Execute each batch withdrawal
             for batch_size in batches:
-                if not self.osrs.bank.withdraw_item(item_id, quantity=batch_size, search=True):
+                if not self.osrs.bank.withdraw_item(item_id, quantity=batch_size):
                     print(f"  ✗ Failed to withdraw {batch_size}x item ID {item_id}")
                     return False
                 

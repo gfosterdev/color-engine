@@ -562,6 +562,8 @@ class Weapons(ItemCategory):
     STAFF_OF_FIRE = Item(1387, "Staff of fire")
     ANCIENT_STAFF = Item(4675, "Ancient staff")
 
+    # Weakness weapons
+    GRANITE_HAMMER = Item(21742, "Granite hammer")
 
 # ============================================================================
 # ARMOR
@@ -583,6 +585,7 @@ class Armor(ItemCategory):
     DRAGON_PLATELEGS = Item(4087, "Dragon platelegs")
     DRAGON_PLATESKIRT = Item(4585, "Dragon plateskirt")
     DRAGON_SQUARE_SHIELD = Item(1187, "Dragon square shield")
+    DRAGON_BOOTS = Item(11840, "Dragon boots")
     
     # Barrows armor
     AHRIMS_HOOD = Item(4708, "Ahrim's hood")
@@ -595,6 +598,11 @@ class Armor(ItemCategory):
     DHAROKS_PLATELEGS = Item(4722, "Dharok's platelegs")
     DHAROKS_GREATAXE = Item(4718, "Dharok's greataxe")
     
+    # Justiciar
+    JUSTICIAR_FACEGUARD = Item(22326, "Justiciar faceguard")
+    JUSTICIAR_CHESTGUARD = Item(22327, "Justiciar chestguard")
+    JUSTICIAR_LEGGUARDS = Item(22328, "Justiciar legguards")
+
     # God Wars armor
     BANDOS_CHESTPLATE = Item(11832, "Bandos chestplate")
     BANDOS_TASSETS = Item(11834, "Bandos tassets")
@@ -602,6 +610,14 @@ class Armor(ItemCategory):
     ARMADYL_CHESTPLATE = Item(11828, "Armadyl chestplate")
     ARMADYL_CHAINSKIRT = Item(11830, "Armadyl chainskirt")
 
+    # Capes
+    OBSIDIAN_CAPE = Item(6568, "Obsidian cape")
+
+    # Granite
+    GRANITE_GLOVES = Item(21736, "Granite gloves")
+
+    # Shields
+    DRAGONFIRE_SHIELD = Item(11283, "Dragonfire shield")
 
 # ============================================================================
 # JEWELRY
@@ -622,7 +638,7 @@ class Jewelry(ItemCategory):
     OCCULT_NECKLACE = Item(12002, "Occult necklace")
     
     # Rings
-    RING_OF_WEALTH = Item(2572, "Ring of wealth(4)")
+    RING_OF_WEALTH = Item(2572, "Ring of wealth")
     RING_OF_DUELING = Item(2552, "Ring of dueling(8)")
     BERSERKER_RING = Item(6737, "Berserker ring")
 

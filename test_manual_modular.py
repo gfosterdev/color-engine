@@ -949,13 +949,13 @@ class ModularTester:
             if hull and hull.get('exists', False) == True:
                 points = hull.get('points', [])
                 polygon = Polygon(points)
-                # for point in points:
-                #     osrs.window.move_mouse_to((point.get('x'), point.get('y')))
-                #     time.sleep(0.2)
-                for _ in range(5):
-                    rand = polygon.random_point_inside(osrs.window.GAME_AREA)
-                    osrs.window.move_mouse_to(rand)
-                    time.sleep(0.5)
+                for point in points:
+                    osrs.window.move_mouse_to((point.get('x'), point.get('y')))
+                    time.sleep(0.2)
+                # for _ in range(5):
+                #     rand = polygon.random_point_inside(osrs.window.GAME_AREA)
+                #     osrs.window.move_mouse_to(rand)
+                #     time.sleep(0.5)
 
     def test_npc_find_api(self):
         """Find NPC api"""

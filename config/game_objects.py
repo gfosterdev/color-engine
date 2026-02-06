@@ -348,7 +348,7 @@ class DoorsAndGates(ObjectCategory):
 
     SLAYER_TOWER_BLOODVELD_DOOR = GameObject(
         name="Slayer tower bloodveld door",
-        ids=[2106],
+        ids=[2102, 2104],  # Use Wall IDs as GameObjectID for door has squiffy hull
         category="doors",
         description="Door to bloodveld room in Slayer tower"
     )

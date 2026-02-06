@@ -13,7 +13,7 @@ from core.combat_bot_base import CombatBotBase, NavigationPath, NavigationStep
 from core.config import DEBUG, load_profile
 from client.osrs import OSRS
 from config.npcs import SlayerMonsters
-from config.items import Item, CookedFish, Armor, Weapons, Tools, SlayerDrops, SlayerItems
+from config.items import Item, CookedFish, Armor, Weapons, Tools, SlayerDrops, SlayerItems, Jewelry
 from config.locations import BankLocations, TrainingLocations
 from config.game_objects import StairsAndLadders, DoorsAndGates
 from config.spells import StandardSpells
@@ -108,29 +108,20 @@ class GargoyleKillerBot(CombatBotBase):
         """
         Get required equipment for fighting gargoyles.
         
-        Equipment requirements:
-        - Melee combat gear (rune or better)
-        - Rock hammer in inventory (required to finish gargoyles)
-        
-        Equipment setup:
-        - Rune full helm
-        - Rune platebody
-        - Rune platelegs
-        - Rune kiteshield
-        - Rune scimitar (or better)
-        - Amulet of strength (or better)
-        
         Returns:
             Dictionary mapping equipment slot to item ID
         """
         return {
-            0: SlayerItems.NOSE_PEG.id,      # Head
-            # Slot 2: Neck (optional - amulet of strength)
-            # 3: Weapons.RUNE_SCIMITAR.id,      # Weapon
-            # 4: Armor.RUNE_PLATEBODY.id,       # Body
-            # 5: Armor.RUNE_KITESHIELD.id,      # Shield
-            # 6: Armor.RUNE_PLATELEGS.id,       # Legs
-            # Slot 10: Feet (optional - rune boots)
+            0: Armor.JUSTICIAR_FACEGUARD.id,           # Equipment Slot 0: Head - Helm/Hat slot
+            1: Jewelry.AMULET_OF_FURY.id,              # Equipment Slot 1: Neck - Amulet/Necklace slot
+            2: Armor.OBSIDIAN_CAPE.id,                 # Equipment Slot 2: Cape - Back/Cape slot
+            3: Weapons.GRANITE_HAMMER.id,              # Equipment Slot 3: Weapon - Main hand weapon slot
+            4: Armor.JUSTICIAR_CHESTGUARD.id,          # Equipment Slot 4: Body - Torso/Chest armor slot
+            5: Armor.DRAGONFIRE_SHIELD.id,             # Equipment Slot 5: Shield - Off-hand/Shield slot
+            7: Armor.JUSTICIAR_LEGGUARDS.id,           # Equipment Slot 7: Legs - Leg armor slot
+            9: Armor.GRANITE_GLOVES.id,                # Equipment Slot 9: Hands - Gloves/Gauntlets slot
+            10: Armor.DRAGON_BOOTS.id,                 # Equipment Slot 10: Feet - Boots/Footwear slot
+            12: Jewelry.RING_OF_WEALTH.id,             # Equipment Slot 12: Ring - Ring slot
         }
     
     def get_path_to_combat_area(self) -> NavigationPath:
@@ -325,6 +316,7 @@ class GargoyleKillerBot(CombatBotBase):
         
         # Slot 1: Rock hammer (REQUIRED)
         inventory[1] = Tools.ROCK_HAMMER.id
+        inventory[2] = SlayerItems.NOSE_PEG.id
         
         # Slots 2-16: Karambwans for food (15 total)
         for slot in range(2, 17):
