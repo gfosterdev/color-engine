@@ -372,7 +372,7 @@ class StairsAndLadders(ObjectCategory):
     # Slayer tower stairs
     SLAYER_TOWER_STAIRS = GameObject(
         name="Staircase",
-        ids=[2114, 2119],
+        ids=[2114, 2119, 2120, 2118],
         category="stairs",
         description="Slayer tower staircases for climbing between floors"
     )

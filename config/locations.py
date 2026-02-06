@@ -125,7 +125,7 @@ class BankLocations(LocationCategory):
     SHANTAY_PASS = (3308, 3120, 0)
     
     # Canifis bank
-    CANIFIS = (3512, 3480, 0)
+    CANIFIS = (3511, 3480, 0)
 
 
 # ============================================================================

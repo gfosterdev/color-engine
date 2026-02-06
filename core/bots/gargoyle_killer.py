@@ -229,31 +229,35 @@ class GargoyleKillerBot(CombatBotBase):
             ),
             # Walk to stairs
             NavigationStep(
-                x=3418,
-                y=3540,
-                plane=2
-            ),
-            # Climb down to floor 1
-            NavigationStep(
-                x=3418,
-                y=3540,
+                x=3417,
+                y=3541,
                 plane=2,
                 object_ids=StairsAndLadders.SLAYER_TOWER_STAIRS.ids,
                 action_text="Climb-down"
             ),
-            # Walk to next stairs
+            # Walk to bloodveld door
             NavigationStep(
-                x=3422,
-                y=3540,
-                plane=1
+                x=3426,
+                y=3555,
+                plane=1,
+                object_ids=DoorsAndGates.SLAYER_TOWER_BLOODVELD_DOOR.ids,
+                action_text="Open"
             ),
-            # Climb down to ground floor
+            # Walk to stairs & Climb down to ground floor
             NavigationStep(
-                x=3422,
-                y=3540,
+                x=3433,
+                y=3538,
                 plane=1,
                 object_ids=StairsAndLadders.SLAYER_TOWER_STAIRS.ids,
                 action_text="Climb-down"
+            ),
+            # Walk to Slayer Tower door and exit
+            NavigationStep(
+                x=3428,
+                y=3536,
+                plane=0,
+                object_ids=DoorsAndGates.SLAYER_TOWER_DOOR.ids,
+                action_text="Open"
             ),
             # Walk to Canifis bank
             NavigationStep(
