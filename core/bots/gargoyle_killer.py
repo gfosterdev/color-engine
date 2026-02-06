@@ -307,7 +307,7 @@ class GargoyleKillerBot(CombatBotBase):
         Returns:
             3 - Bank when only 3 sharks remaining
         """
-        return 3
+        return 1
     
     def get_required_inventory(self) -> Dict[int, Dict[str, Optional[int | str]]]:
         """
@@ -330,12 +330,12 @@ class GargoyleKillerBot(CombatBotBase):
         inventory[4] = {"id": Runes.FIRE_RUNE.id, "quantity": "all"}
         inventory[5] = {"id": TeleportItems.ECTOPHIAL.id, "quantity": 1}
         
-        # Slots 6-16: Karambwans for food (11 total)
-        for slot in range(6, 17):
+        # Slots 6-21: Karambwans for food (16 total)
+        for slot in range(6, 22):
             inventory[slot] = {"id": CookedFish.COOKED_KARAMBWAN.id, "quantity": 1}
         
-        # Slots 17-28: Flexible for loot
-        for slot in range(17, 29):
+        # Slots 22-28: Flexible for loot
+        for slot in range(22, 29):
             inventory[slot] = None
         
         return inventory
