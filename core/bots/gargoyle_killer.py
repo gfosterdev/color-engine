@@ -13,10 +13,11 @@ from core.combat_bot_base import CombatBotBase, NavigationPath, NavigationStep
 from core.config import DEBUG, load_profile
 from client.osrs import OSRS
 from config.npcs import SlayerMonsters
-from config.items import Item, CookedFish, Armor, Weapons, Tools, SlayerDrops, SlayerItems, Jewelry
+from config.items import Bars, Currency, Item, CookedFish, Armor, Ores, Weapons, Tools, SlayerDrops, SlayerItems, Jewelry, Runes, TeleportItems
 from config.locations import BankLocations, TrainingLocations
 from config.game_objects import StairsAndLadders, DoorsAndGates
 from config.spells import StandardSpells
+from config.timing import TIMING
 
 
 class GargoyleKillerBot(CombatBotBase):
@@ -70,29 +71,33 @@ class GargoyleKillerBot(CombatBotBase):
         """
         Get list of items to loot from gargoyles.
         
-        Valuable drops:
-        - Granite maul (4153)
-        - Mystic robe top (dark) (4101)
-        - Mystic robe bottom (dark) (4103)
-        - Rune full helm (1163)
-        - Rune platelegs (1079)
-        - Rune boots (4131)
-        - Rune plateskirt (1093)
-        - Seeds (ranarr, snapdragon)
-        
         Returns:
             List of valuable items to loot
         """
         return [
+            Currency.COINS,
             Weapons.GRANITE_MAUL,
-            SlayerDrops.MYSTIC_ROBE_TOP_DARK,
-            SlayerDrops.MYSTIC_ROBE_BOTTOM_DARK,
-            SlayerDrops.RUNE_FULL_HELM,
-            SlayerDrops.RUNE_PLATELEGS,
-            SlayerDrops.RUNE_BOOTS,
-            SlayerDrops.RUNE_PLATESKIRT,
-            SlayerDrops.RANARR_SEED,
-            SlayerDrops.SNAPDRAGON_SEED,
+            SlayerDrops.MYSTIC_ROBE_TOP_DARK,  # Alch
+
+            SlayerDrops.ADAMANT_PLATELEGS,  # Alch
+            SlayerDrops.RUNE_FULL_HELM,  # Alch
+            SlayerDrops.RUNE_2H_SWORD,  # Alch
+            SlayerDrops.RUNE_BATTLEAXE,  # Alch
+            SlayerDrops.RUNE_PLATELEGS,  # Alch
+
+            Runes.FIRE_RUNE,
+            Runes.CHAOS_RUNE,
+            Runes.DEATH_RUNE,
+
+            Ores.GOLD_ORE,
+            Ores.GOLD_ORE_NOTED,
+            Ores.RUNITE_ORE,  # Alch
+            Bars.STEEL_BAR,
+            Bars.STEEL_BAR_NOTED,
+            Bars.GOLD_BAR,
+            Bars.GOLD_BAR_NOTED,
+            Bars.MITHRIL_BAR,
+            Bars.MITHRIL_BAR_NOTED
         ]
     
     def get_food_items(self) -> List[Item]:
@@ -102,7 +107,7 @@ class GargoyleKillerBot(CombatBotBase):
         Returns:
             List containing shark item
         """
-        return [CookedFish.SWORDFISH]
+        return [CookedFish.COOKED_KARAMBWAN]
     
     def get_required_equipment(self) -> Dict[int, int]:
         """
@@ -145,7 +150,8 @@ class GargoyleKillerBot(CombatBotBase):
             NavigationStep(
                 x=bank_x,
                 y=bank_y,
-                plane=bank_plane
+                plane=bank_plane,
+                custom=self._equip_nosepeg
             ),
             # Walk to Slayer Tower entrance
             NavigationStep(
@@ -183,7 +189,8 @@ class GargoyleKillerBot(CombatBotBase):
                 y=3540,
                 plane=1,
                 object_ids=StairsAndLadders.SLAYER_TOWER_STAIRS.ids,
-                action_text="Climb-up"
+                action_text="Climb-up",
+                custom=self._equip_faceguard
             ),
             # Walk to gargoyle area
             NavigationStep(
@@ -216,7 +223,8 @@ class GargoyleKillerBot(CombatBotBase):
             NavigationStep(
                 x=combat_x,
                 y=combat_y,
-                plane=combat_plane
+                plane=combat_plane,
+                custom=self._equip_nosepeg
             ),
             # Walk to stairs
             NavigationStep(
@@ -240,7 +248,8 @@ class GargoyleKillerBot(CombatBotBase):
                 y=3538,
                 plane=1,
                 object_ids=StairsAndLadders.SLAYER_TOWER_STAIRS.ids,
-                action_text="Climb-down"
+                action_text="Climb-down",
+                custom=self._equip_faceguard
             ),
             # Walk to Slayer Tower door and exit
             NavigationStep(
@@ -269,7 +278,7 @@ class GargoyleKillerBot(CombatBotBase):
         """
         return 20
     
-    def get_escape_teleport_item_id(self) -> Optional[int]:
+    def get_escape_teleport_item_id(self) -> Tuple[Optional[int], Optional[str]]:
         """
         Get item ID of emergency teleport item.
         
@@ -280,7 +289,7 @@ class GargoyleKillerBot(CombatBotBase):
         # Common options:
         # - House teleport tab: 8013
         # - Ectophial: 4251
-        return None
+        return TeleportItems.ECTOPHIAL.id, "Empty"
     
     def get_food_threshold(self) -> int:
         """
@@ -300,7 +309,7 @@ class GargoyleKillerBot(CombatBotBase):
         """
         return 3
     
-    def get_required_inventory(self) -> Dict[int, Optional[int]]:
+    def get_required_inventory(self) -> Dict[int, Dict[str, Optional[int | str]]]:
         """
         Get required inventory layout for all 28 slots.
         
@@ -315,12 +324,15 @@ class GargoyleKillerBot(CombatBotBase):
         inventory = {}
         
         # Slot 1: Rock hammer (REQUIRED)
-        inventory[1] = Tools.ROCK_HAMMER.id
-        inventory[2] = SlayerItems.NOSE_PEG.id
+        inventory[1] = {"id": Tools.ROCK_HAMMER.id, "quantity": 1}
+        inventory[2] = {"id": SlayerItems.NOSE_PEG.id, "quantity": 1}
+        inventory[3] = {"id": Runes.NATURE_RUNE.id, "quantity": "all"}
+        inventory[4] = {"id": Runes.FIRE_RUNE.id, "quantity": "all"}
+        inventory[5] = {"id": TeleportItems.ECTOPHIAL.id, "quantity": 1}
         
-        # Slots 2-16: Karambwans for food (15 total)
-        for slot in range(2, 17):
-            inventory[slot] = CookedFish.SWORDFISH.id
+        # Slots 6-16: Karambwans for food (11 total)
+        for slot in range(6, 17):
+            inventory[slot] = {"id": CookedFish.COOKED_KARAMBWAN.id, "quantity": 1}
         
         # Slots 17-28: Flexible for loot
         for slot in range(17, 29):
@@ -336,7 +348,13 @@ class GargoyleKillerBot(CombatBotBase):
             Empty dictionary (no special actions)
         """
         return {
+            SlayerDrops.MYSTIC_ROBE_TOP_DARK.id: self.alch_item,
+            SlayerDrops.ADAMANT_PLATELEGS.id: self.alch_item,
             SlayerDrops.RUNE_FULL_HELM.id: self.alch_item,
+            SlayerDrops.RUNE_2H_SWORD.id: self.alch_item,
+            SlayerDrops.RUNE_BATTLEAXE.id: self.alch_item,
+            SlayerDrops.RUNE_PLATELEGS.id: self.alch_item,
+            Ores.RUNITE_ORE.id: self.alch_item
         }
 
     # ========== Special Loot Handlers ==========
@@ -354,6 +372,8 @@ class GargoyleKillerBot(CombatBotBase):
         if not self.osrs.magic.can_cast_spell(spell):
             if DEBUG:
                 print(f"Cannot alch {item['name']} - insufficient magic level or runes")
+            print("Emergency escape triggered due to inability to cast alchemy")
+            self._execute_emergency_escape()
             return False
 
         # Cast alchemy on the item
@@ -361,4 +381,38 @@ class GargoyleKillerBot(CombatBotBase):
             if DEBUG:
                 print(f"Failed to cast alchemy on {item['name']}")
             return False
+        return True
+
+    # ========== Custom Navigation Actions ==========
+
+    def _equip_nosepeg(self) -> bool:
+        """
+        Custom action to swap helmets between Justiciar Faceguard and Nose Peg when navigating to combat area.
+        """
+        # Check inventory has nosepeg
+        if not self.osrs.inventory.count_item(SlayerItems.NOSE_PEG.id):
+            print("Nose peg not found in inventory, cannot equip")
+            return False
+
+        # Equip nosepeg
+        if not self.osrs.inventory.click_item(SlayerItems.NOSE_PEG.id, "Wear"):
+            print("Failed to equip nose peg")
+            return False
+        time.sleep(random.uniform(*TIMING.INVENTORY_SLOT_ACTION))
+        return True
+
+    def _equip_faceguard(self) -> bool:
+        """
+        Custom action to swap helmets between Justiciar Faceguard and Nose Peg when navigating to combat area.
+        """
+        # Check inventory has nosepeg
+        if not self.osrs.inventory.count_item(Armor.JUSTICIAR_FACEGUARD.id):
+            print("Justiciar Faceguard not found in inventory, cannot equip")
+            return False
+
+        # Equip nosepeg
+        if not self.osrs.inventory.click_item(Armor.JUSTICIAR_FACEGUARD.id, "Wear"):
+            print("Failed to equip Justiciar Faceguard")
+            return False
+        time.sleep(random.uniform(*TIMING.INVENTORY_SLOT_ACTION))
         return True

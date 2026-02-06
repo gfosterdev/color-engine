@@ -327,7 +327,7 @@ class SlayerMonsters(NPCCategory):
     JELLY = NPC("Jelly", [1637, 1638, 1639], "slayer", "Level 52 slayer required", combat_level=78)
     TUROTH = NPC("Turoth", [1626, 1627, 1628, 1629, 1630, 1631, 1632], "slayer", "Level 55 slayer required", combat_level=83)
     KURASK = NPC("Kurask", [1608, 1609, 4227], "slayer", "Level 70 slayer required", combat_level=106)
-    GARGOYLE = NPC("Gargoyle", [1610, 1611, 4227], "slayer", "Level 75 slayer required", combat_level=111)
+    GARGOYLE = NPC("Gargoyle", [412], "slayer", "Level 75 slayer required", combat_level=111)
     NECHRYAEL = NPC("Nechryael", [1613, 1614, 1615, 7278, 7279], "slayer", "Level 80 slayer required", combat_level=115)
     ABYSSAL_DEMON = NPC("Abyssal demon", [415, 7241, 7242], "slayer", "Level 85 slayer required", combat_level=124)
     

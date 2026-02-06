@@ -44,11 +44,11 @@ class TimingProfile:
     BANK_OPEN_WAIT = (0.30, 0.50)         # Wait for bank interface to fully load
     BANK_SEARCH_TYPE = (0.10, 0.20)       # After typing in search box
     BANK_DEPOSIT_ACTION = (0.20, 0.35)    # After deposit button click
-    BANK_WITHDRAW_ACTION = (0.20, 0.35)   # After withdraw click
+    BANK_WITHDRAW_ACTION = (0.50, 0.70)   # After withdraw click
     
     # Inventory Delays (seconds)
     INVENTORY_TAB_OPEN = (0.05, 0.10)     # After clicking inventory tab
-    INVENTORY_SLOT_ACTION = (0.03, 0.05)  # After inventory slot interaction
+    INVENTORY_SLOT_ACTION = (0.15, 0.25)  # After inventory slot interaction
     
     # Keyboard Input Delays (seconds)
     KEYSTROKE_DELAY = (0.05, 0.15)        # Between individual keystrokes

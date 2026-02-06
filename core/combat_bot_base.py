@@ -27,12 +27,17 @@ class NavigationStep:
     x: int
     y: int
     plane: int = 0
+    custom: Optional[Callable] = None  # custom function to execute for this step (if action is "custom")
     object_ids: Optional[List[int]] = None  # Object IDs to interact with at this location
     action_text: Optional[str] = None  # Action text (e.g., "Open", "Climb-up", "Enter")
     
     def has_interaction(self) -> bool:
         """Check if this step requires an interaction."""
         return self.object_ids is not None and self.action_text is not None
+
+    def has_custom_action(self) -> bool:
+        """Check if this step has a custom action function."""
+        return self.custom is not None
 
 
 @dataclass
@@ -235,12 +240,12 @@ class CombatBotBase(ABC):
         pass
     
     @abstractmethod
-    def get_escape_teleport_item_id(self) -> Optional[int]:
+    def get_escape_teleport_item_id(self) -> Tuple[Optional[int], Optional[str]]:
         """
         Get item ID of emergency teleport item.
         
         Returns:
-            Item ID of teleport tab/item, or None if no teleport available
+            Item ID of teleport tab/item, or None if no teleport available, action to execute item
         """
         pass
     
@@ -267,13 +272,13 @@ class CombatBotBase(ABC):
         pass
     
     @abstractmethod
-    def get_required_inventory(self) -> Dict[int, Optional[int]]:
+    def get_required_inventory(self) -> Dict[int, Dict[str, Optional[int | str]]]:
         """
         Get required inventory layout for all 28 slots.
         
         Returns:
             Dictionary mapping slot number (1-28) to item ID or None for empty slots
-            Example: {1: Food.LOBSTER.id, 2: Food.LOBSTER.id, 3: None, ..., 28: None}
+            Example: {1: {id: Food.LOBSTER.id, quantity: 1}, 2: {id: Food.LOBSTER.id, quantity: 1}, 3: {id: Runes.NATURE_RUNE.id, quantity: "all"}, ..., 28: None}
             
         Note:
             - Slots with specific item IDs will be validated and required
@@ -659,6 +664,7 @@ class CombatBotBase(ABC):
                 print(f"  Interaction required: {step.action_text}")
             
             interaction_success = self._execute_step_interaction(step)
+            time.sleep(random.uniform(2.0, 3.0))
             
             if not interaction_success:
                 # Interaction failed - retry entire path
@@ -668,6 +674,19 @@ class CombatBotBase(ABC):
                 time.sleep(random.uniform(2.0, 3.0))
                 return
         
+        if step.has_custom_action():
+            if DEBUG:
+                print(f"  Executing custom action for step...")
+            
+            custom_success = self._execute_step_custom_action(step)
+
+            if not custom_success:
+                if DEBUG:
+                    print("  ✗ Custom action failed, restarting path...")
+                self.current_step_index = 0
+                time.sleep(random.uniform(2.0, 3.0))
+                return
+
         # Move to next step
         self.current_step_index += 1
         time.sleep(random.uniform(*TIMING.TINY_DELAY))
@@ -713,6 +732,32 @@ class CombatBotBase(ABC):
                 print(f"  ✗ Interaction error: {e}")
             return False
     
+    def _execute_step_custom_action(self, step: NavigationStep) -> bool:
+        """
+        Execute custom action for a navigation step.
+        
+        Args:
+            step: NavigationStep with custom action
+        """
+        if not step.has_custom_action() or not isinstance(step.custom, Callable):
+            return True
+        
+        try:
+            result = step.custom()
+            if result:
+                if DEBUG:
+                    print(f"  ✓ Custom action succeeded")
+                time.sleep(random.uniform(*TIMING.GAME_TICK))
+                return True
+            else:
+                if DEBUG:
+                    print(f"  ✗ Custom action returned False")
+                return False
+        except Exception as e:
+            if DEBUG:
+                print(f"  ✗ Custom action error: {e}")
+            return False
+
     def _start_path_navigation(self, path: NavigationPath, next_state: BotState):
         """
         Start navigating along a path.
@@ -773,7 +818,7 @@ class CombatBotBase(ABC):
         # Wait for loot to appear
         if self.last_target_position:
             x, y, plane = self.last_target_position
-            loot = self.osrs.combat.wait_for_loot(x, y, timeout=10.0, radius=3)
+            loot = self.osrs.combat.wait_for_loot(x, y, timeout=2.5, radius=3)
             
             if loot:
                 print(f"  Looting...")
@@ -836,8 +881,18 @@ class CombatBotBase(ABC):
                     if DEBUG:
                         print("  ⚠ No food but above escape threshold, continuing...")
             
-            # Check if target is dead
+            # Get current target
             target = self.osrs.combat.get_current_target()
+
+            # Check if current target is different from previous target position
+            if target and 'position' in target:
+                pos = target['position']
+                current_target_position = (pos['x'], pos['y'], pos.get('plane', 0))
+                
+                if self.last_target_position and current_target_position != self.last_target_position:
+                    if DEBUG:
+                        print("  ⚠ Target position changed during combat, possible escape or new target")
+                    return True  # Assume kill completed if target changed (could be new aggressive NPC)
             
             # No target means it's dead or we lost aggro
             if not target:
@@ -850,6 +905,7 @@ class CombatBotBase(ABC):
             if target and target.get('isDying', False):
                 time.sleep(random.uniform(*TIMING.COMBAT_DEATH_DETECT))
                 return True
+            
             
             # Small delay before next check
             time.sleep(random.uniform(*TIMING.API_POLL_INTERVAL))
@@ -888,14 +944,14 @@ class CombatBotBase(ABC):
         self.escapes += 1
         
         # Try teleport first if available
-        teleport_item_id = self.get_escape_teleport_item_id()
+        teleport_item_id, action = self.get_escape_teleport_item_id()
         
-        if teleport_item_id:
+        if teleport_item_id and action:
             if DEBUG:
                 print("Attempting emergency teleport...")
             
             self.osrs.inventory.populate()
-            if self.osrs.inventory.click_item(teleport_item_id, "Break"):
+            if self.osrs.inventory.click_item(teleport_item_id, action):
                 if DEBUG:
                     print("✓ Teleport activated")
                 time.sleep(random.uniform(3.0, 4.0))  # Wait for teleport
@@ -967,9 +1023,11 @@ class CombatBotBase(ABC):
         item_requirements = {}
         empty_slots_required = 0
         for slot_num in range(1, 29):
-            required_item_id = required_inventory.get(slot_num)
-            if required_item_id is not None:
-                item_requirements[required_item_id] = item_requirements.get(required_item_id, 0) + 1
+            required_item_slot = required_inventory.get(slot_num)
+            required_item_id = required_item_slot.get('id') if required_item_slot else None
+            if required_item_slot and required_item_id is not None:
+                quant = required_item_slot.get('quantity', 1)
+                item_requirements[required_item_id] = item_requirements.get(required_item_id, 0) + quant if quant != "all" else "all"
             else:
                 empty_slots_required += 1
         
@@ -996,10 +1054,16 @@ class CombatBotBase(ABC):
             
             # If this is NOT a food item, it must match exactly
             if item_id not in food_item_ids:
-                if actual_quantity != required_quantity:
-                    if DEBUG:
-                        print(f"  ✗ Incorrect quantity for non-food item ID {item_id}")
-                    return False
+                if required_quantity == "all":
+                    if actual_quantity == 0:
+                        if DEBUG:
+                            print(f"  ✗ Required item ID {item_id} is missing (required all)")
+                        return False
+                else :
+                    if actual_quantity != required_quantity:
+                        if DEBUG:
+                            print(f"  ✗ Incorrect quantity for non-food item ID {item_id}")
+                        return False
             else:
                 # Food items can be less than required (eaten and replaced by loot)
                 # But must have at least minimum food count
@@ -1149,12 +1213,13 @@ class CombatBotBase(ABC):
         self.osrs.bank.deposit_all()
         time.sleep(random.uniform(*TIMING.BANK_DEPOSIT_ACTION))
 
-        # Count how many of each item we need
         item_requirements = {}
         for slot_num in range(1, 29):
-            required_item_id = required_inventory.get(slot_num)
-            if required_item_id is not None:
-                item_requirements[required_item_id] = item_requirements.get(required_item_id, 0) + 1
+            required_item_slot = required_inventory.get(slot_num)
+            required_item_id = required_item_slot.get('id') if required_item_slot else None
+            if required_item_slot and required_item_id is not None:
+                quant = required_item_slot.get('quantity', 1)
+                item_requirements[required_item_id] = item_requirements.get(required_item_id, 0) + quant if quant != "all" else "all"
         
         # Withdraw each required item in valid batches
         for item_id, quantity in item_requirements.items():
@@ -1162,7 +1227,12 @@ class CombatBotBase(ABC):
                 print(f"  Withdrawing {quantity}x item ID {item_id}...")
             
             # Calculate withdrawal batches (1, 5, 10)
-            batches = self._calculate_withdrawal_batches(quantity)
+            if isinstance(quantity, str) and quantity.lower() == "all":
+                batches = ["All"]
+            elif isinstance(quantity, int) and quantity > 0:
+                batches = self._calculate_withdrawal_batches(quantity)
+            else:
+                batches = [1]  # Default to withdrawing 1 if quantity is invalid
             
             # Execute each batch withdrawal
             for batch_size in batches:

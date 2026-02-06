@@ -99,6 +99,7 @@ class Ores(ItemCategory):
     # Precious metals
     SILVER_ORE = Item(442, "Silver ore")
     GOLD_ORE = Item(444, "Gold ore")
+    GOLD_ORE_NOTED = Item(445, "Gold ore")
     
     # High-level ores
     MITHRIL_ORE = Item(447, "Mithril ore")
@@ -128,9 +129,12 @@ class Bars(ItemCategory):
     BRONZE_BAR = Item(2349, "Bronze bar")
     IRON_BAR = Item(2351, "Iron bar")
     STEEL_BAR = Item(2353, "Steel bar")
+    STEEL_BAR_NOTED = Item(2354, "Steel bar")
     SILVER_BAR = Item(2355, "Silver bar")
     GOLD_BAR = Item(2357, "Gold bar")
+    GOLD_BAR_NOTED = Item(2358, "Gold bar")
     MITHRIL_BAR = Item(2359, "Mithril bar")
+    MITHRIL_BAR_NOTED = Item(2360, "Mithril bar")
     ADAMANTITE_BAR = Item(2361, "Adamantite bar")
     RUNITE_BAR = Item(2363, "Runite bar")
 
@@ -689,6 +693,9 @@ class SlayerDrops(ItemCategory):
     RUNE_PLATELEGS = Item(1079, "Rune platelegs")
     RUNE_BOOTS = Item(4131, "Rune boots")
     RUNE_PLATESKIRT = Item(1093, "Rune plateskirt")
+    ADAMANT_PLATELEGS = Item(1073, "Adamant platelegs")
+    RUNE_2H_SWORD = Item(1319, "Rune 2h sword")
+    RUNE_BATTLEAXE = Item(1373, "Rune battleaxe")
     
     # Abyssal demon drops
     ABYSSAL_WHIP_DROP = Item(4151, "Abyssal whip")
@@ -768,6 +775,14 @@ class Hides(ItemCategory):
     LEATHER = Item(1741, "Leather")
     HARD_LEATHER = Item(1743, "Hard leather")
 
+# ============================================================================
+# TELEPORT ITEMS
+# ============================================================================
+
+class TeleportItems(ItemCategory):
+    """Items that can teleport the player from inventory"""
+
+    ECTOPHIAL = Item(4251, "Ectophial")
 
 class BirdsNests(ItemCategory):
     """Birds nest item IDs (common woodcutting drops)."""
@@ -849,7 +864,8 @@ def find_item_name(item_id: int) -> Optional[str]:
     categories = [
         Ores, Bars, Logs, Planks, RawFish, CookedFish, Food,
         Potions, Herbs, Seeds, Runes, Gems, Tools, Weapons,
-        Armor, Jewelry, Currency, Ammunition, Bones, Hides, BirdsNests
+        Armor, Jewelry, Currency, Ammunition, Bones, Hides, BirdsNests,
+        SlayerItems, SlayerDrops, TeleportItems
     ]
     
     for category in categories:
@@ -874,7 +890,7 @@ def find_item(item_id: int) -> Optional[Item]:
         Ores, Bars, Logs, Planks, RawFish, CookedFish, Food,
         Potions, Herbs, Seeds, Runes, Gems, Tools, Weapons,
         Armor, Jewelry, Currency, Ammunition, Bones, Hides, BirdsNests,
-        SlayerItems, SlayerDrops
+        SlayerItems, SlayerDrops, TeleportItems
     ]
     
     for category in categories:
