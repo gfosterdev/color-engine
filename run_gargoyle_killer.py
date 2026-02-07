@@ -21,6 +21,8 @@ Press Ctrl+C to stop the bot.
 
 from core.bots.gargoyle_killer import GargoyleKillerBot
 import sys
+from core.config import DEBUG
+from core.state_machine import BotState
 
 
 def main():
@@ -28,40 +30,42 @@ def main():
     print("="*60)
     print("GARGOYLE KILLER BOT - SLAYER TOWER")
     print("="*60)
-    print("\nProfile: gargoyle_killer_canifis")
-    print("Location: Slayer Tower (Floor 2 - Gargoyles)")
-    print("Bank: Canifis")
-    print("\nRequirements:")
-    print("  - 75 Slayer level")
-    print("  - Rock hammer in inventory (REQUIRED)")
-    print("  - Recommended 70+ combat stats")
-    print("\nFeatures:")
-    print("  - Kills gargoyles (combat level 111)")
-    print("  - Automatic rock hammer usage")
-    print("  - Loots valuable drops:")
-    print("    * Granite maul")
-    print("    * Mystic robes (dark)")
-    print("    * Rune equipment")
-    print("    * Seeds (ranarr, snapdragon)")
-    print("  - Banking when inventory full or low food")
-    print("  - Stair navigation")
-    print("  - Anti-ban behaviors")
-    print("  - Emergency teleport on low health")
-    print("  - Combat statistics tracking")
+    if DEBUG:
+        print("\nProfile: gargoyle_killer_canifis")
+        print("Location: Slayer Tower (Floor 2 - Gargoyles)")
+        print("Bank: Canifis")
+        print("\nRequirements:")
+        print("  - 75 Slayer level")
+        print("  - Rock hammer in inventory (REQUIRED)")
+        print("  - Recommended 70+ combat stats")
+        print("\nFeatures:")
+        print("  - Kills gargoyles (combat level 111)")
+        print("  - Automatic rock hammer usage")
+        print("  - Loots valuable drops:")
+        print("    * Granite maul")
+        print("    * Mystic robes (dark)")
+        print("    * Rune equipment")
+        print("    * Seeds (ranarr, snapdragon)")
+        print("  - Banking when inventory full or low food")
+        print("  - Stair navigation")
+        print("  - Anti-ban behaviors")
+        print("  - Emergency teleport on low health")
+        print("  - Combat statistics tracking")
+        print("="*60)
     print("\nPress Ctrl+C to stop the bot")
-    print("="*60)
     
     try:
         # Create bot instance (profile is loaded inside the constructor)
         bot = GargoyleKillerBot("gargoyle_killer_canifis")
         
         print("\nBot initialized successfully!")
-        print(f"Target NPCs: {bot.get_target_npc_ids()}")
-        print(f"Combat area: {bot.get_combat_area()}")
-        print(f"Loot items: {[item.name for item in bot.get_loot_items()]}")
-        print(f"Food: {[item.name for item in bot.get_food_items()]}")
-        print(f"Escape threshold: {bot.get_escape_threshold()}%")
-        print(f"Food threshold: {bot.get_food_threshold()}%")
+        if DEBUG:
+            print(f"Target NPCs: {bot.get_target_npc_ids()}")
+            print(f"Combat area: {bot.get_combat_area()}")
+            print(f"Loot items: {[item.name for item in bot.get_loot_items()]}")
+            print(f"Food: {[item.name for item in bot.get_food_items()]}")
+            print(f"Escape threshold: {bot.get_escape_threshold()}%")
+            print(f"Food threshold: {bot.get_food_threshold()}%")
         print("\nStarting bot in 3 seconds...")
         
         import time
@@ -69,7 +73,13 @@ def main():
         
         # Start the bot (runs indefinitely until Ctrl+C or error)
         print("\nBot started! Press Ctrl+C to stop.\n")
-        bot.start()
+        # bot.start()
+        
+        # Path test
+        path = bot.get_path_to_combat_area()
+        bot._start_path_navigation(path, BotState.COMBAT)
+        bot.current_step_index = 4
+        bot._handle_walking_state()
         
     except KeyboardInterrupt:
         print("\n\n" + "="*60)

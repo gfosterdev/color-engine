@@ -37,6 +37,7 @@ def test_player_data(api: RuneLiteAPI):
     if player:
         print(f"  Name:           {player.get('name', 'N/A')}")
         print(f"  Combat Level:   {player.get('combatLevel', 'N/A')}")
+        print(f"  Auto Retaliate:   {player.get('autoretaliate', 'N/A')}")
         print(f"  Health:         {player.get('health', 0)}/{player.get('maxHealth', 0)}")
         print(f"  Prayer:         {player.get('prayer', 0)}/{player.get('maxPrayer', 0)}")
         print(f"  Run Energy:     {player.get('runEnergy', 0)}%")

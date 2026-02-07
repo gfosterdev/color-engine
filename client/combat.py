@@ -8,6 +8,7 @@ monitoring health/prayer, consuming food/potions, and tracking combat state.
 from typing import Dict, List, Optional, Tuple, Union, Any
 import time
 import random
+from config.regions import AUTO_RETALIATE_REGION, COMBAT_TAB_REGION
 from config.timing import TIMING
 from config.items import Item, find_item_name
 from core.config import DEBUG
@@ -427,6 +428,64 @@ class CombatHandler:
         
         return success
     
+    def open_combat_tab(self) -> bool:
+        """
+        Open the combat tab in the game interface.
+        
+        Returns:
+            True if successfully opened combat tab, False otherwise
+        """
+        if not self.window.window:
+            return False
+
+        # Check if tab is open
+        check = self.api.get_sidebar_tabs()
+        success =  check and check.get('combat', False)
+        if success:
+            # Tab is already open
+            return True
+        
+        # Click on combat tab region
+        self.osrs.window.move_mouse_to(COMBAT_TAB_REGION.random_point())
+        time.sleep(random.uniform(*TIMING.MOUSE_MOVE_SHORT))
+        self.osrs.window.click()
+        time.sleep(random.uniform(*TIMING.INTERFACE_TRANSITION))
+        
+        # Check if tab is open
+        check = self.api.get_sidebar_tabs()
+        success =  check and check.get('combat', False)
+        return success
+
+    def toggle_auto_retaliate(self, enable: bool) -> bool:
+        """
+        Toggle auto-retaliate on or off.
+        
+        Args:
+            enable: True to turn on auto-retaliate, False to turn it off
+        """
+        # Open combat tab
+        self.open_combat_tab()
+
+        # Get auto retaliate state
+        player = self.api.get_player()
+        if not player:
+            if DEBUG:
+                print("Failed to get player data for auto-retaliate toggle")
+            return False
+        
+        auto_retaliate_on = player.get('autoretaliate', False)
+        print(f"Auto-retaliate currently {'ON' if auto_retaliate_on else 'OFF'}")
+        if auto_retaliate_on == enable:
+            # Already in desired state
+            return True
+
+        # Click auto-retaliate region
+        self.osrs.window.move_mouse_to(AUTO_RETALIATE_REGION.random_point())
+        time.sleep(random.uniform(*TIMING.GAME_TICK))
+        self.osrs.window.click()
+
+        return True
+
     # ========== Loot Methods ==========
 
     def take_loot(self, loot: List[Dict[str, Any]], items: List[Item]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:

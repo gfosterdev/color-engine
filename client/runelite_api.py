@@ -88,7 +88,7 @@ class RuneLiteAPI:
         
         Returns:
             Dictionary with name, combatLevel, health, maxHealth, prayer, maxPrayer,
-            runEnergy, specialAttack, weight, isAnimating, animationId, interactingWith
+            runEnergy, specialAttack, weight, isAnimating, animationId, interactingWith, autoretaliate
         """
         result = self._get("player")
         return cast(Optional[Dict[str, Any]], result)

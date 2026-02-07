@@ -173,15 +173,17 @@ class GargoyleKillerBot(CombatBotBase):
                 y=3538,
                 plane=0,
                 object_ids=StairsAndLadders.SLAYER_TOWER_STAIRS.ids,
-                action_text="Climb-up"
+                action_text="Climb-up",
+                should_retry_action=True
             ),
             # Walk to bloodveld door
             NavigationStep(
-                x=3426,
-                y=3556,
+                x=3425,
+                y=3558,
                 plane=1,
                 object_ids=DoorsAndGates.SLAYER_TOWER_BLOODVELD_DOOR.ids,
-                action_text="Open"
+                action_text="Open",
+                should_retry_action=True
             ),
             # Walk to second stairs & climb to floor 2 (gargoyle area)
             NavigationStep(
@@ -190,6 +192,7 @@ class GargoyleKillerBot(CombatBotBase):
                 plane=1,
                 object_ids=StairsAndLadders.SLAYER_TOWER_STAIRS.ids,
                 action_text="Climb-up",
+                should_retry_action=True,
                 custom=self._equip_faceguard
             ),
             # Walk to gargoyle area
@@ -232,7 +235,8 @@ class GargoyleKillerBot(CombatBotBase):
                 y=3541,
                 plane=2,
                 object_ids=StairsAndLadders.SLAYER_TOWER_STAIRS.ids,
-                action_text="Climb-down"
+                action_text="Climb-down",
+                should_retry_action=True
             ),
             # Walk to bloodveld door
             NavigationStep(
@@ -240,7 +244,8 @@ class GargoyleKillerBot(CombatBotBase):
                 y=3555,
                 plane=1,
                 object_ids=DoorsAndGates.SLAYER_TOWER_BLOODVELD_DOOR.ids,
-                action_text="Open"
+                action_text="Open",
+                should_retry_action=True
             ),
             # Walk to stairs & Climb down to ground floor
             NavigationStep(
@@ -249,7 +254,8 @@ class GargoyleKillerBot(CombatBotBase):
                 plane=1,
                 object_ids=StairsAndLadders.SLAYER_TOWER_STAIRS.ids,
                 action_text="Climb-down",
-                custom=self._equip_faceguard
+                custom=self._equip_faceguard,
+                should_retry_action=True
             ),
             # Walk to Slayer Tower door and exit
             NavigationStep(

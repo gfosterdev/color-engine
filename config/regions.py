@@ -58,6 +58,7 @@ LEVEL_UP_REGION = Region(10, 10, 500, 100)  # Level up notification area [UNVERI
 # Combat Regions
 # ============================================================================
 
+AUTO_RETALIATE_REGION = Region(567, 358, 150, 44)  #  Auto retaliate region [VERIFIED]
 SPECIAL_ATTACK_REGION = Region(590, 160, 100, 25)  # Special attack bar [UNVERIFIED]
 
 
@@ -117,6 +118,7 @@ LOGIN_CLICK_HERE_TO_PLAY_REGION = Region(283, 301, 203, 72)  # Click here to pla
 
 UI_LOGOUT_ICON_REGION = Region(626, 466, 33, 36)  # Logout icon in game [VERIFIED]
 UI_SKILLS_TAB_REGION = Region(565, 172, 22, 22)  # Skills tab region [UNVERIFIED]
+COMBAT_TAB_REGION = Region(522, 168, 38, 36)  #  Combat tab region [VERIFIED]  
 
 UI_PRAYER_ORB_REGION = Region(547, 83, 17, 17)  # Prayer orb region
 UI_RUN_ORB_REGION = Region(555, 115, 22, 18)  # Run orb region

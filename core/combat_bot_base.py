@@ -30,6 +30,7 @@ class NavigationStep:
     custom: Optional[Callable] = None  # custom function to execute for this step (if action is "custom")
     object_ids: Optional[List[int]] = None  # Object IDs to interact with at this location
     action_text: Optional[str] = None  # Action text (e.g., "Open", "Climb-up", "Enter")
+    should_retry_action: bool = False  # Whether to retry this step if interaction fails (e.g., object not found or action not available)
     
     def has_interaction(self) -> bool:
         """Check if this step requires an interaction."""
@@ -667,11 +668,14 @@ class CombatBotBase(ABC):
             time.sleep(random.uniform(2.0, 3.0))
             
             if not interaction_success:
-                # Interaction failed - retry entire path
+                # Interaction failed - escape and reset from bank
                 if DEBUG:
-                    print("  ✗ Interaction failed, restarting path...")
+                    print("  ✗ Interaction failed, escaping and resetting from bank...")
+                self.current_state = self.walking_next_state or BotState.COMBAT
+                self.current_path = None
                 self.current_step_index = 0
-                time.sleep(random.uniform(2.0, 3.0))
+                self.walking_next_state = None
+                self._execute_emergency_escape()
                 return
         
         if step.has_custom_action():
@@ -693,7 +697,7 @@ class CombatBotBase(ABC):
     
     # ========== Navigation Helper Methods ==========
     
-    def _execute_step_interaction(self, step: NavigationStep) -> bool:
+    def _execute_step_interaction(self, step: NavigationStep, retry: int = 0) -> bool:
         """
         Execute interaction for a navigation step.
         
@@ -722,11 +726,23 @@ class CombatBotBase(ABC):
                 time.sleep(random.uniform(*TIMING.GAME_TICK))
                 return True
             else:
-                # Click failed - might mean action not in menu (already open/climbed)
-                if DEBUG:
-                    print(f"  ⚠ Action '{step.action_text}' not available, assuming already complete")
-                time.sleep(random.uniform(*TIMING.TINY_DELAY))
-                return True  # Assume door already open, ladder already climbed, etc.
+                if step.should_retry_action:
+                    if retry < 2:
+                        if DEBUG:
+                            print(f"  ⚠ Action '{step.action_text}' not available, retrying interaction (attempt {retry + 1})...")
+                        time.sleep(random.uniform(1.0, 2.0))
+                        self.osrs.window.rotate_camera(min_drag_distance=random.uniform(220, 300))
+                        return self._execute_step_interaction(step, retry=retry + 1)
+                    
+                    if DEBUG:
+                        print(f"  ⚠ Action '{step.action_text}' not available and max retries reached. Navigation cannot continue.")
+                    return False
+                else:
+                    # Click failed - might mean action not in menu (already open/climbed)
+                    if DEBUG:
+                        print(f"  ⚠ Action '{step.action_text}' not available, assuming already complete")
+                    time.sleep(random.uniform(*TIMING.TINY_DELAY))
+                    return True  # Assume door already open, ladder already climbed, etc.
         except Exception as e:
             if DEBUG:
                 print(f"  ✗ Interaction error: {e}")
@@ -955,8 +971,12 @@ class CombatBotBase(ABC):
                 if DEBUG:
                     print("✓ Teleport activated")
                 time.sleep(random.uniform(3.0, 4.0))  # Wait for teleport
-                # After teleport, go to bank
-                self.current_state = BotState.BANKING
+
+                # After teleport, navigate directly to bank tile
+                self.current_state = BotState.RECOVERING
+                path = self.get_path_to_bank()
+                path.steps = [path.steps[len(path.steps) - 1]]  # Only navigate to final bank tile
+                self._start_path_navigation(path, BotState.BANKING)
                 return
             else:
                 if DEBUG:

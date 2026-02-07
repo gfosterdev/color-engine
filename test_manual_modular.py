@@ -247,7 +247,7 @@ class ModularTester:
             return
         
         print("\nRotating camera...")
-        self.window.rotate_camera(min_drag_distance=100)
+        self.window.rotate_camera(min_drag_distance=250)
         print("✓ Done")
     
     def test_click_at_position(self):
@@ -4317,7 +4317,8 @@ class ModularTester:
             'p': ("Drink Specific Potion", self.test_drink_specific_potion),
             'w': ("Combat Wait Methods", self.test_combat_wait_methods),
             'n': ("NPC Engagement Filtering", self.test_npc_engagement_filtering),
-            'r': ("Re-engage current target", self.test_reengage_current_target)
+            'r': ("Re-engage current target", self.test_reengage_current_target),
+            'o': ("Toggle Auto-Retaliate", self.test_toggle_auto_retaliate),
         }
         
         print("\n" + "="*60)
@@ -4332,11 +4333,19 @@ class ModularTester:
         print("W - Combat Wait Methods (wait_until_not_in_combat, wait_until_target_dead)")
         print("N - NPC Engagement Filtering (show available vs engaged)")
         print("R - Re-engage current target")
+        print("O - Toggle Auto-Retaliate")
         print("\nESC - Back to Main Menu")
         print("="*60)
         
         self._run_submenu(test_map)
 
+    def test_toggle_auto_retaliate(self):
+        osrs = self.init_osrs()
+        success = osrs.combat.toggle_auto_retaliate(True)
+        if success:
+            print("✓ Auto-retaliate toggled successfully")
+        else:
+            print("✗ Failed to toggle auto-retaliate")
 
     def _run_submenu(self, test_map):
         """Run a submenu with tests."""
