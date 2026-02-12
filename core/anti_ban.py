@@ -10,6 +10,7 @@ from dataclasses import dataclass
 import time
 import random
 from core.config import AntiBanConfig, BreakConfig
+from client.runelite_api import RuneLiteAPI
 from util import Window
 
 
@@ -43,6 +44,7 @@ class AntiBanManager:
         self.config = config
         self.break_config = break_config or BreakConfig()
         self.osrs_client = osrs_client
+        self.api = RuneLiteAPI()
         self.last_idle_action = time.time()
         self.last_camera_movement = time.time()
         self.last_tab_switch = time.time()
@@ -172,6 +174,18 @@ class AntiBanManager:
         else:
             self._take_idle_break()
     
+    def should_exit_break_early(self) -> bool:
+        """
+        Check if break should be exited early due to bot state changes.
+        
+        Returns:
+            True if break should be exited early
+        """
+        if not self.osrs_client:
+            return False
+        checks = [self.osrs_client.combat.is_player_in_combat()]
+        return True in checks
+
     def _take_idle_break(self) -> None:
         """Take an idle break (stay logged in)."""
         if not self.next_break:
@@ -186,6 +200,10 @@ class AntiBanManager:
         break_end = time.time() + self.next_break.duration
         
         while time.time() < break_end:
+            if self.should_exit_break_early():
+                print("Exiting break early due to meeting conditions...")
+                break
+
             # Occasionally move mouse or check tabs
             if random.random() < 0.3:
                 self.perform_idle_action()

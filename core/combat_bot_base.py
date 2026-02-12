@@ -110,6 +110,7 @@ class CombatBotBase(ABC):
         self.current_path: Optional[NavigationPath] = None
         self.current_step_index: int = 0
         self.walking_next_state: Optional[BotState] = None
+        self.navigation_retry: int = 0
         
         # Statistics
         self.kills = 0
@@ -584,6 +585,12 @@ class CombatBotBase(ABC):
                 self.is_running = False
                 return
             
+            # Eat to full HP
+            if not self._recover_hp_at_bank():
+                print("✗ Failed to recover HP at bank")
+                self.is_running = False
+                return
+
             # Close bank
             self.osrs.bank.close()
             time.sleep(random.uniform(*TIMING.INTERFACE_CLOSE_DELAY))
@@ -643,6 +650,18 @@ class CombatBotBase(ABC):
             self.walking_next_state = None
             return
         
+        # Check if we've exceeded retry limit
+        if self.navigation_retry > 3:
+            if DEBUG:
+                print("✗ Navigation failed after multiple attempts, triggering emergency escape")
+            self.current_state = self.walking_next_state or BotState.COMBAT
+            self.current_path = None
+            self.current_step_index = 0
+            self.walking_next_state = None
+            self.navigation_retry = 0
+            self._execute_emergency_escape()
+            return
+
         # Execute current step
         step = self.current_path.steps[self.current_step_index]
         
@@ -657,6 +676,7 @@ class CombatBotBase(ABC):
             if DEBUG:
                 print("✗ Navigation failed, retrying...")
             time.sleep(random.uniform(1.0, 2.0))
+            self.navigation_retry += 1
             return
         
         # If step has interaction, execute it
@@ -675,6 +695,7 @@ class CombatBotBase(ABC):
                 self.current_path = None
                 self.current_step_index = 0
                 self.walking_next_state = None
+                self.navigation_retry = 0
                 self._execute_emergency_escape()
                 return
         
@@ -689,9 +710,11 @@ class CombatBotBase(ABC):
                     print("  ✗ Custom action failed, restarting path...")
                 self.current_step_index = 0
                 time.sleep(random.uniform(2.0, 3.0))
+                self.navigation_retry += 1
                 return
 
         # Move to next step
+        self.navigation_retry = 0
         self.current_step_index += 1
         time.sleep(random.uniform(*TIMING.TINY_DELAY))
     
@@ -1339,6 +1362,18 @@ class CombatBotBase(ABC):
             print("  ✗ No food available")
         return False
     
+    def _toggle_auto_retaliate_on(self) -> bool:
+        """
+        Toggles auto retaliate on 
+        """
+        return self.osrs.combat.toggle_auto_retaliate(True)
+
+    def _toggle_auto_retaliate_off(self) -> bool:
+        """
+        Toggles auto retaliate off
+        """
+        return self.osrs.combat.toggle_auto_retaliate(False)
+
     def _should_return_to_bank(self) -> bool:
         """
         Check if should return to bank (low food or full inventory).
@@ -1360,6 +1395,36 @@ class CombatBotBase(ABC):
         
         return False
     
+    def _recover_hp_at_bank(self) -> bool:
+        """
+        Eats to full HP at the bank before next trip
+        """
+        current_hp = self.osrs.combat.get_health_percent()
+        if current_hp is None:
+            return False
+        
+        if not self.osrs.interfaces.is_bank_open():
+            self.osrs.bank.open()
+            time.sleep(random.uniform(2, 3))
+
+        while current_hp < 90:
+            # Withdraw 1 food
+            food_items = self.get_food_items()
+            success = self.osrs.bank.withdraw_item(food_items[0].id, quantity=1)
+
+            # Eat 1 food
+            if success:
+                self._eat_food()
+
+            time.sleep(random.uniform(1.2, 1.8))
+            
+            current_hp = self.osrs.combat.get_health_percent()
+            if current_hp is None:
+                return False
+
+        return True
+        
+
     def _verify_combat_ready(self) -> bool:
         """
         Verify player is ready for combat.

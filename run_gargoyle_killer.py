@@ -23,6 +23,7 @@ from core.bots.gargoyle_killer import GargoyleKillerBot
 import sys
 from core.config import DEBUG
 from core.state_machine import BotState
+from core.anti_ban import BreakSchedule
 
 
 def main():
@@ -69,17 +70,21 @@ def main():
         print("\nStarting bot in 3 seconds...")
         
         import time
-        time.sleep(3)
+        time.sleep(2)
         
         # Start the bot (runs indefinitely until Ctrl+C or error)
         print("\nBot started! Press Ctrl+C to stop.\n")
-        # bot.start()
+        bot.start()
+        # bot._handle_banking_state()
+
+        # bot.anti_ban.next_logout_break = BreakSchedule(start_time=60, break_type="logout", duration=5, reason="test")  # Schedule a logout break in 1-2 minutes
+        # bot.anti_ban.take_break("logout")  # Test logout breaks
         
         # Path test
-        path = bot.get_path_to_combat_area()
-        bot._start_path_navigation(path, BotState.COMBAT)
-        bot.current_step_index = 4
-        bot._handle_walking_state()
+        # path = bot.get_path_to_combat_area()
+        # bot._start_path_navigation(path, BotState.COMBAT)
+        # bot.current_step_index = 4
+        # bot._handle_walking_state()
         
     except KeyboardInterrupt:
         print("\n\n" + "="*60)

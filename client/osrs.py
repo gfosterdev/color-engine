@@ -11,7 +11,7 @@ from client.camera_controller import CameraController
 from client.bank import BankManager
 from client.combat import CombatHandler
 from client.magic import MagicHandler
-from core.config import DEBUG
+from core.config import DEBUG, BotConfig
 from config.regions import (
     INTERACT_TEXT_REGION,
     LOGIN_EXISTING_USER_BUTTON,
@@ -27,7 +27,7 @@ import keyboard
 
 
 class OSRS:
-    def __init__(self, profile_config=None):
+    def __init__(self, profile_config: BotConfig):
         self.window = Window()
         self.window.find(title="RuneLite - xJawj", exact_match=False)
         self.profile_config = profile_config
@@ -83,16 +83,17 @@ class OSRS:
         Returns:
             True if login successful
         """
+        print("Logging in from profile")
         if not self.profile_config:
             print("No profile configuration provided")
             return False
         
-        if "credentials" not in self.profile_config or "password" not in self.profile_config["credentials"]:
+        if not self.profile_config.credentials or "password" not in self.profile_config.credentials:
             print("No password found in profile configuration")
             return False
         
-        username = self.profile_config["credentials"]["username"]
-        password = self.profile_config["credentials"]["password"]
+        username = self.profile_config.credentials.get("username")
+        password = self.profile_config.credentials.get("password")
         
         if not username:
             print("Username is empty in profile configuration")

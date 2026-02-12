@@ -174,7 +174,8 @@ class GargoyleKillerBot(CombatBotBase):
                 plane=0,
                 object_ids=StairsAndLadders.SLAYER_TOWER_STAIRS.ids,
                 action_text="Climb-up",
-                should_retry_action=True
+                should_retry_action=True,
+                custom=self._toggle_auto_retaliate_off
             ),
             # Walk to bloodveld door
             NavigationStep(
@@ -199,7 +200,8 @@ class GargoyleKillerBot(CombatBotBase):
             NavigationStep(
                 x=combat_x,
                 y=combat_y,
-                plane=combat_plane
+                plane=combat_plane,
+                custom=self._toggle_auto_retaliate_on
             ),
         ]
         
@@ -236,7 +238,8 @@ class GargoyleKillerBot(CombatBotBase):
                 plane=2,
                 object_ids=StairsAndLadders.SLAYER_TOWER_STAIRS.ids,
                 action_text="Climb-down",
-                should_retry_action=True
+                should_retry_action=True,
+                custom=self._toggle_auto_retaliate_off
             ),
             # Walk to bloodveld door
             NavigationStep(
@@ -263,7 +266,8 @@ class GargoyleKillerBot(CombatBotBase):
                 y=3536,
                 plane=0,
                 object_ids=DoorsAndGates.SLAYER_TOWER_DOOR.ids,
-                action_text="Open"
+                action_text="Open",
+                custom=self._toggle_auto_retaliate_on
             ),
             # Walk to Canifis bank
             NavigationStep(

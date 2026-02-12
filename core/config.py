@@ -117,7 +117,8 @@ class BotConfig:
     anti_ban: AntiBanConfig = field(default_factory=AntiBanConfig)
     validation: ValidationConfig = field(default_factory=ValidationConfig)
     skill_settings: Dict[str, Any] = field(default_factory=dict)
-    
+    credentials: Dict[str, str] = field(default_factory=dict)
+
     # Top-level behavior settings
     powerdrop: bool = False
     banking: bool = True
@@ -184,7 +185,8 @@ class ConfigLoader:
             validation=ValidationConfig(**data.get('validation', {})),
             skill_settings=data.get('skill_settings', {}),
             powerdrop=data.get('powerdrop', data.get('skill_settings', {}).get('powerdrop', False)),
-            banking=data.get('banking', data.get('skill_settings', {}).get('banking', True))
+            banking=data.get('banking', data.get('skill_settings', {}).get('banking', True)),
+            credentials=data.get('credentials', {})
         )
         
         # Validate configuration

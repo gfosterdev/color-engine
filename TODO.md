@@ -2,7 +2,6 @@
 
 # Now
 
-- Toggle auto-retaliate in combat handler
 - verify login/logout in anti-ban
 - Eat to full once at bank
 - Split slayer tower ground floor into 2 clicks
