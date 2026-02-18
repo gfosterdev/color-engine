@@ -3,9 +3,50 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import asyncio
 from typing import Optional, Dict, Any
+import requests
 
 app = FastAPI()
 app.state.state = None  # Initialize state to None, will be set in test.py
+
+def toggle(events: Dict[str, bool]):
+    """
+    Toggle which events the GeorgeAPI plugin should send.
+    events: dict of event_name -> enabled (bool)
+    """
+    for event, enabled in events.items():
+        try:
+            response = requests.post(
+                "http://localhost:8082/toggle-events",
+                json={"event": event, "enabled": enabled},
+                timeout=5
+            )
+            if response.status_code == 200:
+                print(f"Toggled {event}: {enabled}")
+            else:
+                print(f"Failed to toggle {event}: {response.status_code}")
+        except requests.RequestException as e:
+            print(f"Error toggling {event}: {e}")
+
+def configure(events_filters: Dict[str, list]):
+    """
+    Configure event filters for the GeorgeAPI plugin.
+    events_filters: dict of event_name -> list of IDs to filter on (empty list to remove filter)
+    """
+    for event, ids in events_filters.items():
+        try:
+            response = requests.post(
+                "http://localhost:8080/configure-events",
+                json={"event": event, "ids": ids},
+                timeout=5
+            )
+            if response.status_code == 200:
+                print(f"Configured {event} with {len(ids)} IDs")
+            else:
+                print(f"Failed to configure {event}: {response.status_code}")
+        except requests.RequestException as e:
+            print(f"Error configuring {event}: {e}")
+
+
 
 # Pydantic models for event data
 class MovementChanged(BaseModel):
